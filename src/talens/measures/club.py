@@ -59,6 +59,46 @@ class CLUB(nn.Module):
         return -self.loglikeli(x_samples, y_samples)
 
 
+def _club_estimate(
+    net: CLUB,
+    x: torch.Tensor,
+    y: torch.Tensor,
+    *,
+    row_chunk: int = 64,
+    neg_samples: int = 2048,
+    seed: int = 0,
+) -> float:
+    """Memory-bounded CLUB MI estimate, mathematically equal to
+    ``net.forward`` but without the ``(n, n, d)`` blow-up.
+
+    The negative term ``E_{p(x)p(y)}[log q(y|x)]`` is computed by chunking
+    over query rows (``row_chunk``) and, when ``n`` exceeds ``neg_samples``,
+    Monte-Carlo-ing the inner expectation over a random subset of ``y``
+    rows (an unbiased estimate of the mean over all negatives). Peak
+    memory is ``O(row_chunk · min(n, neg_samples) · d)``.
+    """
+    with torch.no_grad():
+        mu, logvar = net.get_mu_logvar(x)
+        var = logvar.exp()
+        positive = (-((mu - y) ** 2) / 2.0 / var).sum(dim=-1)  # (n,)
+
+        n = x.shape[0]
+        if n > neg_samples:
+            g = torch.Generator().manual_seed(seed)
+            idx = torch.randperm(n, generator=g)[:neg_samples]
+            y_neg = y[idx]
+        else:
+            y_neg = y
+
+        neg = torch.empty(n)
+        for s in range(0, n, row_chunk):
+            e = min(s + row_chunk, n)
+            mu_c = mu[s:e].unsqueeze(1)                 # (b, 1, d)
+            diff = (y_neg.unsqueeze(0) - mu_c) ** 2      # (b, m, d)
+            neg[s:e] = (-diff.mean(dim=1) / 2.0 / var[s:e]).sum(dim=-1)
+        return float((positive - neg).mean().item())
+
+
 def _standardize(a: np.ndarray) -> np.ndarray:
     mean = a.mean(axis=0, keepdims=True)
     std = a.std(axis=0, keepdims=True)
@@ -73,6 +113,7 @@ def club_mi_upper_bound(
     hidden_size: int = 128,
     steps: int = 400,
     lr: float = 1e-3,
+    weight_decay: float = 1e-4,
     train_frac: float = 0.7,
     seed: int = 20260615,
 ) -> dict[str, Any]:
@@ -80,6 +121,13 @@ def club_mi_upper_bound(
     and ``Y`` (token embeddings). Both standardised per-feature for
     training stability. Trains ``q(y|x)`` on a train split and evaluates
     the bound on the held-out test split.
+
+    NOTE on interpretation: CLUB is a *loose* upper bound — on a
+    closed-form Gaussian it can overshoot the true MI by ~2–4× (verified
+    in ``tests/test_analytic.py``). Treat its **magnitude** as an upper
+    envelope and rely on its **rank** across layers/conditions for
+    calibration; the small ``weight_decay`` curbs variational over-fitting
+    that would otherwise inflate the bound further.
     """
     if X.shape[0] < 8:
         return {"club_mi_bits": None, "note": "too few rows"}
@@ -100,7 +148,7 @@ def club_mi_upper_bound(
     yte = torch.from_numpy(Ys[te])
 
     net = CLUB(Xs.shape[1], Ys.shape[1], hidden_size)
-    opt = torch.optim.Adam(net.parameters(), lr=lr)
+    opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(steps):
         opt.zero_grad()
         loss = net.learning_loss(xtr, ytr)
@@ -108,8 +156,7 @@ def club_mi_upper_bound(
         opt.step()
 
     net.eval()
-    with torch.no_grad():
-        mi_nats = float(net(xte, yte).item())
+    mi_nats = _club_estimate(net, xte, yte, seed=seed)
     return {
         "club_mi_nats": mi_nats,
         "club_mi_bits": mi_nats / _LN2,

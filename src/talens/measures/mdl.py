@@ -40,9 +40,8 @@ def online_code_length(
     *,
     block_fractions: tuple[float, ...] = (0.05, 0.1, 0.2, 0.4, 0.7, 1.0),
     max_classes: int = 4096,
-    l2: float = 1e-3,
-    steps: int = 200,
-    lr: float = 0.1,
+    C: float = 1.0,
+    max_iter: int = 200,
     seed: int = 20260615,
 ) -> dict[str, Any]:
     """Prequential online code length (bits) of ``y`` given ``X``, plus
@@ -58,7 +57,7 @@ def online_code_length(
         m = np.isin(y_idx_all, keep)
         X, y = X[m], y[m]
         y_idx_all, classes = to_class_indices(y)
-    C = int(classes.size)
+    n_cls = int(classes.size)
 
     rng = np.random.default_rng(seed)
     perm = rng.permutation(X.shape[0])
@@ -72,22 +71,22 @@ def online_code_length(
 
     # First block: uniform code.
     first = cuts[0]
-    code_bits = first * np.log2(C)
+    code_bits = first * np.log2(n_cls)
     # Subsequent blocks: train on prefix, pay CE of the next block.
     for i in range(len(cuts) - 1):
         lo, hi = cuts[i], cuts[i + 1]
         probe = train_softmax_probe(
-            Xp[:lo], yp[:lo], C, l2=l2, steps=steps, lr=lr, seed=seed + i
+            Xp[:lo], yp[:lo], n_cls, C=C, max_iter=max_iter, seed=seed + i
         )
         code_bits += _ce_bits(probe, Xp[lo:hi], yp[lo:hi])
 
-    uniform_bits = n * np.log2(C)
+    uniform_bits = n * np.log2(n_cls)
 
     # SDL floor: probe trained on a train split, CE on held-out test,
     # scaled to N. (Whitney surplus = code paid above the achievable floor.)
     tr, te = row_split(n, 0.7, seed)
     floor_probe = train_softmax_probe(
-        Xp[tr], yp[tr], C, l2=l2, steps=steps, lr=lr, seed=seed + 999
+        Xp[tr], yp[tr], n_cls, C=C, max_iter=max_iter, seed=seed + 999
     )
     floor_ce_per_row = _ce_bits(floor_probe, Xp[te], yp[te]) / max(1, te.size)
     sdl_bits = float(code_bits - n * floor_ce_per_row)
@@ -98,6 +97,6 @@ def online_code_length(
         "compression": float(uniform_bits / code_bits) if code_bits > 0 else None,
         "surplus_description_length_bits": sdl_bits,
         "floor_ce_bits_per_row": float(floor_ce_per_row),
-        "num_classes": C,
+        "num_classes": n_cls,
         "n_rows": int(n),
     }

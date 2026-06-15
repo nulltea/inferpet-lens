@@ -1,20 +1,22 @@
 """Shared softmax probe for the class-based IT measures (PVI, MDL).
 
-A standardised multinomial-logistic probe ``q(y | x)`` over a fixed
-class set, trained by full-batch Adam with L2. Used as the predictive
-family ``V`` for V-information and as the coder for MDL online-coding.
+The predictive family ``V`` is a multinomial-logistic probe ``q(y | x)``.
+Backed by **scikit-learn's** ``LogisticRegression`` (a trusted,
+deterministic solver) rather than a hand-rolled optimiser, so the bits
+PVI and MDL report don't depend on our own convergence behaviour. CLUB
+is the only measure that keeps a torch-trained net (it must — CLUB *is*
+a variational neural estimator).
 
-Because a softmax classifier can only put mass on classes seen in
+Because a softmax classifier can only place mass on classes seen in
 training, the class-based measures operate on a *shared* class set
 (row-split), unlike the vocab-disjoint inversion attacks. See
-``docs/plans/it-leakage-estimation-set.md`` on aligning split regimes
-for calibration.
+``docs/plans/it-leakage-estimation-set.md`` on aligning split regimes.
 """
 
 from __future__ import annotations
 
 import numpy as np
-import torch
+from sklearn.linear_model import LogisticRegression
 
 
 def standardize_fit(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -29,44 +31,45 @@ def train_softmax_probe(
     y_idx_train: np.ndarray,
     num_classes: int,
     *,
-    l2: float = 1e-3,
-    steps: int = 300,
-    lr: float = 0.1,
+    C: float = 1.0,
+    max_iter: int = 200,
     seed: int = 0,
 ) -> dict:
-    """Fit ``q(y|x)``. Returns a dict with the linear weights and the
-    standardisation stats. Deterministic given ``seed``.
+    """Fit ``q(y|x)`` with multinomial logistic regression. ``C`` is the
+    inverse L2-regularisation strength (sklearn convention). Returns the
+    fitted classifier plus standardisation stats and the full class count
+    (so :func:`probe_log_softmax` can return a dense ``num_classes`` row
+    even when training missed some classes).
     """
-    torch.manual_seed(seed)
     mean, std = standardize_fit(x_train)
-    xs = torch.from_numpy(((x_train - mean) / std).astype(np.float32))
-    yt = torch.from_numpy(y_idx_train.astype(np.int64))
-    d = xs.shape[1]
-    w = torch.zeros((d, num_classes), requires_grad=True)
-    b = torch.zeros(num_classes, requires_grad=True)
-    opt = torch.optim.Adam([w, b], lr=lr)
-    for _ in range(steps):
-        opt.zero_grad()
-        logits = xs @ w + b
-        loss = torch.nn.functional.cross_entropy(logits, yt) + l2 * (w * w).sum()
-        loss.backward()
-        opt.step()
-    return {
-        "w": w.detach(),
-        "b": b.detach(),
-        "mean": mean,
-        "std": std,
-        "num_classes": num_classes,
-    }
+    xs = (x_train - mean) / std
+    clf = LogisticRegression(
+        C=C,
+        solver="lbfgs",
+        max_iter=max_iter,
+        random_state=seed,
+    )
+    clf.fit(xs, y_idx_train)
+    return {"clf": clf, "mean": mean, "std": std, "num_classes": num_classes}
 
 
 def probe_log_softmax(probe: dict, x: np.ndarray) -> np.ndarray:
-    """Return natural-log class probabilities ``log q(y|x)``, shape
-    ``(n, num_classes)``.
+    """Natural-log class probabilities ``log q(y|x)``, shape
+    ``(n, num_classes)``. Classes absent from training get a small
+    floor probability so downstream cross-entropy stays finite.
     """
-    xs = torch.from_numpy(((x - probe["mean"]) / probe["std"]).astype(np.float32))
-    logits = xs @ probe["w"] + probe["b"]
-    return torch.log_softmax(logits, dim=1).numpy()
+    xs = (x - probe["mean"]) / probe["std"]
+    clf = probe["clf"]
+    seen = clf.classes_
+    lp_seen = clf.predict_log_proba(xs)  # (n, len(seen))
+    n = xs.shape[0]
+    C = probe["num_classes"]
+    if seen.size == C and np.array_equal(seen, np.arange(C)):
+        return lp_seen
+    # Dense over all classes; unseen classes get a tiny floor.
+    out = np.full((n, C), np.log(1e-12), dtype=np.float64)
+    out[:, seen] = lp_seen
+    return out
 
 
 def to_class_indices(y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
