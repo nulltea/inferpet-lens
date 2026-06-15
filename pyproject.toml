@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "talens"
+version = "0.1.0"
+description = "transformer-attacks-lens — measure the invertibility/leakage of transformer representations with information-theoretic probes, and calibrate IT measures against confidential-inference attacks. Scheme-agnostic."
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "torch>=2.2",
+    "scikit-learn>=1.4",   # FastICA for the cover-break attack
+    "scipy>=1.11",         # linear_sum_assignment (anchor Hungarian match)
+]
+
+[project.optional-dependencies]
+# Capturing activations needs the model stack. Kept optional so the
+# attacks + measures + tests run on a minimal-deps machine (synthetic
+# arrays) without pulling nnsight/transformers.
+capture = [
+    "nnsight>=0.4",
+    "transformers>=4.51",  # Qwen3 support
+    "tokenizers>=0.20",
+    "safetensors>=0.4",
+]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

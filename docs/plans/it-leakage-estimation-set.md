@@ -43,7 +43,7 @@ success metric** usable as the regression target the IT measure predicts;
 | **Conditional V-info / PVI** (above a public-weights baseline `B`) | **Primary predictor**, per-layer + per-instance. `B` = what public weights already reveal → matches `WEIGHTS-PUB`. For #3 the probe *is* the V-family, so the link is exact. | all 5 | Hewitt EMNLP'21; Ethayarajh ICML'22 |
 | **MDL online-coding + Surplus Description Length** | Complexity cross-check — reports compressibility AND sample-complexity, not one scalar. | #1, #4 (continuous, depth-graded) | Voita 2003.12298; Whitney 2009.07368 |
 | **PID-Flow + DAS/IIA** | Expressiveness upgrade. PID redundant-vs-synergistic isolates the invariant (= redundant) leak; DAS/IIA causally localises the secret subspace. | #2 (PID on the invariants), #1 (DAS) | PID-Flow 2602.15580; DAS 2303.02536 |
-| **CLUB-upper + MINE/InfoNCE-lower** | **Optional** one-time bracket: confirm the V-info/PVI estimate respects the McAllester–Stratos `O(ln N)` ceiling. *Not* a per-layer headline number. | validation only | CLUB 2006.12013 |
+| **CLUB (MI upper bound)** | **First-class third lens** (promoted from sanity-check). Estimates `I(representation ; token-embedding)` — continuous, so it sidesteps the softmax-probe shared-class constraint and parallels the ridge attack's `X→embedding` map. Brackets leakage from above (respects the McAllester–Stratos `O(ln N)` lower-bound ceiling). | all (continuous) | CLUB 2006.12013 (Linear95/CLUB) |
 
 ## Central novel claim to test
 
@@ -69,16 +69,34 @@ Shu et al. per-layer MI but attack-construction-driven).
    symmetrically and finds attention scores *underestimate* token MI.
    PID-Flow is the natural tool to split QK vs OV leakage.
 
+## Pass-1 build (locked + shipped 2026-06-15)
+
+Grilled out and implemented in the `talens` package (`src/talens/`):
+
+| Decision | Choice |
+|---|---|
+| Architecture | **Scheme-agnostic.** No covers baked in. A defense is an external `Transform` (`Tensor→Tensor`); only `Identity` ships. Plaintext-first. |
+| Attacks (pass 1) | The 3 aloepri-resident ones, faithfully ported as clean array math (no vendored `sys.path` machinery): `hidden_state` (IMA/ISA ridge), `attn_score` (ISA), `cover_break` (anchor ridge; FastICA variant deferred to pass 2). Vec2Text + membership-probe deferred. |
+| Capture | **nnsight** on faithful HF Qwen3 (chosen over TransformerLens for QK-norm fidelity); `resid_post` + per-head `attn_score` at all layers. Isolated module — `CaptureSet` imports without the model stack. |
+| Model | Qwen3-4B, native bf16; only small captured slices cast to f32. |
+| Measures | **PVI/V-info + MDL (online-code + SDL) + CLUB (MI upper bound)** — three lenses, all implemented and unit-tested on synthetic data. |
+| Calibration | `calibrate()` → Spearman / Pearson / R² of measure vs recovery, per measure, across layers. |
+| Status | 12/12 synthetic smoke tests green. **Not yet run on real Qwen3** (capture is a GPU job — awaiting go-ahead; validate nnsight trace API + attention-weights availability on first run). |
+
 ## Open design questions (next decisions)
 
-- Target model/representations: Qwen3-1.7B vs 4B; which layers ℓ to sweep;
-  capture via TransformerLens `run_with_cache` (or nnsight+NDIF if it
-  outgrows the box, per [[feedback_no_cpu_for_gpu_workloads]]).
-- Calibration protocol: fit V-info→recovery-rate regression across layers
-  and across the 5 attacks; report `R²` / rank-correlation as the
-  "predictor quality" headline.
+- **Split-regime alignment.** Attacks default to vocab-disjoint; the
+  class-probe measures (PVI, MDL) require a shared class set (row-split),
+  since a softmax probe can't score unseen classes. CLUB (continuous) is
+  unaffected. For the headline calibration, decide whether to run attacks
+  in row-split mode to match, run both, or treat the regime gap as a
+  studied variable.
+- **First real capture**: confirm the nnsight trace API + that eager
+  attention returns weights for Qwen3-4B; pick the corpus size (start
+  `corpora/dev-24.txt`, scale to 512 for tight statistics).
 - Whether to instrument #5's cover-invariance claim as a formal lemma +
-  empirical check inside `evals/aloepri-attacks/`.
+  empirical check (inject an orthogonal-rotation `Transform` and confirm
+  `attn_score` recovery and `MI(tokens;QK)` are unchanged).
 
 ## Tooling / licensing
 

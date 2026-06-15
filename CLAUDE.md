@@ -11,20 +11,30 @@ plan, and (as it grows) the estimation code that fits information-theoretic
 measures to attack-success ground-truth. The headline thesis and the
 decided attack×measure matrix live in `docs/plans/it-leakage-estimation-set.md`.
 
-## Threat-model inheritance
+## Scheme-agnostic by design
 
-This work inherits the split-TEE ⟷ untrusted-GPU threat model from the
-originating **private-rag** / GELO project. The load-bearing assumption is
-**`WEIGHTS-PUB`** (the conservative default): the adversary knows the model
-weights and embedding tables, so every rotation-/permutation-*invariant*
-quantity (a norm, a Gram, `softmax(QK^T)`) is a *known* function of the
-secret activations — an algebraic anchor for reconstruction. Any leakage
-measure or defence claim must report the `WEIGHTS-PUB` number as the bar;
-`WEIGHTS-BLIND` (private fine-tune) is the optimistic case only.
+The library asserts **nothing** about any confidential-inference defense.
+It measures the invertibility/leakage of representations and runs attacks
+on whatever it is handed. A "defense" is an external, pluggable
+`talens.transforms.Transform` (`Tensor → Tensor`); the only built-in is
+`Identity` (the plaintext model). Do not bake a specific cover, noise
+scheme, or threat model into the core — keep covers/defenses in callers,
+tests, or downstream repos.
 
-**Secret:** user activations / hidden states, Q·K·V, attention scores, the
-KV-cache, and the prompt/tokens they encode. **Public:** weights and
-embedding tables.
+## Threat-model context (motivating example, not an assumption)
+
+The work originated in the **private-rag** / GELO split-TEE ⟷
+untrusted-GPU project, whose conservative `WEIGHTS-PUB` adversary (knows
+weights + embeddings, so rotation-/permutation-*invariant* quantities —
+a norm, a Gram, `softmax(QK^T)` — are known functions of the secret) is
+the *motivating* use case and a good source of test defenses. But the
+library itself makes no such assumption; it is the substrate one would
+use to *evaluate* whether a given scheme leaks. When a doc invokes
+`WEIGHTS-PUB`, it is framing a motivating example, not a library invariant.
+
+Representations of interest as the "secret" to recover: activations /
+hidden states, Q·K·V, attention scores, the KV-cache, and the
+prompt/tokens they encode.
 
 ## Markdown docs (`docs/**/*.md`)
 

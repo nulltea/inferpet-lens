@@ -23,6 +23,32 @@ reconstruction score. The central novel claim under test —
 > with the baseline anchored on **public weights** (the conservative
 > adversary).
 
+## Package (`talens`)
+
+Scheme-agnostic: a "defense" is an external `Transform` (`Tensor→Tensor`);
+only `Identity` ships. Pass 1 runs the plaintext model.
+
+```
+src/talens/
+├── capture/       # nnsight-backed Qwen3 capture → CaptureSet (model stack isolated)
+├── transforms.py  # the agnostic defense seam (Transform protocol + Identity)
+├── attacks/       # hidden_state (IMA/ISA), attn_score (ISA), cover_break (anchor ridge)
+├── ridge.py       # shared ridge inverter primitives (faithful aloepri port)
+├── measures/      # vinfo (PVI/V-info) · mdl (online-code + SDL) · club (MI upper bound)
+├── calibration.py # measure → recovery correlation (Spearman / Pearson / R²)
+└── cli.py         # capture → attacks → measures → calibrate
+```
+
+```bash
+python -m venv --system-site-packages .venv && . .venv/bin/activate
+pip install -e ".[test]"          # add ".[capture]" for nnsight/transformers
+pytest -q                          # 12 synthetic smoke tests, model-free
+python -m talens.cli --model Qwen/Qwen3-4B --corpus corpora/dev-24.txt --out results/pass1.json
+```
+
+The attacks/measures/tests need only numpy+torch+scipy+scikit-learn; the
+model stack (nnsight, transformers) is the optional `capture` extra.
+
 ## Document map
 
 | Doc | What it is |
