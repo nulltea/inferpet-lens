@@ -1,22 +1,24 @@
 """Shared softmax probe for the class-based IT measures (PVI, MDL).
 
 The predictive family ``V`` is a multinomial-logistic probe ``q(y | x)``.
-Backed by **scikit-learn's** ``LogisticRegression`` (a trusted,
-deterministic solver) rather than a hand-rolled optimiser, so the bits
-PVI and MDL report don't depend on our own convergence behaviour. CLUB
-is the only measure that keeps a torch-trained net (it must — CLUB *is*
-a variational neural estimator).
+Production backend is **torch on GPU** (LBFGS): the fit is
+``(N×d)@(d×C)`` matmuls, which the GPU eats — sklearn on CPU is
+GIL-bound under threading and too slow at d≈2560 / C≈2500. Trust is kept
+by validating the torch probe against **scikit-learn as an oracle**
+(``tests/test_probe_oracle.py``): the sklearn implementation lives here
+too, and the test asserts the two agree on held-out log-likelihood.
 
-Because a softmax classifier can only place mass on classes seen in
-training, the class-based measures operate on a *shared* class set
-(row-split), unlike the vocab-disjoint inversion attacks. See
-``docs/plans/it-leakage-estimation-set.md`` on aligning split regimes.
+Auto-device like CLUB: uses ``cuda`` (ROCm) when available, else CPU
+(so the venv tests run on CPU unchanged). Because a softmax classifier
+can only score classes seen in training, the class-based measures use a
+shared class set (row-split) — see ``docs/research/attacks_setting.md``.
 """
 
 from __future__ import annotations
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
+import torch
+import torch.nn.functional as F
 
 
 def standardize_fit(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -26,7 +28,64 @@ def standardize_fit(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return mean.astype(np.float32), std.astype(np.float32)
 
 
+def _resolve_device(device: str | None) -> str:
+    return device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+
 def train_softmax_probe(
+    x_train: np.ndarray,
+    y_idx_train: np.ndarray,
+    num_classes: int,
+    *,
+    l2: float = 1e-4,
+    max_iter: int = 100,
+    device: str | None = None,
+    seed: int = 0,
+) -> dict:
+    """Fit ``q(y|x)`` — multinomial logistic via torch LBFGS on the GPU.
+    ``l2`` is the (mean-CE-relative) ridge penalty on the weights.
+    """
+    dev = _resolve_device(device)
+    torch.manual_seed(seed)
+    mean, std = standardize_fit(x_train)
+    xs = torch.from_numpy(((x_train - mean) / std).astype(np.float32)).to(dev)
+    yt = torch.from_numpy(y_idx_train.astype(np.int64)).to(dev)
+    d = xs.shape[1]
+    W = torch.zeros((d, num_classes), device=dev, requires_grad=True)
+    b = torch.zeros(num_classes, device=dev, requires_grad=True)
+    opt = torch.optim.LBFGS(
+        [W, b], max_iter=max_iter, line_search_fn="strong_wolfe", tolerance_grad=1e-6
+    )
+
+    def closure():
+        opt.zero_grad()
+        loss = F.cross_entropy(xs @ W + b, yt) + l2 * (W * W).sum()
+        loss.backward()
+        return loss
+
+    opt.step(closure)
+    return {
+        "W": W.detach(),
+        "b": b.detach(),
+        "mean": mean,
+        "std": std,
+        "num_classes": num_classes,
+        "device": dev,
+    }
+
+
+def probe_log_softmax(probe: dict, x: np.ndarray) -> np.ndarray:
+    """Natural-log class probabilities ``log q(y|x)``, ``(n, num_classes)``."""
+    dev = probe["device"]
+    xs = torch.from_numpy(((x - probe["mean"]) / probe["std"]).astype(np.float32)).to(dev)
+    with torch.no_grad():
+        logits = xs @ probe["W"] + probe["b"]
+        return torch.log_softmax(logits, dim=1).cpu().numpy()
+
+
+# --- scikit-learn oracle (correctness reference; used by the oracle test) ---
+
+def sklearn_train_softmax_probe(
     x_train: np.ndarray,
     y_idx_train: np.ndarray,
     num_classes: int,
@@ -35,39 +94,23 @@ def train_softmax_probe(
     max_iter: int = 200,
     seed: int = 0,
 ) -> dict:
-    """Fit ``q(y|x)`` with multinomial logistic regression. ``C`` is the
-    inverse L2-regularisation strength (sklearn convention). Returns the
-    fitted classifier plus standardisation stats and the full class count
-    (so :func:`probe_log_softmax` can return a dense ``num_classes`` row
-    even when training missed some classes).
-    """
+    """Trusted CPU reference: sklearn multinomial logistic regression."""
+    from sklearn.linear_model import LogisticRegression
+
     mean, std = standardize_fit(x_train)
-    xs = (x_train - mean) / std
-    clf = LogisticRegression(
-        C=C,
-        solver="lbfgs",
-        max_iter=max_iter,
-        random_state=seed,
-    )
-    clf.fit(xs, y_idx_train)
+    clf = LogisticRegression(C=C, solver="lbfgs", max_iter=max_iter, random_state=seed)
+    clf.fit((x_train - mean) / std, y_idx_train)
     return {"clf": clf, "mean": mean, "std": std, "num_classes": num_classes}
 
 
-def probe_log_softmax(probe: dict, x: np.ndarray) -> np.ndarray:
-    """Natural-log class probabilities ``log q(y|x)``, shape
-    ``(n, num_classes)``. Classes absent from training get a small
-    floor probability so downstream cross-entropy stays finite.
-    """
-    xs = (x - probe["mean"]) / probe["std"]
+def sklearn_probe_log_softmax(probe: dict, x: np.ndarray) -> np.ndarray:
     clf = probe["clf"]
+    lp_seen = clf.predict_log_proba((x - probe["mean"]) / probe["std"])
     seen = clf.classes_
-    lp_seen = clf.predict_log_proba(xs)  # (n, len(seen))
-    n = xs.shape[0]
     C = probe["num_classes"]
     if seen.size == C and np.array_equal(seen, np.arange(C)):
         return lp_seen
-    # Dense over all classes; unseen classes get a tiny floor.
-    out = np.full((n, C), np.log(1e-12), dtype=np.float64)
+    out = np.full((x.shape[0], C), np.log(1e-12), dtype=np.float64)
     out[:, seen] = lp_seen
     return out
 

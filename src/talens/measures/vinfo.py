@@ -36,8 +36,8 @@ def v_information(
     *,
     train_frac: float = 0.7,
     max_classes: int = 4096,
-    C: float = 1.0,
-    max_iter: int = 200,
+    l2: float = 1e-4,
+    max_iter: int = 100,
     seed: int = 20260615,
     return_pvi: bool = False,
 ) -> dict[str, Any]:
@@ -62,7 +62,7 @@ def v_information(
         return {"v_information_bits": None, "note": "empty split"}
 
     probe = train_softmax_probe(
-        X[tr], y_idx_all[tr], num_classes, C=C, max_iter=max_iter, seed=seed
+        X[tr], y_idx_all[tr], num_classes, l2=l2, max_iter=max_iter, seed=seed
     )
     logq = probe_log_softmax(probe, X[te])          # (n_te, C) natural log
     log_prior = class_log_prior(y_idx_all[tr], num_classes)  # (C,)

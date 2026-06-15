@@ -86,7 +86,7 @@ def test_club_increases_with_dependence():
 def test_vinfo_approaches_label_entropy_when_separable():
     n_classes = 4
     X, y = _blobs(n_per=400, d=8, n_classes=n_classes, sep=6.0, noise=0.3, seed=2)
-    out = v_information(X, y, C=10.0, max_iter=500, seed=2)
+    out = v_information(X, y, l2=1e-5, max_iter=200, seed=2)
     h_y = np.log2(n_classes)  # 2.0 bits, balanced labels
     assert out["v_information_bits"] > 0.85 * h_y
     assert out["v_information_bits"] < h_y + 0.05
@@ -97,7 +97,7 @@ def test_vinfo_near_zero_on_noise():
     rng = np.random.default_rng(3)
     y = rng.integers(0, n_classes, size=1600).astype(np.int64)
     X = rng.standard_normal((1600, 8)).astype(np.float32)
-    out = v_information(X, y, C=1.0, max_iter=300, seed=3)
+    out = v_information(X, y, max_iter=200, seed=3)
     assert out["v_information_bits"] < 0.3
 
 
@@ -105,6 +105,6 @@ def test_vinfo_near_zero_on_noise():
 
 def test_mdl_compresses_and_floor_is_low_when_separable():
     X, y = _blobs(n_per=400, d=8, n_classes=4, sep=6.0, noise=0.3, seed=4)
-    out = online_code_length(X, y, C=10.0, max_iter=500, seed=4)
+    out = online_code_length(X, y, l2=1e-5, max_iter=200, seed=4)
     assert out["compression"] > 3.0
     assert out["floor_ce_bits_per_row"] < 0.3

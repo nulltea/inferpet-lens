@@ -37,7 +37,7 @@ def _capture(embed):
 def test_calibrate_capture_parallel_report():
     emb = _embed()
     cap = _capture(emb)
-    report = calibrate_capture(cap, emb, attack_split_mode="row", workers=4)
+    report = calibrate_capture(cap, emb, attack_split_mode="row")
 
     # one record per (kind, layer) block
     assert len(report["records"]) == N_LAYERS

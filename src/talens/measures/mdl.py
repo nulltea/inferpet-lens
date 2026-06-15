@@ -40,8 +40,8 @@ def online_code_length(
     *,
     block_fractions: tuple[float, ...] = (0.05, 0.1, 0.2, 0.4, 0.7, 1.0),
     max_classes: int = 4096,
-    C: float = 1.0,
-    max_iter: int = 200,
+    l2: float = 1e-4,
+    max_iter: int = 100,
     seed: int = 20260615,
 ) -> dict[str, Any]:
     """Prequential online code length (bits) of ``y`` given ``X``, plus
@@ -76,7 +76,7 @@ def online_code_length(
     for i in range(len(cuts) - 1):
         lo, hi = cuts[i], cuts[i + 1]
         probe = train_softmax_probe(
-            Xp[:lo], yp[:lo], n_cls, C=C, max_iter=max_iter, seed=seed + i
+            Xp[:lo], yp[:lo], n_cls, l2=l2, max_iter=max_iter, seed=seed + i
         )
         code_bits += _ce_bits(probe, Xp[lo:hi], yp[lo:hi])
 
@@ -86,7 +86,7 @@ def online_code_length(
     # scaled to N. (Whitney surplus = code paid above the achievable floor.)
     tr, te = row_split(n, 0.7, seed)
     floor_probe = train_softmax_probe(
-        Xp[tr], yp[tr], n_cls, C=C, max_iter=max_iter, seed=seed + 999
+        Xp[tr], yp[tr], n_cls, l2=l2, max_iter=max_iter, seed=seed + 999
     )
     floor_ce_per_row = _ce_bits(floor_probe, Xp[te], yp[te]) / max(1, te.size)
     sdl_bits = float(code_bits - n * floor_ce_per_row)
