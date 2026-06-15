@@ -33,9 +33,17 @@ def run_pass1(
     prompts: list[str],
     *,
     layers: list[int] | None = None,
+    attack_split_mode: str = "row",
 ) -> dict:
     """Capture, attack, measure, and calibrate under the Identity
     transform. Returns the full report dict.
+
+    ``attack_split_mode`` defaults to ``"row"`` — **resolution A** from
+    ``docs/research/attacks_setting.md``: run the attacks in the same
+    row-split regime as the class-probe PVI/MDL measures so the headline
+    calibration is apples-to-apples. Pass ``"vocab"`` to instead report
+    the honest vocab-disjoint attacker (whose recovery should then be
+    calibrated against the retrieval-family measures — resolution B).
     """
     from .capture.capture import (  # lazy import of the model stack
         capture_representations,
@@ -53,10 +61,15 @@ def run_pass1(
         for layer in cap.layers(kind):
             # --- attacks (recovery ground-truth) ---
             if kind == "resid_post":
-                atk = hidden_state.run(cap, emb, layer=layer, kind=kind, transform=transform)
+                atk = hidden_state.run(
+                    cap, emb, layer=layer, kind=kind, transform=transform,
+                    split_mode=attack_split_mode,
+                )
                 cover = cover_break.run(cap, layer=layer, kind=kind, transform=transform)
             elif kind == "attn_score":
-                atk = attn_score.run(cap, emb, layer=layer, transform=transform)
+                atk = attn_score.run(
+                    cap, emb, layer=layer, transform=transform, split_mode=attack_split_mode,
+                )
                 cover = None
             else:
                 continue
@@ -105,12 +118,20 @@ def main() -> None:
     p.add_argument("--model", default="Qwen/Qwen3-4B")
     p.add_argument("--corpus", type=Path, required=True)
     p.add_argument("--layers", default=None, help="comma-separated layer indices; default all")
+    p.add_argument(
+        "--attack-split-mode",
+        default="row",
+        choices=["row", "vocab"],
+        help="row = resolution A (match class-probe measures); vocab = honest attacker",
+    )
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
 
     prompts = _read_corpus(args.corpus)
     layers = [int(x) for x in args.layers.split(",")] if args.layers else None
-    report = run_pass1(args.model, prompts, layers=layers)
+    report = run_pass1(
+        args.model, prompts, layers=layers, attack_split_mode=args.attack_split_mode
+    )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, default=str))

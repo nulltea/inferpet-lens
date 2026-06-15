@@ -83,3 +83,78 @@ def v_information(
     if return_pvi:
         out["pvi_bits"] = pvi_bits
     return out
+
+
+def v_information_retrieval(
+    X: np.ndarray,
+    y: np.ndarray,
+    embed_table: "torch.Tensor",
+    *,
+    n_train: int = 1024,
+    n_val: int = 128,
+    n_test: int = 128,
+    ridge_alpha: float = 1e-2,
+    candidate_pool_size: int = 2048,
+    seed: int = 20260615,
+    split_mode: str = "vocab",
+    return_pvi: bool = False,
+) -> dict[str, Any]:
+    """V-information under the **retrieval family** (resolution B).
+
+    The predictive family is the inversion attack itself: a ridge
+    ``X→embedding`` map with a softmax over cosine similarity to a
+    candidate pool. Generalises to unseen ids, so it runs **vocab-disjoint**
+    (default) — the same regime as the honest attack. PVI here *is* the
+    attack's pointwise usable information. See ``docs/research/attacks_setting.md``.
+    """
+    import torch
+
+    from ..splits import train_val_test_split, vocab_disjoint_train_val_test_split
+    from ._retrieval import (
+        build_candidate_pool,
+        fit_inverter,
+        log_prob_true,
+        pick_temperature,
+        predict_embeddings,
+    )
+
+    if X.shape[0] < 6:
+        return {"v_information_bits": None, "note": "too few rows"}
+
+    splitter = (
+        vocab_disjoint_train_val_test_split if split_mode == "vocab" else train_val_test_split
+    )
+    Xtr, ytr, Xva, yva, Xte, yte = splitter(
+        X, y, n_train=n_train, n_val=n_val, n_test=n_test, seed=seed
+    )
+    if Xtr.shape[0] == 0 or Xte.shape[0] == 0 or Xva.shape[0] == 0:
+        return {"v_information_bits": None, "note": "empty split"}
+
+    model = fit_inverter(Xtr, ytr, embed_table, ridge_alpha=ridge_alpha)
+    pool = build_candidate_pool(
+        yva, yte, vocab_size=embed_table.shape[0], pool_size=candidate_pool_size, seed=seed
+    )
+    yva_t, yte_t = torch.from_numpy(yva), torch.from_numpy(yte)
+
+    tau = pick_temperature(predict_embeddings(model, Xva), yva_t, pool, embed_table)
+
+    pred_te = predict_embeddings(model, Xte)
+    logq_x = log_prob_true(pred_te, yte_t, pool, embed_table, tau)        # log q[X](y|x)
+    # Null: best input-free predictor = mean train target embedding.
+    ebar = embed_table[torch.from_numpy(ytr)].to(torch.float32).mean(dim=0, keepdim=True)
+    pred_null = ebar.expand(yte_t.shape[0], -1)
+    logq_0 = log_prob_true(pred_null, yte_t, pool, embed_table, tau)      # log q[∅](y)
+
+    pvi_bits = (logq_x - logq_0).numpy() / _LN2
+    out: dict[str, Any] = {
+        "v_information_bits": float(pvi_bits.mean()),
+        "family": "retrieval",
+        "temperature": float(tau),
+        "candidate_pool_size": int(pool.shape[0]),
+        "n_train": int(Xtr.shape[0]),
+        "n_test": int(Xte.shape[0]),
+        "split_mode": split_mode,
+    }
+    if return_pvi:
+        out["pvi_bits"] = pvi_bits
+    return out

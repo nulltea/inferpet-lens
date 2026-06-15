@@ -108,12 +108,16 @@ validated vs the sklearn oracle is the fallback only if C explodes).
 
 ## Open design questions (next decisions)
 
-- **Split-regime alignment.** Attacks default to vocab-disjoint; the
-  class-probe measures (PVI, MDL) require a shared class set (row-split),
-  since a softmax probe can't score unseen classes. CLUB (continuous) is
-  unaffected. For the headline calibration, decide whether to run attacks
-  in row-split mode to match, run both, or treat the regime gap as a
-  studied variable.
+- **Split-regime alignment — RESOLVED** (see
+  [`../research/attacks_setting.md`](../research/attacks_setting.md)).
+  Attacks are vocab-disjoint (honest generalising attacker); class-probe
+  PVI/MDL are forced row-split (a softmax can't score unseen ids). Both
+  resolutions are implemented: **A** = run attacks row-split to match the
+  class probe (the first-run default, `cli.run_pass1(attack_split_mode="row")`);
+  **B** = retrieval-family measures (`v_information_retrieval`,
+  `online_code_length_retrieval`) that *are* the attack and run
+  vocab-disjoint throughout. First run uses A; B is the principled path
+  for the vocab-disjoint headline. CLUB is regime-agnostic.
 - **First real capture**: confirm the nnsight trace API + that eager
   attention returns weights for Qwen3-4B; pick the corpus size (start
   `corpora/dev-24.txt`, scale to 512 for tight statistics).
