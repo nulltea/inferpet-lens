@@ -35,15 +35,21 @@ def v_information(
     y: np.ndarray,
     *,
     train_frac: float = 0.7,
-    max_classes: int = 4096,
+    max_classes: int = 256,
     l2: float = 1e-4,
-    max_iter: int = 100,
+    max_iter: int = 300,
     seed: int = 20260615,
     return_pvi: bool = False,
 ) -> dict[str, Any]:
     """Estimate I_V(X→Y) in bits with a softmax-probe family. If the
     corpus has more than ``max_classes`` distinct ids, restricts to the
     most frequent ``max_classes`` (rows of rarer ids are dropped).
+
+    ``max_classes`` defaults to 256: the full corpus vocab (~2.5k ids over
+    ~7k rows) gives <3 rows/class, so the full-vocab probe is essentially
+    memorising; capping to the top-256 ids (~27 rows/class) makes the
+    estimate statistically meaningful **and** ~10× cheaper. The measure
+    then reads "token-identity information about the top-256 tokens".
     """
     if X.shape[0] < 4:
         return {"v_information_bits": None, "note": "too few rows"}

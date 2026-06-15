@@ -35,10 +35,10 @@ def fit_ridge(
 
     x_norm = (x_train - x_mean) / x_std
     y_norm = (y_train - y_mean) / y_std
-    ones = torch.ones((x_norm.shape[0], 1), dtype=x_norm.dtype)
+    ones = torch.ones((x_norm.shape[0], 1), dtype=x_norm.dtype, device=x_norm.device)
     x_aug = torch.cat([x_norm, ones], dim=1)
     dim = x_aug.shape[1]
-    identity = torch.eye(dim, dtype=x_norm.dtype)
+    identity = torch.eye(dim, dtype=x_norm.dtype, device=x_norm.device)
     identity[-1, -1] = 0.0  # don't penalise the bias
     lhs = x_aug.T @ x_aug + ridge_alpha * identity
     rhs = x_aug.T @ y_norm
@@ -56,7 +56,7 @@ def predict_ridge(model: dict[str, torch.Tensor], x: torch.Tensor) -> torch.Tens
     """Apply a fitted ridge map to new observations, undoing the
     output standardisation."""
     x_norm = (x - model["x_mean"]) / model["x_std"]
-    ones = torch.ones((x_norm.shape[0], 1), dtype=x_norm.dtype)
+    ones = torch.ones((x_norm.shape[0], 1), dtype=x_norm.dtype, device=x_norm.device)
     x_aug = torch.cat([x_norm, ones], dim=1)
     y_norm = x_aug @ model["weight"]
     return y_norm * model["y_std"] + model["y_mean"]
@@ -80,20 +80,26 @@ def evaluate_inversion(
     pool; report top-1 / top-k recovery and the mean predicted/true
     embedding cosine. Mirrors the aloepri evaluator exactly.
     """
-    cand = embed_table[candidate_ids]
+    # The big embed_table stays on CPU; only the small candidate/true
+    # slices move to the prediction's device so the cosine matmul runs
+    # wherever the inverter ran (GPU when available).
+    dev = predicted_embeddings.device
+    cand = embed_table[candidate_ids].to(dev)
+    cand_ids = candidate_ids.to(dev)
+    true_dev = true_ids.to(dev)
     pred_n = predicted_embeddings / predicted_embeddings.norm(dim=1, keepdim=True).clamp_min(1e-8)
     cand_n = cand / cand.norm(dim=1, keepdim=True).clamp_min(1e-8)
     scores = pred_n @ cand_n.T
     k = min(topk, scores.shape[1])
     topk_idx = torch.topk(scores, k=k, dim=1).indices
-    pred_ids = candidate_ids[topk_idx]
-    hits = pred_ids.eq(true_ids.unsqueeze(1))
-    cos = _row_cosine(predicted_embeddings, embed_table[true_ids])
+    pred_ids = cand_ids[topk_idx]
+    hits = pred_ids.eq(true_dev.unsqueeze(1))
+    cos = _row_cosine(predicted_embeddings, embed_table[true_ids].to(dev))
     return {
         "token_top1_recovery_rate": float(hits[:, 0].to(torch.float32).mean().item()),
         "token_top10_recovery_rate": float(
             hits[:, : min(10, hits.shape[1])].any(dim=1).to(torch.float32).mean().item()
         ),
         "embedding_cosine_similarity": float(cos.mean().item()),
-        "predicted_ids_top1": pred_ids[:, 0],
+        "predicted_ids_top1": pred_ids[:, 0].cpu(),
     }

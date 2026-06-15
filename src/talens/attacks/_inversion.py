@@ -31,6 +31,7 @@ def ridge_inversion(
     candidate_pool_size: int = 2048,
     seed: int = 20260615,
     split_mode: str = "vocab",
+    device: str | None = None,
 ) -> dict[str, Any] | None:
     """Return a metrics dict (or ``None`` if there aren't enough rows to
     form a train/test split). The dict carries TTRSR top-1/top-10, the
@@ -50,10 +51,11 @@ def ridge_inversion(
     if Xtr.shape[0] == 0 or Xte.shape[0] == 0:
         return None
 
-    Xtr_t = torch.from_numpy(Xtr).to(torch.float32)
-    Xva_t = torch.from_numpy(Xva).to(torch.float32)
-    Xte_t = torch.from_numpy(Xte).to(torch.float32)
-    ytr_emb = embed_table[torch.from_numpy(ytr)].to(torch.float32)
+    dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    Xtr_t = torch.from_numpy(Xtr).to(torch.float32).to(dev)
+    Xva_t = torch.from_numpy(Xva).to(torch.float32).to(dev)
+    Xte_t = torch.from_numpy(Xte).to(torch.float32).to(dev)
+    ytr_emb = embed_table[torch.from_numpy(ytr)].to(torch.float32).to(dev)
     yva_ids = torch.from_numpy(yva)
     yte_ids = torch.from_numpy(yte)
 

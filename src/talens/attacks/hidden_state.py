@@ -9,6 +9,7 @@ repo cares about is just calling :func:`run` across all layers.
 
 from __future__ import annotations
 
+import numpy as np
 import torch
 
 from ..capture.types import CaptureSet
@@ -33,9 +34,12 @@ def run(
     seed: int = 20260615,
     split_mode: str = "vocab",
     attack_name: str = "hidden_state_inversion",
+    xy: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> AttackResult:
     transform = transform or Identity()
-    X, y, _ = capture.stack(kind, layer, transform=transform)
+    # ``xy`` lets the caller pass an already-stacked (X, y) so the operand
+    # flattening isn't repeated (the orchestrator stacks once per block).
+    X, y = xy if xy is not None else capture.stack(kind, layer, transform=transform)[:2]
     metrics = ridge_inversion(
         X,
         y,

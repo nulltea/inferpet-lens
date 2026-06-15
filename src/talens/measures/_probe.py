@@ -1,12 +1,22 @@
 """Shared softmax probe for the class-based IT measures (PVI, MDL).
 
 The predictive family ``V`` is a multinomial-logistic probe ``q(y | x)``.
-Production backend is **torch on GPU** (LBFGS): the fit is
+Production backend is **torch on GPU** (Adam, fixed steps): the fit is
 ``(N×d)@(d×C)`` matmuls, which the GPU eats — sklearn on CPU is
-GIL-bound under threading and too slow at d≈2560 / C≈2500. Trust is kept
-by validating the torch probe against **scikit-learn as an oracle**
-(``tests/test_probe_oracle.py``): the sklearn implementation lives here
-too, and the test asserts the two agree on held-out log-likelihood.
+GIL-bound under threading and too slow at d≈2560 / C≈2500. Adam at a
+fixed step budget replaced an earlier LBFGS+strong_wolfe fit, whose line
+search thrashed to ~1.9k closure evals on the (hard, non-separable)
+real activation→token problem (~68 s/fit, ~4 h/run); fixed-step Adam
+converges to the same held-out cross-entropy in a deterministic
+~300 fwd/bwd passes. Trust is kept by validating the torch probe against
+**scikit-learn as an oracle** (``tests/test_probe_oracle.py``): the
+sklearn implementation lives here too, and the test asserts the two agree
+on held-out log-likelihood.
+
+The ridge penalty is **mean**-reduced (``l2 * mean(W²)``) to match the
+mean-reduced cross-entropy — a raw ``sum`` over the d·C ≈ 6.4 M weights
+made the loss scale depend on d/C and shifted with the MDL prefix size,
+which ill-conditioned the old line search.
 
 Auto-device like CLUB: uses ``cuda`` (ROCm) when available, else CPU
 (so the venv tests run on CPU unchanged). Because a softmax classifier
@@ -38,12 +48,14 @@ def train_softmax_probe(
     num_classes: int,
     *,
     l2: float = 1e-4,
-    max_iter: int = 100,
+    max_iter: int = 300,
+    lr: float = 0.2,
     device: str | None = None,
     seed: int = 0,
 ) -> dict:
-    """Fit ``q(y|x)`` — multinomial logistic via torch LBFGS on the GPU.
-    ``l2`` is the (mean-CE-relative) ridge penalty on the weights.
+    """Fit ``q(y|x)`` — multinomial logistic via fixed-step torch Adam on
+    the GPU. ``max_iter`` is the number of full-batch Adam steps; ``l2`` is
+    the (mean-CE-relative) ridge penalty on the weights.
     """
     dev = _resolve_device(device)
     torch.manual_seed(seed)
@@ -53,17 +65,13 @@ def train_softmax_probe(
     d = xs.shape[1]
     W = torch.zeros((d, num_classes), device=dev, requires_grad=True)
     b = torch.zeros(num_classes, device=dev, requires_grad=True)
-    opt = torch.optim.LBFGS(
-        [W, b], max_iter=max_iter, line_search_fn="strong_wolfe", tolerance_grad=1e-6
-    )
+    opt = torch.optim.Adam([W, b], lr=lr)
 
-    def closure():
+    for _ in range(max_iter):
         opt.zero_grad()
-        loss = F.cross_entropy(xs @ W + b, yt) + l2 * (W * W).sum()
+        loss = F.cross_entropy(xs @ W + b, yt) + l2 * (W * W).mean()
         loss.backward()
-        return loss
-
-    opt.step(closure)
+        opt.step()
     return {
         "W": W.detach(),
         "b": b.detach(),

@@ -14,6 +14,7 @@ maximising the Gaussian log-likelihood (``learning_loss = −loglikeli``).
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 import numpy as np
@@ -21,6 +22,10 @@ import torch
 from torch import nn
 
 _LN2 = float(np.log(2.0))
+
+# Guards the global-RNG seed + net init so concurrent blocks (the
+# orchestrator's thread pool) get reproducible, non-interleaved inits.
+_INIT_LOCK = threading.Lock()
 
 
 class CLUB(nn.Module):
@@ -127,7 +132,6 @@ def club_mi_upper_bound(
         return {"club_mi_bits": None, "note": "too few rows"}
 
     dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    torch.manual_seed(seed)
     Xs = _standardize(X)
     Ys = _standardize(Y)
     rng = np.random.default_rng(seed)
@@ -142,7 +146,11 @@ def club_mi_upper_bound(
     xte = torch.from_numpy(Xs[te]).to(dev)
     yte = torch.from_numpy(Ys[te]).to(dev)
 
-    net = CLUB(Xs.shape[1], Ys.shape[1], hidden_size).to(dev)
+    # Seed + init under a lock so concurrent blocks stay reproducible
+    # (kaiming init draws from the global RNG).
+    with _INIT_LOCK:
+        torch.manual_seed(seed)
+        net = CLUB(Xs.shape[1], Ys.shape[1], hidden_size).to(dev)
     opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(steps):
         opt.zero_grad()

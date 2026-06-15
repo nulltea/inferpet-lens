@@ -23,6 +23,8 @@ attentions). This module is written but not yet executed on hardware.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 
 from .types import CaptureSet
@@ -101,3 +103,50 @@ def capture_representations(
         prompt_token_ids=prompt_token_ids,
         operands=operands,
     )
+
+
+def load_or_capture(
+    model_id: str,
+    prompts: list[str],
+    *,
+    capture_layers: list[int] | None = None,
+    kinds: tuple[str, ...] = ("resid_post", "attn_score"),
+    cache_dir: Path | str | None = None,
+    refresh: bool = False,
+) -> tuple[CaptureSet, torch.Tensor, str]:
+    """Return ``(capture, embed_table, source)`` for ``prompts``, reusing
+    a disk cache when one covers the requested ``capture_layers``.
+
+    On a hit the model is **not** loaded (both the capture and the
+    embedding table are read from disk); ``source`` is ``"cache"``. On a
+    miss the model is loaded, the requested layers are captured and the
+    cache is (re)written; ``source`` is ``"captured"``. ``refresh=True``
+    forces a recapture even when a usable cache exists.
+    """
+    from .cache import (
+        DEFAULT_CACHE_DIR,
+        can_reuse,
+        capture_cache_path,
+        embed_cache_path,
+        load_capture,
+        load_embed,
+        present_layers,
+        save_capture,
+        save_embed,
+    )
+
+    cdir = DEFAULT_CACHE_DIR if cache_dir is None else Path(cache_dir)
+    cpath = capture_cache_path(cdir, model_id, prompts, kinds)
+    epath = embed_cache_path(cdir, model_id)
+
+    if not refresh and cpath.exists() and epath.exists():
+        cap, cached_spec = load_capture(cpath)
+        if can_reuse(present_layers(cap), cached_spec, capture_layers):
+            return cap, load_embed(epath), "cache"
+
+    model = load_model(model_id)
+    emb = embed_table(model)
+    cap = capture_representations(model, prompts, layers=capture_layers, kinds=kinds)
+    save_capture(cap, cpath, capture_layers=capture_layers)
+    save_embed(emb, epath)
+    return cap, emb, "captured"
