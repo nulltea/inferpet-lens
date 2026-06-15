@@ -59,44 +59,31 @@ class CLUB(nn.Module):
         return -self.loglikeli(x_samples, y_samples)
 
 
-def _club_estimate(
-    net: CLUB,
-    x: torch.Tensor,
-    y: torch.Tensor,
-    *,
-    row_chunk: int = 64,
-    neg_samples: int = 2048,
-    seed: int = 0,
-) -> float:
-    """Memory-bounded CLUB MI estimate, mathematically equal to
-    ``net.forward`` but without the ``(n, n, d)`` blow-up.
+def _club_estimate(net: CLUB, x: torch.Tensor, y: torch.Tensor) -> float:
+    """CLUB MI estimate — mathematically **exact** equal to ``net.forward``
+    but O(n·d) memory and O((n+m)·d) compute, with no ``(n, n, d)``
+    intermediate.
 
-    The negative term ``E_{p(x)p(y)}[log q(y|x)]`` is computed by chunking
-    over query rows (``row_chunk``) and, when ``n`` exceeds ``neg_samples``,
-    Monte-Carlo-ing the inner expectation over a random subset of ``y``
-    rows (an unbiased estimate of the mean over all negatives). Peak
-    memory is ``O(row_chunk · min(n, neg_samples) · d)``.
+    The negative term needs ``mean_j (y_j − μ_i)²`` for every ``(i, d)``.
+    Expanding the square makes the mean over ``j`` a closed form in the
+    first two moments of ``y``::
+
+        mean_j (y_j − μ_i)² = E[y²] − 2·μ_i·E[y] + μ_i²
+
+    so the full mean over all negatives is computed from two ``(d,)``
+    moment vectors — no per-pair difference tensor, no chunking, no
+    Monte-Carlo subsampling. Pure tensor ops, so it moves to GPU
+    unchanged when ``x``/``y``/``net`` are on a device.
     """
     with torch.no_grad():
-        mu, logvar = net.get_mu_logvar(x)
+        mu, logvar = net.get_mu_logvar(x)        # (n, d)
         var = logvar.exp()
-        positive = (-((mu - y) ** 2) / 2.0 / var).sum(dim=-1)  # (n,)
-
-        n = x.shape[0]
-        if n > neg_samples:
-            g = torch.Generator().manual_seed(seed)
-            idx = torch.randperm(n, generator=g)[:neg_samples]
-            y_neg = y[idx]
-        else:
-            y_neg = y
-
-        neg = torch.empty(n)
-        for s in range(0, n, row_chunk):
-            e = min(s + row_chunk, n)
-            mu_c = mu[s:e].unsqueeze(1)                 # (b, 1, d)
-            diff = (y_neg.unsqueeze(0) - mu_c) ** 2      # (b, m, d)
-            neg[s:e] = (-diff.mean(dim=1) / 2.0 / var[s:e]).sum(dim=-1)
-        return float((positive - neg).mean().item())
+        positive = (-((mu - y) ** 2) / 2.0 / var).sum(dim=-1)   # paired, (n,)
+        ybar = y.mean(dim=0)                      # E[y]    (d,)
+        ysq = (y ** 2).mean(dim=0)                # E[y²]   (d,)
+        mean_sq = ysq - 2.0 * mu * ybar + mu ** 2  # mean_j (y_j-μ_i)²  (n, d)
+        negative = (-mean_sq / 2.0 / var).sum(dim=-1)           # (n,)
+        return float((positive - negative).mean().item())
 
 
 def _standardize(a: np.ndarray) -> np.ndarray:
@@ -156,7 +143,7 @@ def club_mi_upper_bound(
         opt.step()
 
     net.eval()
-    mi_nats = _club_estimate(net, xte, yte, seed=seed)
+    mi_nats = _club_estimate(net, xte, yte)
     return {
         "club_mi_nats": mi_nats,
         "club_mi_bits": mi_nats / _LN2,

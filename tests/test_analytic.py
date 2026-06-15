@@ -55,6 +55,23 @@ def test_club_tracks_gaussian_mi():
     assert est < 6.0 * true_nats          # finite, not diverging
 
 
+def test_club_estimate_equals_verbatim_forward():
+    # The O(n·d) moment-based estimator must be numerically identical to
+    # the verbatim O(n²·d) CLUB.forward (small n so forward is affordable).
+    import torch
+
+    from talens.measures.club import CLUB, _club_estimate
+
+    torch.manual_seed(0)
+    n, dx, dy = 200, 16, 12
+    x = torch.randn(n, dx)
+    y = torch.randn(n, dy)
+    net = CLUB(dx, dy, 32)
+    fast = _club_estimate(net, x, y)
+    slow = float(net(x, y).item())
+    assert abs(fast - slow) < 1e-3
+
+
 def test_club_increases_with_dependence():
     d, n = 4, 2500
     Xh, Yh = _gaussian_pair(n, d, rho=0.85, seed=1)

@@ -91,14 +91,20 @@ train+eval 9 s (N=2k) → 40 s (N=10k). Extrapolated over 36 layers
 (resid-stream sweep): dev-24 ≈ **5 min** (CPU fine); 512-prompt ≈ **35
 min**, CLUB-dominated, plus a capture step that needs a GPU.
 
+CLUB cost is now **all in training** the variational `q(y|x)` net: the
+latent `O(n²·d)` OOM (~92 GB at 512-prompt scale) is fixed by an **exact
+moment-based estimate** — `mean_j (y_j−μ_i)² = E[y²] − 2μ_iE[y] + μ_i²` —
+so the *estimate* is O(n·d) memory / O((n+m)·d) compute with **no large
+transient tensor** (verified numerically identical to verbatim
+`forward`). At N=10k the estimate is ~ms; the ~35 s is the 200 Adam steps.
+
 GPU plan (priority): (1) **ROCm torch build** for the `[capture]` extra —
 torch here is `+cpu`, and running Qwen3-4B is the dominant release-scale
-cost + the box's reason for a GPU. (2) **CLUB → GPU** via a `device` arg
-(pure torch; ~10–30× → 24 min → ~1–2 min). (3) **LR stays CPU** (sklearn,
-already cheap; a torch-GPU logistic validated vs the sklearn oracle is the
-fallback only if C explodes). (4) optional layer-parallelism. The latent
-CLUB `O(n²·d)` OOM (~92 GB at 512-prompt scale) is **already fixed**
-(chunked negative term), so CLUB runs at scale on CPU now, just slow.
+cost + the box's reason for a GPU. (2) **CLUB net training → GPU** via a
+`device` arg (pure torch matmuls at d=2560; the remaining bottleneck).
+(3) **LR stays CPU** (sklearn, already cheap; a torch-GPU logistic
+validated vs the sklearn oracle is the fallback only if C explodes).
+(4) optional layer-parallelism.
 
 ## Open design questions (next decisions)
 
