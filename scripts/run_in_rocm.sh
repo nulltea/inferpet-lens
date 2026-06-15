@@ -41,5 +41,9 @@ exec docker run --rm \
     -e PYTHONPATH="$REPO_DIR/src" \
     -e ROCBLAS_USE_HIPBLASLT=1 \
     -e PYTORCH_HIP_ALLOC_CONF=expandable_segments:True \
+    -e OMP_NUM_THREADS=1 \
+    -e OPENBLAS_NUM_THREADS=1 \
+    -e MKL_NUM_THREADS=1 \
+    -e NUMEXPR_NUM_THREADS=1 \
     -w "$REPO_DIR" \
     "$IMAGE" "$@"

@@ -4,15 +4,27 @@ Runs the plaintext (Identity) pipeline end-to-end on Qwen3 and writes a
 JSON report. Capture pulls in nnsight/transformers lazily, so the rest
 of the package (and the tests) stay model-free.
 
+The per-(kind, layer) blocks are independent, so the attack+measure work
+is run across a **thread pool**: threads share the captured activations
+and the (large) embedding table for free — processes would pickle them
+per task. With BLAS capped to one thread per fit (see scripts/run_in_rocm.sh
+exporting OPENBLAS/OMP_NUM_THREADS=1), N worker threads run N concurrent
+single-threaded sklearn fits — turning the oversubscribed serial CPU
+phase into real parallelism. GPU CLUB is serialised behind a lock so the
+threads don't pile concurrent training onto one device.
+
 Example:
     python -m talens.cli --model Qwen/Qwen3-4B \\
-        --corpus corpora/dev-64.txt --out results/pass1.json
+        --corpus corpora/release-gate-512.txt --out results/pass1.json
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -20,12 +32,107 @@ import torch
 
 from .attacks import attn_score, cover_break, hidden_state
 from .calibration import calibrate_records
+from .capture.types import CaptureSet
 from .measures import club_mi_upper_bound, online_code_length, v_information
-from .transforms import Identity
+from .transforms import Identity, Transform
+
+# Serialise GPU CLUB across worker threads: CLUB is fast on-GPU, the win
+# is parallelising the CPU sklearn fits — not piling 16 concurrent torch
+# training loops onto one device.
+_GPU_LOCK = threading.Lock()
 
 
 def _read_corpus(path: Path) -> list[str]:
     return [ln.strip() for ln in path.read_text().splitlines() if ln.strip()]
+
+
+def _process_block(
+    cap: CaptureSet,
+    embed_table: torch.Tensor,
+    kind: str,
+    layer: int,
+    *,
+    transform: Transform,
+    attack_split_mode: str,
+) -> dict:
+    """All attack + measure work for one (kind, layer) block. Pure given
+    its inputs (the shared cap/embed_table are read-only), so it is safe
+    to run concurrently across threads.
+    """
+    if kind == "resid_post":
+        atk = hidden_state.run(
+            cap, embed_table, layer=layer, kind=kind, transform=transform,
+            split_mode=attack_split_mode,
+        )
+        cover = cover_break.run(cap, layer=layer, kind=kind, transform=transform)
+    elif kind == "attn_score":
+        atk = attn_score.run(
+            cap, embed_table, layer=layer, transform=transform, split_mode=attack_split_mode,
+        )
+        cover = None
+    else:
+        return {}
+
+    X, y, _ = cap.stack(kind, layer, transform=transform)
+    vinfo = v_information(X, y)
+    mdl = online_code_length(X, y)
+    if X.shape[0] >= 8:
+        Y = embed_table[torch.from_numpy(y)].numpy()
+        with _GPU_LOCK:
+            club = club_mi_upper_bound(X, Y)
+    else:
+        club = {"club_mi_bits": None}
+
+    return {
+        "kind": kind,
+        "layer": layer,
+        "attack": atk.attack,
+        "primary_metric_value": atk.primary_metric_value,
+        "ttrsr_top1": atk.ttrsr_top1,
+        "cover_break_p95": cover.primary_metric_value if cover else None,
+        "v_information_bits": vinfo.get("v_information_bits"),
+        "mdl_surplus_bits": mdl.get("surplus_description_length_bits"),
+        "mdl_compression": mdl.get("compression"),
+        "club_mi_bits": club.get("club_mi_bits"),
+    }
+
+
+def calibrate_capture(
+    cap: CaptureSet,
+    embed_table: torch.Tensor,
+    *,
+    transform: Transform | None = None,
+    attack_split_mode: str = "row",
+    workers: int | None = None,
+) -> dict:
+    """Run attacks + measures over every (kind, layer) block of a capture
+    (thread-parallel) and fit the IT-measure → recovery calibration.
+    Model-free: a synthetic CaptureSet exercises this in tests.
+    """
+    transform = transform or Identity()
+    blocks = [(k, layer) for k in cap.kinds() for layer in cap.layers(k)]
+    n_workers = workers or min(16, os.cpu_count() or 4)
+
+    def _run(kl: tuple[str, int]) -> dict:
+        return _process_block(
+            cap, embed_table, kl[0], kl[1],
+            transform=transform, attack_split_mode=attack_split_mode,
+        )
+
+    with ThreadPoolExecutor(max_workers=n_workers) as ex:
+        records = [r for r in ex.map(_run, blocks) if r]
+
+    calibration = {
+        key: calibrate_records(records, measure_key=key)
+        for key in ("v_information_bits", "mdl_surplus_bits", "club_mi_bits")
+    }
+    return {
+        "transform": transform.name,
+        "attack_split_mode": attack_split_mode,
+        "n_workers": n_workers,
+        "records": records,
+        "calibration": calibration,
+    }
 
 
 def run_pass1(
@@ -34,16 +141,12 @@ def run_pass1(
     *,
     layers: list[int] | None = None,
     attack_split_mode: str = "row",
+    workers: int | None = None,
 ) -> dict:
-    """Capture, attack, measure, and calibrate under the Identity
-    transform. Returns the full report dict.
-
-    ``attack_split_mode`` defaults to ``"row"`` — **resolution A** from
-    ``docs/research/attacks_setting.md``: run the attacks in the same
-    row-split regime as the class-probe PVI/MDL measures so the headline
-    calibration is apples-to-apples. Pass ``"vocab"`` to instead report
-    the honest vocab-disjoint attacker (whose recovery should then be
-    calibrated against the retrieval-family measures — resolution B).
+    """Capture on the GPU, then attack/measure/calibrate (thread-parallel)
+    under the Identity transform. ``attack_split_mode`` defaults to
+    ``"row"`` (resolution A — match the class-probe measures; see
+    ``docs/research/attacks_setting.md``).
     """
     from .capture.capture import (  # lazy import of the model stack
         capture_representations,
@@ -54,63 +157,12 @@ def run_pass1(
     model = load_model(model_id)
     emb = embed_table(model)
     cap = capture_representations(model, prompts, layers=layers)
-    transform = Identity()
-
-    records: list[dict] = []
-    for kind in cap.kinds():
-        for layer in cap.layers(kind):
-            # --- attacks (recovery ground-truth) ---
-            if kind == "resid_post":
-                atk = hidden_state.run(
-                    cap, emb, layer=layer, kind=kind, transform=transform,
-                    split_mode=attack_split_mode,
-                )
-                cover = cover_break.run(cap, layer=layer, kind=kind, transform=transform)
-            elif kind == "attn_score":
-                atk = attn_score.run(
-                    cap, emb, layer=layer, transform=transform, split_mode=attack_split_mode,
-                )
-                cover = None
-            else:
-                continue
-
-            # --- measures (predictors) over the same exposed operand ---
-            X, y, _ = cap.stack(kind, layer, transform=transform)
-            vinfo = v_information(X, y)
-            mdl = online_code_length(X, y)
-            # CLUB on (representation, token-embedding).
-            if X.shape[0] >= 8:
-                Y = emb[torch.from_numpy(y)].numpy()
-                club = club_mi_upper_bound(X, Y)
-            else:
-                club = {"club_mi_bits": None}
-
-            records.append(
-                {
-                    "kind": kind,
-                    "layer": layer,
-                    "attack": atk.attack,
-                    "primary_metric_value": atk.primary_metric_value,
-                    "ttrsr_top1": atk.ttrsr_top1,
-                    "cover_break_p95": cover.primary_metric_value if cover else None,
-                    "v_information_bits": vinfo.get("v_information_bits"),
-                    "mdl_surplus_bits": mdl.get("surplus_description_length_bits"),
-                    "mdl_compression": mdl.get("compression"),
-                    "club_mi_bits": club.get("club_mi_bits"),
-                }
-            )
-
-    calibration = {
-        key: calibrate_records(records, measure_key=key)
-        for key in ("v_information_bits", "mdl_surplus_bits", "club_mi_bits")
-    }
-    return {
-        "model_id": model_id,
-        "transform": transform.name,
-        "n_prompts": len(prompts),
-        "records": records,
-        "calibration": calibration,
-    }
+    report = calibrate_capture(
+        cap, emb, attack_split_mode=attack_split_mode, workers=workers
+    )
+    report["model_id"] = model_id
+    report["n_prompts"] = len(prompts)
+    return report
 
 
 def main() -> None:
@@ -119,23 +171,23 @@ def main() -> None:
     p.add_argument("--corpus", type=Path, required=True)
     p.add_argument("--layers", default=None, help="comma-separated layer indices; default all")
     p.add_argument(
-        "--attack-split-mode",
-        default="row",
-        choices=["row", "vocab"],
+        "--attack-split-mode", default="row", choices=["row", "vocab"],
         help="row = resolution A (match class-probe measures); vocab = honest attacker",
     )
+    p.add_argument("--workers", type=int, default=None, help="thread workers; default min(16, cpus)")
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
 
     prompts = _read_corpus(args.corpus)
     layers = [int(x) for x in args.layers.split(",")] if args.layers else None
     report = run_pass1(
-        args.model, prompts, layers=layers, attack_split_mode=args.attack_split_mode
+        args.model, prompts, layers=layers,
+        attack_split_mode=args.attack_split_mode, workers=args.workers,
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, default=str))
-    print(f"wrote {args.out}")
+    print(f"wrote {args.out}  ({report['n_workers']} workers)")
     for key, cal in report["calibration"].items():
         print(f"  {key:24s} spearman={cal.get('spearman')!s:>8}  r2={cal.get('r_squared')!s:>8}")
 
