@@ -79,9 +79,26 @@ Grilled out and implemented in the `talens` package (`src/talens/`):
 | Attacks (pass 1) | The 3 aloepri-resident ones, faithfully ported as clean array math (no vendored `sys.path` machinery): `hidden_state` (IMA/ISA ridge), `attn_score` (ISA), `cover_break` (anchor ridge; FastICA variant deferred to pass 2). Vec2Text + membership-probe deferred. |
 | Capture | **nnsight** on faithful HF Qwen3 (chosen over TransformerLens for QK-norm fidelity); `resid_post` + per-head `attn_score` at all layers. Isolated module — `CaptureSet` imports without the model stack. |
 | Model | Qwen3-4B, native bf16; only small captured slices cast to f32. |
-| Measures | **PVI/V-info + MDL (online-code + SDL) + CLUB (MI upper bound)** — three lenses, all implemented and unit-tested on synthetic data. |
+| Measures | **PVI/V-info + MDL (online-code + SDL) + CLUB (MI upper bound)**. Probe = **sklearn LogisticRegression** (trusted; hand-rolled optimiser removed). CLUB ported verbatim from Linear95/CLUB, negative term chunked to bound memory. |
+| Validation | **17 tests green**: 12 directional + **5 analytic ground-truth** (CLUB vs closed-form Gaussian MI — valid+finite+monotonic upper bound; V-info → H(Y) on separable blobs; MDL compression + low floor CE). |
 | Calibration | `calibrate()` → Spearman / Pearson / R² of measure vs recovery, per measure, across layers. |
-| Status | 12/12 synthetic smoke tests green. **Not yet run on real Qwen3** (capture is a GPU job — awaiting go-ahead; validate nnsight trace API + attention-weights availability on first run). |
+| Status | Measures validated. **Not yet run on real Qwen3** (capture is a GPU job — awaiting go-ahead; validate nnsight trace API + attention-weights availability on first run). |
+
+### Runtime & GPU (measured 2026-06-15)
+
+Per-unit on CPU: sklearn LR fit ~1 s (even N=10k/d=2560/C=2k); CLUB
+train+eval 9 s (N=2k) → 40 s (N=10k). Extrapolated over 36 layers
+(resid-stream sweep): dev-24 ≈ **5 min** (CPU fine); 512-prompt ≈ **35
+min**, CLUB-dominated, plus a capture step that needs a GPU.
+
+GPU plan (priority): (1) **ROCm torch build** for the `[capture]` extra —
+torch here is `+cpu`, and running Qwen3-4B is the dominant release-scale
+cost + the box's reason for a GPU. (2) **CLUB → GPU** via a `device` arg
+(pure torch; ~10–30× → 24 min → ~1–2 min). (3) **LR stays CPU** (sklearn,
+already cheap; a torch-GPU logistic validated vs the sklearn oracle is the
+fallback only if C explodes). (4) optional layer-parallelism. The latent
+CLUB `O(n²·d)` OOM (~92 GB at 512-prompt scale) is **already fixed**
+(chunked negative term), so CLUB runs at scale on CPU now, just slow.
 
 ## Open design questions (next decisions)
 
