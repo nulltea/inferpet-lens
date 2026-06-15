@@ -103,6 +103,7 @@ def club_mi_upper_bound(
     weight_decay: float = 1e-4,
     train_frac: float = 0.7,
     seed: int = 20260615,
+    device: str | None = None,
 ) -> dict[str, Any]:
     """Estimate an MI upper bound between rows of ``X`` (representation)
     and ``Y`` (token embeddings). Both standardised per-feature for
@@ -115,10 +116,17 @@ def club_mi_upper_bound(
     envelope and rely on its **rank** across layers/conditions for
     calibration; the small ``weight_decay`` curbs variational over-fitting
     that would otherwise inflate the bound further.
+
+    ``device`` controls where the variational net trains — the one part of
+    the measure stack that benefits from a GPU (the matmuls at full
+    ``d``). Defaults to ``"cuda"`` when a device is available (ROCm
+    presents as CUDA), else CPU; pass an explicit string to override.
+    PVI/MDL stay on CPU (sklearn) regardless.
     """
     if X.shape[0] < 8:
         return {"club_mi_bits": None, "note": "too few rows"}
 
+    dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(seed)
     Xs = _standardize(X)
     Ys = _standardize(Y)
@@ -129,12 +137,12 @@ def club_mi_upper_bound(
     if te.size < 2:
         return {"club_mi_bits": None, "note": "empty test split"}
 
-    xtr = torch.from_numpy(Xs[tr])
-    ytr = torch.from_numpy(Ys[tr])
-    xte = torch.from_numpy(Xs[te])
-    yte = torch.from_numpy(Ys[te])
+    xtr = torch.from_numpy(Xs[tr]).to(dev)
+    ytr = torch.from_numpy(Ys[tr]).to(dev)
+    xte = torch.from_numpy(Xs[te]).to(dev)
+    yte = torch.from_numpy(Ys[te]).to(dev)
 
-    net = CLUB(Xs.shape[1], Ys.shape[1], hidden_size)
+    net = CLUB(Xs.shape[1], Ys.shape[1], hidden_size).to(dev)
     opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(steps):
         opt.zero_grad()
@@ -150,4 +158,5 @@ def club_mi_upper_bound(
         "n_train": int(tr.size),
         "n_test": int(te.size),
         "hidden_size": hidden_size,
+        "device": dev,
     }

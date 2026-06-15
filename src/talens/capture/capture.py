@@ -37,8 +37,9 @@ def load_model(model_id: str = "Qwen/Qwen3-4B", *, dtype: torch.dtype = torch.bf
 
     return LanguageModel(
         model_id,
-        torch_dtype=dtype,
-        attn_implementation="eager",  # ensures attention weights are returned
+        dtype=dtype,                   # transformers 5.x (was torch_dtype)
+        attn_implementation="eager",   # ensures attention weights are returned
+        device_map="auto",             # place on the GPU (gfx1151 via ROCm)
         dispatch=True,
     )
 
