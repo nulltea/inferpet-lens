@@ -101,6 +101,33 @@ def test_vinfo_near_zero_on_noise():
     assert out["v_information_bits"] < 0.3
 
 
+def test_vinfo_positive_on_informative_but_memorizable():
+    """Regression: an informative signal buried in many high-variance,
+    *uninformative* dims (under-determined, ~22 rows/class) used to make the
+    probe memorise the noise → overconfident logits → held-out CE far worse
+    than the prior → strongly **negative** PVI (the diverging-probe bug).
+    A calibrated probe must extract the signal and stay **positive**.
+    (Mirrors deep-layer resid/attn blocks where the attack recovers tokens
+    but the old lr=0.2 probe reported PVI ≪ 0.)
+    """
+    rng = np.random.default_rng(0)
+    n_classes, n_per, d_sig, d_noise = 64, 22, 24, 400
+    means = rng.standard_normal((n_classes, d_sig)) * 3.0
+    Xs, ys = [], []
+    for c in range(n_classes):
+        sig = means[c] + rng.standard_normal((n_per, d_sig))
+        noise = 5.0 * rng.standard_normal((n_per, d_noise))  # memorizable, uninformative
+        Xs.append(np.concatenate([sig, noise], axis=1))
+        ys.append(np.full(n_per, c))
+    X = np.concatenate(Xs).astype(np.float32)
+    y = np.concatenate(ys).astype(np.int64)
+    perm = rng.permutation(X.shape[0])
+    out = v_information(X[perm], y[perm])
+    # Calibrated probe: positive PVI. The pre-fix overconfident probe gave
+    # ≈ −3.8 bits here, so any regression to that config trips this.
+    assert out["v_information_bits"] > 0.1
+
+
 # --- MDL compression on separable data -----------------------------------
 
 def test_mdl_compresses_and_floor_is_low_when_separable():

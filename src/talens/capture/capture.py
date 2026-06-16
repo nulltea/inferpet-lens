@@ -23,11 +23,66 @@ attentions). This module is written but not yet executed on hardware.
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 
 import torch
 
 from .types import CaptureSet
+
+# --- internal-attention capture (kq / kqv_out) -------------------------------
+# HF's output_attentions only exposes the POST-softmax weights, which barely
+# leak token identity (position/sink-dominated). The aloepri ISA-AttnScore
+# results come from two *other* attention surfaces:
+#   kq      = pre-softmax Q·Kᵀ·scaling   (n_heads, n_q, n_kv)   ~48% recovery
+#   kqv_out = per-head attention output, pre-W_o  (n_q, heads·head_dim) ~97%
+# Both are locals inside the functional ``eager_attention_forward``, so we grab
+# them with a drop-in replacement that computes *identically* (faithful — the
+# model output is unchanged) and stashes the two tensors per layer.
+_ATTN_BUF: dict | None = None
+
+
+def _capturing_eager(module, query, key, value, attention_mask, scaling, dropout=0.0, **kwargs):
+    """Byte-faithful copy of qwen3 ``eager_attention_forward`` that also
+    stashes the pre-softmax scores (kq) and the pre-W_o output (kqv_out)."""
+    import torch.nn.functional as F
+    from transformers.models.qwen3.modeling_qwen3 import repeat_kv
+
+    key_states = repeat_kv(key, module.num_key_value_groups)
+    value_states = repeat_kv(value, module.num_key_value_groups)
+
+    attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling
+    if _ATTN_BUF is not None and _ATTN_BUF["want_kq"]:
+        # pre-mask, pre-softmax scores: (1, n_heads, n_q, n_kv) -> drop batch
+        _ATTN_BUF["kq"][module.layer_idx] = attn_weights.detach()[0].to(torch.float32).cpu()
+    if attention_mask is not None:
+        attn_weights = attn_weights + attention_mask
+    attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query.dtype)
+    attn_weights = F.dropout(attn_weights, p=dropout, training=module.training)
+    attn_output = torch.matmul(attn_weights, value_states)
+    attn_output = attn_output.transpose(1, 2).contiguous()  # (1, n_q, n_heads, head_dim)
+    if _ATTN_BUF is not None and _ATTN_BUF["want_kqv"]:
+        _, n_q, n_h, h_d = attn_output.shape
+        _ATTN_BUF["kqv_out"][module.layer_idx] = (
+            attn_output.reshape(n_q, n_h * h_d).detach().to(torch.float32).cpu()
+        )
+    return attn_output, attn_weights
+
+
+@contextlib.contextmanager
+def _patched_eager_attention():
+    """Swap qwen3's module-level ``eager_attention_forward`` for the capturing
+    variant for the duration of the block. Safe because ``eager`` is not in
+    ``ALL_ATTENTION_FUNCTIONS`` — ``forward`` passes the module-level function
+    as the get_interface default, so rebinding it is what's actually called."""
+    import transformers.models.qwen3.modeling_qwen3 as mq
+
+    orig = mq.eager_attention_forward
+    mq.eager_attention_forward = _capturing_eager
+    try:
+        yield
+    finally:
+        mq.eager_attention_forward = orig
 
 
 def load_model(model_id: str = "Qwen/Qwen3-4B", *, dtype: torch.dtype = torch.bfloat16):
@@ -59,13 +114,23 @@ def capture_representations(
     prompts: list[str],
     *,
     layers: list[int] | None = None,
-    kinds: tuple[str, ...] = ("resid_post", "attn_score"),
+    kinds: tuple[str, ...] = ("resid_post", "kq", "kqv_out"),
 ) -> CaptureSet:
     """Run ``prompts`` and collect the requested representation kinds at
     the requested layers (default: all layers). Returns a CaptureSet.
+
+    Kinds: ``resid_post`` (residual stream, via HF hidden_states),
+    ``kq`` (pre-softmax Q·Kᵀ scores, per head) and ``kqv_out`` (per-head
+    attention output before W_o) — the latter two via the faithful
+    eager-attention patch. (Legacy ``attn_score`` = post-softmax weights is
+    still accepted for back-compat.)
     """
+    global _ATTN_BUF
     want_resid = "resid_post" in kinds
     want_attn = "attn_score" in kinds
+    want_kq = "kq" in kinds
+    want_kqv = "kqv_out" in kinds
+    want_internal = want_kq or want_kqv
     tokenizer = model.tokenizer
     model_id = getattr(model.config, "_name_or_path", "unknown")
 
@@ -73,31 +138,46 @@ def capture_representations(
     # operands[(kind, layer)] grows one entry per prompt, in order.
     operands: dict[tuple[str, int], list[torch.Tensor]] = {}
 
-    for prompt in prompts:
-        ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0]
-        prompt_token_ids.append(ids.tolist())
+    patch = _patched_eager_attention() if want_internal else contextlib.nullcontext()
+    with patch:
+        for prompt in prompts:
+            ids = tokenizer(prompt, return_tensors="pt")["input_ids"][0]
+            prompt_token_ids.append(ids.tolist())
 
-        with model.trace(
-            prompt,
-            output_hidden_states=want_resid,
-            output_attentions=want_attn,
-        ):
-            hs = model.output.hidden_states.save() if want_resid else None
-            att = model.output.attentions.save() if want_attn else None
+            if want_internal:
+                _ATTN_BUF = {"kq": {}, "kqv_out": {}, "want_kq": want_kq, "want_kqv": want_kqv}
 
-        n_layers = (len(hs) - 1) if want_resid else len(att)
-        layer_set = layers if layers is not None else list(range(n_layers))
+            with model.trace(
+                prompt,
+                output_hidden_states=want_resid,
+                output_attentions=want_attn,
+            ):
+                hs = model.output.hidden_states.save() if want_resid else None
+                att = model.output.attentions.save() if want_attn else None
 
-        for li in layer_set:
+            buf = _ATTN_BUF if want_internal else None
             if want_resid:
-                # hidden_states[li+1]: post-block li; drop the batch dim.
-                op = hs[li + 1][0].detach().to(torch.float32).cpu()
-                operands.setdefault(("resid_post", li), []).append(op)
-            if want_attn:
-                # attentions[li]: (1, n_heads, n_q, n_kv) -> (n_heads, n_q, n_kv)
-                op = att[li][0].detach().to(torch.float32).cpu()
-                operands.setdefault(("attn_score", li), []).append(op)
+                n_layers = len(hs) - 1
+            elif want_attn:
+                n_layers = len(att)
+            else:
+                n_layers = len(buf["kq"] or buf["kqv_out"])
+            layer_set = layers if layers is not None else list(range(n_layers))
 
+            for li in layer_set:
+                if want_resid:
+                    # hidden_states[li+1]: post-block li; drop the batch dim.
+                    op = hs[li + 1][0].detach().to(torch.float32).cpu()
+                    operands.setdefault(("resid_post", li), []).append(op)
+                if want_attn:
+                    op = att[li][0].detach().to(torch.float32).cpu()
+                    operands.setdefault(("attn_score", li), []).append(op)
+                if want_kq:
+                    operands.setdefault(("kq", li), []).append(buf["kq"][li])
+                if want_kqv:
+                    operands.setdefault(("kqv_out", li), []).append(buf["kqv_out"][li])
+
+    _ATTN_BUF = None
     return CaptureSet(
         model_id=model_id,
         prompt_token_ids=prompt_token_ids,
@@ -110,7 +190,7 @@ def load_or_capture(
     prompts: list[str],
     *,
     capture_layers: list[int] | None = None,
-    kinds: tuple[str, ...] = ("resid_post", "attn_score"),
+    kinds: tuple[str, ...] = ("resid_post", "kq", "kqv_out"),
     cache_dir: Path | str | None = None,
     refresh: bool = False,
 ) -> tuple[CaptureSet, torch.Tensor, str]:
@@ -149,4 +229,9 @@ def load_or_capture(
     cap = capture_representations(model, prompts, layers=capture_layers, kinds=kinds)
     save_capture(cap, cpath, capture_layers=capture_layers)
     save_embed(emb, epath)
+    # Capture is done; free the model's GPU memory so the downstream
+    # GPU measures (probe/CLUB/wide kqv_out ridge solve) aren't starved.
+    del model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return cap, emb, "captured"

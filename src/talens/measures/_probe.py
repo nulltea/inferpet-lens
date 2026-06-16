@@ -13,10 +13,14 @@ converges to the same held-out cross-entropy in a deterministic
 sklearn implementation lives here too, and the test asserts the two agree
 on held-out log-likelihood.
 
-The ridge penalty is **mean**-reduced (``l2 * mean(W²)``) to match the
-mean-reduced cross-entropy — a raw ``sum`` over the d·C ≈ 6.4 M weights
-made the loss scale depend on d/C and shifted with the MDL prefix size,
-which ill-conditioned the old line search.
+Regularisation is **AdamW decoupled weight decay + early stopping** on an
+internal validation split (``l2`` is the weight decay). An in-loss ridge
+term proved fragile: scale-correct tuning across blocks of very different
+feature width (dense ``resid_post`` d=2560 vs wide zero-padded
+``attn_score``) is hard, and an under-regularised fixed-step fit *diverges*
+on under-determined blocks — assigning ~0 probability to held-out tokens
+and yielding nonsensical (−1000s of bits) PVI. Early stopping at the
+best-held-out-CE iterate bounds the held-out loss regardless of scale.
 
 Auto-device like CLUB: uses ``cuda`` (ROCm) when available, else CPU
 (so the venv tests run on CPU unchanged). Because a softmax classifier
@@ -47,34 +51,72 @@ def train_softmax_probe(
     y_idx_train: np.ndarray,
     num_classes: int,
     *,
-    l2: float = 1e-4,
-    max_iter: int = 300,
-    lr: float = 0.2,
+    l2: float = 1e-1,
+    max_iter: int = 500,
+    lr: float = 0.05,
     device: str | None = None,
     seed: int = 0,
+    val_frac: float = 0.15,
+    eval_every: int = 10,
 ) -> dict:
-    """Fit ``q(y|x)`` — multinomial logistic via fixed-step torch Adam on
-    the GPU. ``max_iter`` is the number of full-batch Adam steps; ``l2`` is
-    the (mean-CE-relative) ridge penalty on the weights.
+    """Fit ``q(y|x)`` — multinomial logistic via fixed-step torch **AdamW**
+    with **early stopping** on an internal validation split.
+
+    ``l2`` is AdamW's decoupled weight decay; ``max_iter`` the max Adam
+    steps. Early stopping (keep the weights with the best held-out CE seen)
+    is the real guard: an un-/under-regularised fixed-step fit *diverges* on
+    under-determined blocks (wide ``attn_score`` features, few rows/class),
+    assigning ~0 probability to held-out tokens and producing nonsensical
+    (hugely negative) PVI. Stopping at the best-generalising iterate bounds
+    the held-out CE regardless of feature scale. Falls back to plain
+    fixed-step when there are too few rows to carve a val split.
+
+    Defaults ``lr=0.05`` + ``l2(weight_decay)=0.1`` were tuned against the
+    sklearn oracle on real deep-layer blocks: the earlier ``lr=0.2`` jumped
+    straight from underfit to *overconfident* logits (high accuracy, huge
+    held-out CE, PVI ≪ 0) with no good iterate for early stopping to keep.
+    Lower lr converges; stronger decay caps logit magnitude → calibrated
+    probabilities. This recovered PVI ≈ +5.5 bits on resid L18 (matching
+    sklearn), vs −13 before. See docs/dev/perf_assumptions.md.
     """
     dev = _resolve_device(device)
     torch.manual_seed(seed)
     mean, std = standardize_fit(x_train)
-    xs = torch.from_numpy(((x_train - mean) / std).astype(np.float32)).to(dev)
-    yt = torch.from_numpy(y_idx_train.astype(np.int64)).to(dev)
-    d = xs.shape[1]
+    xn = ((x_train - mean) / std).astype(np.float32)
+    yi = y_idx_train.astype(np.int64)
+
+    n = xn.shape[0]
+    n_val = int(round(val_frac * n))
+    use_es = n_val >= 1 and (n - n_val) >= 1
+    perm = np.random.default_rng(seed).permutation(n) if use_es else np.arange(n)
+    tr_idx, va_idx = perm[n_val:], perm[:n_val]
+
+    xtr = torch.from_numpy(xn[tr_idx]).to(dev)
+    ytr = torch.from_numpy(yi[tr_idx]).to(dev)
+    if use_es:
+        xva = torch.from_numpy(xn[va_idx]).to(dev)
+        yva = torch.from_numpy(yi[va_idx]).to(dev)
+
+    d = xn.shape[1]
     W = torch.zeros((d, num_classes), device=dev, requires_grad=True)
     b = torch.zeros(num_classes, device=dev, requires_grad=True)
-    opt = torch.optim.Adam([W, b], lr=lr)
+    opt = torch.optim.AdamW([W, b], lr=lr, weight_decay=l2)
 
-    for _ in range(max_iter):
+    best_val, best_W, best_b = float("inf"), None, None
+    for step in range(max_iter):
         opt.zero_grad()
-        loss = F.cross_entropy(xs @ W + b, yt) + l2 * (W * W).mean()
-        loss.backward()
+        F.cross_entropy(xtr @ W + b, ytr).backward()
         opt.step()
+        if use_es and (step % eval_every == 0 or step == max_iter - 1):
+            with torch.no_grad():
+                vce = F.cross_entropy(xva @ W + b, yva).item()
+            if vce < best_val:
+                best_val, best_W, best_b = vce, W.detach().clone(), b.detach().clone()
+
+    Wf, bf = (best_W, best_b) if best_W is not None else (W.detach(), b.detach())
     return {
-        "W": W.detach(),
-        "b": b.detach(),
+        "W": Wf,
+        "b": bf,
         "mean": mean,
         "std": std,
         "num_classes": num_classes,

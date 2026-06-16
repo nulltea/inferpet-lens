@@ -107,6 +107,7 @@ def club_mi_upper_bound(
     lr: float = 1e-3,
     weight_decay: float = 1e-4,
     train_frac: float = 0.7,
+    max_rows: int | None = None,
     seed: int = 20260615,
     device: str | None = None,
 ) -> dict[str, Any]:
@@ -130,6 +131,14 @@ def club_mi_upper_bound(
     """
     if X.shape[0] < 8:
         return {"club_mi_bits": None, "note": "too few rows"}
+
+    # Row subsample: CLUB's bound is a sample mean; ~2.5k rows preserve the
+    # cross-layer rank (validated: Spearman-vs-recovery unchanged) at a
+    # large speedup. The estimate is looser in magnitude — fine, since only
+    # the rank is used for calibration.
+    if max_rows is not None and X.shape[0] > max_rows:
+        sel = np.random.default_rng(seed).choice(X.shape[0], size=max_rows, replace=False)
+        X, Y = X[sel], Y[sel]
 
     dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
     Xs = _standardize(X)

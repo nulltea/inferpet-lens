@@ -40,8 +40,8 @@ def online_code_length(
     *,
     block_fractions: tuple[float, ...] = (0.05, 0.1, 0.2, 0.4, 0.7, 1.0),
     max_classes: int = 256,
-    l2: float = 1e-4,
-    max_iter: int = 300,
+    l2: float = 1e-1,
+    max_iter: int = 500,
     seed: int = 20260615,
 ) -> dict[str, Any]:
     """Prequential online code length (bits) of ``y`` given ``X``, plus

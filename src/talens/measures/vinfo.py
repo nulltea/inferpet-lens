@@ -36,8 +36,8 @@ def v_information(
     *,
     train_frac: float = 0.7,
     max_classes: int = 256,
-    l2: float = 1e-4,
-    max_iter: int = 300,
+    l2: float = 1e-1,
+    max_iter: int = 500,
     seed: int = 20260615,
     return_pvi: bool = False,
 ) -> dict[str, Any]:

@@ -21,15 +21,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import torch
 
-from .attacks import attn_score, cover_break, hidden_state
+from .attacks import cover_break, hidden_state
 from .calibration import calibrate_records
 from .capture.types import CaptureSet
 from .measures import club_mi_upper_bound, online_code_length, v_information
 from .transforms import Identity, Transform
+
+# CLUB fidelity presets. "fast" is rank-faithful but magnitude-loose
+# (validated ~10× speedup, Spearman-vs-recovery unchanged); "full" is the
+# converged-magnitude bound. See docs/dev/perf_assumptions.md.
+CLUB_FIDELITY = {
+    "fast": {"steps": 150, "max_rows": 2500},
+    "full": {"steps": 400, "max_rows": None},
+}
+
+
+def _default_club_fidelity() -> str:
+    val = os.environ.get("TALENS_CLUB_FIDELITY", "fast")
+    return val if val in CLUB_FIDELITY else "fast"
 
 
 def _read_corpus(path: Path) -> list[str]:
@@ -46,29 +60,31 @@ def _process_block(
     attack_split_mode: str,
     with_mdl: bool = True,
     max_classes: int = 256,
+    club_fidelity: str = "fast",
 ) -> dict:
     """All attack + measure work for one (kind, layer) block. ``with_mdl``
     toggles the (expensive, prequential) MDL online-code probe; PVI and
-    CLUB always run."""
-    if kind not in ("resid_post", "attn_score"):
+    CLUB always run. ``club_fidelity`` ∈ {fast, full} — see
+    ``CLUB_FIDELITY`` / docs/dev/perf_assumptions.md."""
+    if kind not in ("resid_post", "kq", "kqv_out"):
         return {}
 
     # Stack the operands once and reuse for both the attack and the
     # measures (avoids re-flattening the same block 2-3×).
     X, y, _ = cap.stack(kind, layer, transform=transform)
 
-    if kind == "resid_post":
-        atk = hidden_state.run(
-            cap, embed_table, layer=layer, kind=kind, transform=transform,
-            split_mode=attack_split_mode, xy=(X, y),
-        )
-        cover = cover_break.run(cap, layer=layer, kind=kind, transform=transform)
-    else:  # attn_score
-        atk = attn_score.run(
-            cap, embed_table, layer=layer, transform=transform,
-            split_mode=attack_split_mode, xy=(X, y),
-        )
-        cover = None
+    # Every surface uses the same ridge inverter (resid_post = IMA/ISA;
+    # kq / kqv_out = ISA on the attention surfaces). cover-break is only
+    # meaningful for the residual stream.
+    attack_name = "hidden_state_inversion" if kind == "resid_post" else f"isa_{kind}"
+    atk = hidden_state.run(
+        cap, embed_table, layer=layer, kind=kind, transform=transform,
+        split_mode=attack_split_mode, xy=(X, y), attack_name=attack_name,
+    )
+    cover = (
+        cover_break.run(cap, layer=layer, kind=kind, transform=transform)
+        if kind == "resid_post" else None
+    )
 
     vinfo = v_information(X, y, max_classes=max_classes)   # GPU torch probe
     mdl = (
@@ -77,7 +93,7 @@ def _process_block(
     )
     if X.shape[0] >= 8:
         Y = embed_table[torch.from_numpy(y)].numpy()
-        club = club_mi_upper_bound(X, Y)    # GPU
+        club = club_mi_upper_bound(X, Y, **CLUB_FIDELITY[club_fidelity])  # GPU
     else:
         club = {"club_mi_bits": None}
 
@@ -104,6 +120,7 @@ def calibrate_capture(
     with_mdl: bool = True,
     max_classes: int = 256,
     workers: int = 4,
+    club_fidelity: str = "fast",
 ) -> dict:
     """Run attacks + measures over every (kind, layer) block and fit the
     IT-measure → recovery calibration. Model-free: a synthetic CaptureSet
@@ -127,7 +144,7 @@ def calibrate_capture(
         return _process_block(
             cap, embed_table, k, layer,
             transform=transform, attack_split_mode=attack_split_mode,
-            with_mdl=with_mdl, max_classes=max_classes,
+            with_mdl=with_mdl, max_classes=max_classes, club_fidelity=club_fidelity,
         )
 
     n_workers = max(1, min(workers, len(blocks)))
@@ -161,6 +178,7 @@ def run_pass1(
     cache_dir: str | None = None,
     refresh_capture: bool = False,
     workers: int = 4,
+    club_fidelity: str = "fast",
 ) -> dict:
     """Capture on the GPU, then attack/measure/calibrate under Identity.
     ``attack_split_mode`` defaults to ``"row"`` (resolution A — match the
@@ -190,10 +208,12 @@ def run_pass1(
     report = calibrate_capture(
         cap, emb, attack_split_mode=attack_split_mode,
         with_mdl=with_mdl, max_classes=max_classes, workers=workers,
+        club_fidelity=club_fidelity,
     )
     report["model_id"] = model_id
     report["n_prompts"] = len(prompts)
     report["capture_source"] = source
+    report["club_fidelity"] = club_fidelity
     return report
 
 
@@ -223,6 +243,12 @@ def main() -> None:
         help="thread-pool size over (kind,layer) blocks (1 = sequential)",
     )
     p.add_argument(
+        "--club-fidelity", choices=sorted(CLUB_FIDELITY), default=_default_club_fidelity(),
+        help="fast = rank-faithful/magnitude-loose CLUB (~10× faster, validated); "
+             "full = converged-magnitude bound. Env: TALENS_CLUB_FIDELITY. "
+             "See docs/dev/perf_assumptions.md",
+    )
+    p.add_argument(
         "--attack-split-mode", default="row", choices=["row", "vocab"],
         help="row = resolution A (match class-probe measures); vocab = honest attacker",
     )
@@ -247,7 +273,7 @@ def main() -> None:
         attack_split_mode=args.attack_split_mode,
         with_mdl=not args.no_mdl, max_classes=args.max_classes,
         cache_dir=args.cache_dir, refresh_capture=args.refresh_capture,
-        workers=args.workers,
+        workers=args.workers, club_fidelity=args.club_fidelity,
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

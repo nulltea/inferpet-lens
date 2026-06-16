@@ -42,7 +42,18 @@ def fit_ridge(
     identity[-1, -1] = 0.0  # don't penalise the bias
     lhs = x_aug.T @ x_aug + ridge_alpha * identity
     rhs = x_aug.T @ y_norm
-    weight = torch.linalg.solve(lhs, rhs)
+    # Matmuls stay on GPU; the dense solve runs on CPU. Two reasons the GPU
+    # solve is unusable here on gfx1151:
+    #  * rocSOLVER's LU path (``torch.linalg.solve`` → ``hipblasStrsm``)
+    #    raises HIPBLAS_STATUS_ALLOC_FAILED for wide systems — its getrs
+    #    workspace scales with N·rhs and overflows past ~N·rhs of 2561·2560
+    #    (resid d=2560 just fits; kqv_out d=4096 → 4097×2560 fails).
+    #  * Cholesky avoids that path but needs an SPD matrix; our ridge systems
+    #    are under-determined (n_train < d) with an unpenalised bias, so
+    #    ``lhs`` isn't PD and Cholesky fails too.
+    # The CPU LU solve is robust at all widths and cheap (one op, threaded
+    # BLAS) next to the GPU matmuls. Weight returns to the inputs' device.
+    weight = torch.linalg.solve(lhs.cpu(), rhs.cpu()).to(x_aug.device)
     return {
         "weight": weight,
         "x_mean": x_mean,
