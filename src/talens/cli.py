@@ -172,6 +172,7 @@ def run_pass1(
     *,
     layers: list[int] | None = None,
     capture_layers: list[int] | None = None,
+    every_n: int = 1,
     attack_split_mode: str = "row",
     with_mdl: bool = True,
     max_classes: int = 256,
@@ -196,14 +197,19 @@ def run_pass1(
         model_id, prompts, capture_layers=capture_layers,
         cache_dir=cache_dir, refresh=refresh_capture,
     )
-    if layers is not None:
-        missing = sorted(set(layers) - present_layers(cap))
+    # Resolve the measured-layer set: base = explicit ``layers`` or all
+    # captured, then keep every ``every_n``-th.
+    base = layers if layers is not None else sorted(present_layers(cap))
+    if every_n > 1:
+        base = base[::every_n]
+    if layers is not None or every_n > 1:
+        missing = sorted(set(base) - present_layers(cap))
         if missing:
             raise ValueError(
-                f"--layers {missing} not in capture (have "
+                f"layers {missing} not in capture (have "
                 f"{sorted(present_layers(cap))}); widen --capture-layers"
             )
-        cap = subset_capture(cap, layers)
+        cap = subset_capture(cap, base)
 
     report = calibrate_capture(
         cap, emb, attack_split_mode=attack_split_mode,
@@ -223,7 +229,13 @@ def main() -> None:
     p.add_argument("--corpus", type=Path, required=True)
     p.add_argument(
         "--layers", default=None,
-        help="comma-separated layers to MEASURE; default all captured (must be ⊆ --capture-layers)",
+        help="layers to MEASURE: a single int N = the first N layers (0..N-1); "
+             "a comma list = explicit indices; default all captured. "
+             "(must be ⊆ --capture-layers)",
+    )
+    p.add_argument(
+        "--every-n", type=int, default=1,
+        help="measure every N-th layer of the --layers set (1 = all)",
     )
     p.add_argument(
         "--capture-layers", default=None,
@@ -264,13 +276,19 @@ def main() -> None:
     args = p.parse_args()
 
     prompts = _read_corpus(args.corpus)
-    layers = [int(x) for x in args.layers.split(",")] if args.layers else None
-    capture_layers = (
-        [int(x) for x in args.capture_layers.split(",")] if args.capture_layers else None
-    )
+
+    def _parse_layers(spec: str | None) -> list[int] | None:
+        if not spec:
+            return None
+        if "," in spec:
+            return [int(x) for x in spec.split(",")]      # explicit indices
+        return list(range(int(spec)))                      # single int = first-N count
+
+    layers = _parse_layers(args.layers)
+    capture_layers = _parse_layers(args.capture_layers)
     report = run_pass1(
         args.model, prompts, layers=layers, capture_layers=capture_layers,
-        attack_split_mode=args.attack_split_mode,
+        every_n=args.every_n, attack_split_mode=args.attack_split_mode,
         with_mdl=not args.no_mdl, max_classes=args.max_classes,
         cache_dir=args.cache_dir, refresh_capture=args.refresh_capture,
         workers=args.workers, club_fidelity=args.club_fidelity,

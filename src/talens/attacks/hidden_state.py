@@ -25,7 +25,7 @@ def run(
     layer: int,
     kind: str = "resid_post",
     transform: Transform | None = None,
-    n_train: int = 1024,
+    n_train: int | None = None,
     n_val: int = 128,
     n_test: int = 128,
     topk: int = 10,
@@ -37,6 +37,12 @@ def run(
     xy: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> AttackResult:
     transform = transform or Identity()
+    # n_train=None → full row-split: a huge request makes the splitter
+    # auto-scale to 70/15/15 of all available rows (the aloepri row-split).
+    # The old fixed 1024 under-trained the inverter on ~9k-row corpora and
+    # understated recovery (esp. for the wide kqv_out surface).
+    if n_train is None:
+        n_train = 10**9
     # ``xy`` lets the caller pass an already-stacked (X, y) so the operand
     # flattening isn't repeated (the orchestrator stacks once per block).
     X, y = xy if xy is not None else capture.stack(kind, layer, transform=transform)[:2]
