@@ -43,9 +43,16 @@ def online_code_length(
     l2: float = 1e-1,
     max_iter: int = 500,
     seed: int = 20260615,
+    control: str = "none",
+    control_seed: int = 20260616,
 ) -> dict[str, Any]:
     """Prequential online code length (bits) of ``y`` given ``X``, plus
     compression ratio and the Whitney SDL surplus.
+
+    ``control="shuffle"`` permutes the labels over the same kept rows
+    (before the prequential ordering) to break the X↔Y pairing — the
+    Hewitt–Liang control task. The surplus then reads the probe's
+    memorisation floor. See ``docs/dev/control-tasks.md``.
     """
     if X.shape[0] < 8:
         return {"online_code_length_bits": None, "note": "too few rows"}
@@ -58,6 +65,9 @@ def online_code_length(
         X, y = X[m], y[m]
         y_idx_all, classes = to_class_indices(y)
     n_cls = int(classes.size)
+
+    if control == "shuffle":
+        y_idx_all = y_idx_all[np.random.default_rng(control_seed).permutation(y_idx_all.size)]
 
     rng = np.random.default_rng(seed)
     perm = rng.permutation(X.shape[0])
@@ -99,6 +109,7 @@ def online_code_length(
         "floor_ce_bits_per_row": float(floor_ce_per_row),
         "num_classes": n_cls,
         "n_rows": int(n),
+        "control": control,
     }
 
 

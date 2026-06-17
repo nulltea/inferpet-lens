@@ -33,6 +33,8 @@ def run(
     candidate_pool_size: int = 2048,
     seed: int = 20260615,
     split_mode: str = "vocab",
+    control: str = "none",
+    control_seed: int = 20260616,
     attack_name: str = "hidden_state_inversion",
     xy: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> AttackResult:
@@ -58,6 +60,8 @@ def run(
         candidate_pool_size=candidate_pool_size,
         seed=seed,
         split_mode=split_mode,
+        control=control,
+        control_seed=control_seed,
     )
     if metrics is None:
         return AttackResult(

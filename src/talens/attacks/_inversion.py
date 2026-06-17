@@ -31,14 +31,24 @@ def ridge_inversion(
     candidate_pool_size: int = 2048,
     seed: int = 20260615,
     split_mode: str = "vocab",
+    control: str = "none",
+    control_seed: int = 20260616,
     device: str | None = None,
 ) -> dict[str, Any] | None:
     """Return a metrics dict (or ``None`` if there aren't enough rows to
     form a train/test split). The dict carries TTRSR top-1/top-10, the
     selected alpha + its validation scan, and the embedding cosine.
+
+    ``control="shuffle"`` permutes the labels before the split (breaking
+    X↔Y); the inverter then collapses to predicting the mean target and the
+    TTRSR floor reads the frequency baseline (M1) — ``selectivity =
+    real − shuffled``. See ``docs/dev/control-tasks.md``.
     """
     if X.shape[0] == 0:
         return None
+
+    if control == "shuffle":
+        y = y[np.random.default_rng(control_seed).permutation(y.shape[0])]
 
     splitter = (
         vocab_disjoint_train_val_test_split
@@ -101,4 +111,5 @@ def ridge_inversion(
         "ridge_alpha_val_scan": alpha_scan,
         "candidate_pool_size": int(pool.shape[0]),
         "split_mode": split_mode,
+        "control": control,
     }

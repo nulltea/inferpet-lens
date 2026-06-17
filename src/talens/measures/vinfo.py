@@ -39,6 +39,8 @@ def v_information(
     l2: float = 1e-1,
     max_iter: int = 500,
     seed: int = 20260615,
+    control: str = "none",
+    control_seed: int = 20260616,
     return_pvi: bool = False,
 ) -> dict[str, Any]:
     """Estimate I_V(X→Y) in bits with a softmax-probe family. If the
@@ -50,6 +52,13 @@ def v_information(
     memorising; capping to the top-256 ids (~27 rows/class) makes the
     estimate statistically meaningful **and** ~10× cheaper. The measure
     then reads "token-identity information about the top-256 tokens".
+
+    ``control="shuffle"`` is the Hewitt–Liang control task: permute the
+    labels (over the *same* kept rows, before the *same* split) so the
+    X↔Y pairing is broken but the marginal is preserved. The estimate then
+    reads the probe's memorisation/finite-sample floor (≈0 for PVI, since
+    the null model already subtracts the prior). ``selectivity =
+    real − shuffled``. See ``docs/dev/control-tasks.md``.
     """
     if X.shape[0] < 4:
         return {"v_information_bits": None, "note": "too few rows"}
@@ -62,6 +71,10 @@ def v_information(
         X, y = X[keep_mask], y[keep_mask]
         y_idx_all, classes = to_class_indices(y)
     num_classes = int(classes.size)
+
+    if control == "shuffle":
+        # Break X↔Y over the same rows, before the same split (Option A).
+        y_idx_all = y_idx_all[np.random.default_rng(control_seed).permutation(y_idx_all.size)]
 
     tr, te = row_split(X.shape[0], train_frac, seed)
     if tr.size == 0 or te.size == 0:
@@ -85,6 +98,7 @@ def v_information(
         "num_classes": num_classes,
         "n_train": int(tr.size),
         "n_test": int(te.size),
+        "control": control,
     }
     if return_pvi:
         out["pvi_bits"] = pvi_bits

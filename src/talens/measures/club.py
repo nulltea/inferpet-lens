@@ -109,6 +109,8 @@ def club_mi_upper_bound(
     train_frac: float = 0.7,
     max_rows: int | None = None,
     seed: int = 20260615,
+    control: str = "none",
+    control_seed: int = 20260616,
     device: str | None = None,
 ) -> dict[str, Any]:
     """Estimate an MI upper bound between rows of ``X`` (representation)
@@ -139,6 +141,13 @@ def club_mi_upper_bound(
     if max_rows is not None and X.shape[0] > max_rows:
         sel = np.random.default_rng(seed).choice(X.shape[0], size=max_rows, replace=False)
         X, Y = X[sel], Y[sel]
+
+    if control == "shuffle":
+        # Break X↔Y by permuting the embedding targets (Hewitt–Liang control
+        # task). CLUB → 0 at independence (Cheng et al. Thm 3.1); a positive
+        # value is the estimator's finite-sample / over-expressivity floor —
+        # exactly what ``selectivity = real − shuffled`` subtracts.
+        Y = Y[np.random.default_rng(control_seed).permutation(Y.shape[0])]
 
     dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
     Xs = _standardize(X)
@@ -176,4 +185,5 @@ def club_mi_upper_bound(
         "n_test": int(te.size),
         "hidden_size": hidden_size,
         "device": dev,
+        "control": control,
     }

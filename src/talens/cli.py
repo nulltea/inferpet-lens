@@ -41,6 +41,30 @@ CLUB_FIDELITY = {
 }
 
 
+# Control tasks (docs/dev/control-tasks.md). ``shuffle`` = Hewitt–Liang
+# label-permutation floor (selectivity = real − shuffled), applied to every
+# estimator. ``vocab`` = the per-vocabulary memorisation gap for the attack
+# (ttrsr_row − ttrsr_vocab). ``all`` = both. The control runs reuse a fixed
+# seed offset so real and control evaluate the same rows.
+CONTROL_SEED = 20260616
+ALL_CONTROLS = ("shuffle", "vocab")
+
+
+def _parse_controls(arg: str) -> frozenset[str]:
+    if arg in ("", "none"):
+        return frozenset()
+    if arg == "all":
+        return frozenset(ALL_CONTROLS)
+    return frozenset(arg.split(","))
+
+
+def _selectivity(real: float | None, floor: float | None) -> float | None:
+    """real − floor, or None if either is missing."""
+    if real is None or floor is None:
+        return None
+    return float(real) - float(floor)
+
+
 def _default_club_fidelity() -> str:
     val = os.environ.get("TALENS_CLUB_FIDELITY", "fast")
     return val if val in CLUB_FIDELITY else "fast"
@@ -61,11 +85,17 @@ def _process_block(
     with_mdl: bool = True,
     max_classes: int = 256,
     club_fidelity: str = "fast",
+    controls: frozenset[str] = frozenset(),
 ) -> dict:
     """All attack + measure work for one (kind, layer) block. ``with_mdl``
     toggles the (expensive, prequential) MDL online-code probe; PVI and
     CLUB always run. ``club_fidelity`` ∈ {fast, full} — see
-    ``CLUB_FIDELITY`` / docs/dev/perf_assumptions.md."""
+    ``CLUB_FIDELITY`` / docs/dev/perf_assumptions.md.
+
+    ``controls`` (see docs/dev/control-tasks.md) adds, per estimator:
+    ``shuffle`` → a label-permutation floor + ``*_selectivity`` (real −
+    floor) for PVI/MDL/CLUB/attack; ``vocab`` → the attack's vocab-disjoint
+    memorisation gap (``ttrsr_top1_row − ttrsr_top1_vocab``)."""
     if kind not in ("resid_post", "kq", "kqv_out"):
         return {}
 
@@ -91,13 +121,14 @@ def _process_block(
         online_code_length(X, y, max_classes=max_classes)  # GPU torch probe (off by default)
         if with_mdl else {}
     )
-    if X.shape[0] >= 8:
+    has_Y = X.shape[0] >= 8
+    if has_Y:
         Y = embed_table[torch.from_numpy(y)].numpy()
         club = club_mi_upper_bound(X, Y, **CLUB_FIDELITY[club_fidelity])  # GPU
     else:
         club = {"club_mi_bits": None}
 
-    return {
+    rec = {
         "kind": kind,
         "layer": layer,
         "attack": atk.attack,
@@ -110,6 +141,58 @@ def _process_block(
         "club_mi_bits": club.get("club_mi_bits"),
     }
 
+    if "shuffle" in controls:
+        # Hewitt–Liang label-permutation floor, same rows/split, only labels
+        # broken (Option A). selectivity = real − shuffled.
+        vinfo_s = v_information(
+            X, y, max_classes=max_classes, control="shuffle", control_seed=CONTROL_SEED
+        )
+        rec["v_information_bits_shuffle"] = vinfo_s.get("v_information_bits")
+        rec["v_information_selectivity"] = _selectivity(
+            rec["v_information_bits"], rec["v_information_bits_shuffle"]
+        )
+        if with_mdl:
+            mdl_s = online_code_length(
+                X, y, max_classes=max_classes, control="shuffle", control_seed=CONTROL_SEED
+            )
+            rec["mdl_surplus_bits_shuffle"] = mdl_s.get("surplus_description_length_bits")
+            rec["mdl_selectivity"] = _selectivity(
+                rec["mdl_surplus_bits"], rec["mdl_surplus_bits_shuffle"]
+            )
+        if has_Y:
+            club_s = club_mi_upper_bound(
+                X, Y, **CLUB_FIDELITY[club_fidelity], control="shuffle", control_seed=CONTROL_SEED
+            )
+            rec["club_mi_bits_shuffle"] = club_s.get("club_mi_bits")
+            rec["club_mi_selectivity"] = _selectivity(
+                rec["club_mi_bits"], rec["club_mi_bits_shuffle"]
+            )
+        atk_s = hidden_state.run(
+            cap, embed_table, layer=layer, kind=kind, transform=transform,
+            split_mode=attack_split_mode, control="shuffle", control_seed=CONTROL_SEED,
+            xy=(X, y), attack_name=attack_name,
+        )
+        rec["ttrsr_top1_shuffle"] = atk_s.ttrsr_top1
+        rec["ttrsr_selectivity"] = _selectivity(rec["ttrsr_top1"], atk_s.ttrsr_top1)
+
+    if "vocab" in controls:
+        # Per-vocabulary memorisation gap (M3): real labels, but test ids
+        # held out of training. gap = row − vocab. Reuse the baseline arm
+        # when its split already matches.
+        def _ttrsr(split_mode: str) -> float | None:
+            if split_mode == attack_split_mode:
+                return atk.ttrsr_top1
+            return hidden_state.run(
+                cap, embed_table, layer=layer, kind=kind, transform=transform,
+                split_mode=split_mode, xy=(X, y), attack_name=attack_name,
+            ).ttrsr_top1
+
+        rec["ttrsr_top1_row"] = _ttrsr("row")
+        rec["ttrsr_top1_vocab"] = _ttrsr("vocab")
+        rec["ttrsr_mem_gap"] = _selectivity(rec["ttrsr_top1_row"], rec["ttrsr_top1_vocab"])
+
+    return rec
+
 
 def calibrate_capture(
     cap: CaptureSet,
@@ -121,6 +204,7 @@ def calibrate_capture(
     max_classes: int = 256,
     workers: int = 4,
     club_fidelity: str = "fast",
+    controls: frozenset[str] = frozenset(),
 ) -> dict:
     """Run attacks + measures over every (kind, layer) block and fit the
     IT-measure → recovery calibration. Model-free: a synthetic CaptureSet
@@ -145,6 +229,7 @@ def calibrate_capture(
             cap, embed_table, k, layer,
             transform=transform, attack_split_mode=attack_split_mode,
             with_mdl=with_mdl, max_classes=max_classes, club_fidelity=club_fidelity,
+            controls=controls,
         )
 
     n_workers = max(1, min(workers, len(blocks)))
@@ -158,9 +243,24 @@ def calibrate_capture(
     if with_mdl:
         keys.insert(1, "mdl_surplus_bits")
     calibration = {key: calibrate_records(records, measure_key=key) for key in keys}
+
+    if "shuffle" in controls:
+        # Does the floor-subtracted measure predict recovery better than the
+        # raw measure? Calibrate each *_selectivity column against raw recovery
+        # and against the selectivity-adjusted recovery. (docs/dev/control-tasks.md)
+        sel_keys = ["v_information_selectivity", "club_mi_selectivity"]
+        if with_mdl:
+            sel_keys.insert(1, "mdl_selectivity")
+        for key in sel_keys:
+            calibration[key] = calibrate_records(records, measure_key=key)
+            calibration[f"{key}__vs_ttrsr_selectivity"] = calibrate_records(
+                records, measure_key=key, recovery_key="ttrsr_selectivity"
+            )
+
     return {
         "transform": transform.name,
         "attack_split_mode": attack_split_mode,
+        "controls": sorted(controls),
         "records": records,
         "calibration": calibration,
     }
@@ -180,6 +280,7 @@ def run_pass1(
     refresh_capture: bool = False,
     workers: int = 4,
     club_fidelity: str = "fast",
+    controls: frozenset[str] = frozenset(),
 ) -> dict:
     """Capture on the GPU, then attack/measure/calibrate under Identity.
     ``attack_split_mode`` defaults to ``"row"`` (resolution A — match the
@@ -214,7 +315,7 @@ def run_pass1(
     report = calibrate_capture(
         cap, emb, attack_split_mode=attack_split_mode,
         with_mdl=with_mdl, max_classes=max_classes, workers=workers,
-        club_fidelity=club_fidelity,
+        club_fidelity=club_fidelity, controls=controls,
     )
     report["model_id"] = model_id
     report["n_prompts"] = len(prompts)
@@ -272,6 +373,12 @@ def main() -> None:
         "--max-classes", type=int, default=256,
         help="cap distinct token-ids the class-probe predicts (top-N most frequent)",
     )
+    p.add_argument(
+        "--control", default="none", choices=["none", "shuffle", "vocab", "all"],
+        help="control task(s) for memorisation (docs/dev/control-tasks.md): "
+             "shuffle = label-permutation floor + *_selectivity on every estimator; "
+             "vocab = attack vocab-disjoint memorisation gap; all = both",
+    )
     p.add_argument("--out", type=Path, required=True)
     args = p.parse_args()
 
@@ -292,6 +399,7 @@ def main() -> None:
         with_mdl=not args.no_mdl, max_classes=args.max_classes,
         cache_dir=args.cache_dir, refresh_capture=args.refresh_capture,
         workers=args.workers, club_fidelity=args.club_fidelity,
+        controls=_parse_controls(args.control),
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
