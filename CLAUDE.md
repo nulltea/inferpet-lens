@@ -4,6 +4,30 @@
 grounded study of confidential-inference attacks on transformers. See
 `README.md` for the premise and document map.
 
+## Always run heavy workflows in the GPU container
+
+The host `.venv` has a **CPU-only torch wheel** (`torch …+cpu`) — it is for
+fast model-free unit tests (`pytest`) only. **Never** run capture, the
+PVI/MDL probe, CLUB, or the inversion attacks (i.e. `talens.cli`,
+`calibrate_capture`, anything touching real Qwen3 activations) under the
+`.venv`: it silently falls back to CPU and is unusably slow.
+
+The GPU is an AMD Strix Halo iGPU (gfx1151, "Radeon 8060S"); reach it only
+through the ROCm container. Wrap **every** heavy command in
+`scripts/run_in_rocm.sh` (auto-builds `talens-rocm:latest` on first use,
+bind-mounts the repo + HF cache at identical host paths, exposes
+`/dev/kfd`+`/dev/dri`):
+
+```bash
+scripts/run_in_rocm.sh python3 -m talens.cli \
+    --corpus corpora/dev-24.txt --control all --out results/run.json
+# sanity: scripts/run_in_rocm.sh python3 -c 'import torch; print(torch.cuda.is_available())'
+```
+
+`pytest` (synthetic, model-free) stays on the host `.venv`. See
+`Containerfile` for why the base image is AMD's `rocm/pytorch` (gfx1151
+kernels) rather than a pip torch wheel.
+
 ## What this repo is
 
 A research repo: surveys, the measurement-method lineage, an experimental
