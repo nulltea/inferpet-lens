@@ -1,8 +1,8 @@
 ---
-type: reference
+type: dev-log
 status: current
 created: 2026-06-16
-updated: 2026-06-16
+updated: 2026-06-17
 tags: [control-tasks, selectivity, memorization, PVI, MDL, CLUB, inversion-attack, vocab-disjoint]
 companion: [pareto-hv-control-tasks]
 ---
@@ -119,6 +119,12 @@ Record fields added (per `(kind, layer)` block):
 Calibration block gains `*_selectivity` columns (each floor-subtracted measure
 vs raw recovery, and vs `ttrsr_selectivity`) — testing whether removing the
 memorisation floor tightens the measure↔attack correlation.
+
+> **Sign caveat:** `mdl_selectivity` is not sign-comparable to the PVI/CLUB
+> selectivities. MDL surplus is a *description-length cost* (lower = more
+> compressible/leaky), so `real − shuffled` carries the opposite polarity to
+> the information-style measures. Read its rank-correlation magnitude, not its
+> sign, when comparing across measures. (MDL is off by default anyway.)
 
 Determinism: `control_seed = 20260616` (= split `seed + 1`); real and control
 evaluate the same rows. With `--control none` the output is byte-identical to

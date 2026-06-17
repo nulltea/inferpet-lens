@@ -15,7 +15,7 @@ import torch
 
 from talens.attacks import hidden_state
 from talens.capture.types import CaptureSet
-from talens.cli import _parse_controls, _process_block, _selectivity
+from talens.cli import _parse_controls, _process_block, _selectivity, calibrate_capture
 from talens.measures import club_mi_upper_bound, v_information
 from talens.transforms import Identity
 
@@ -103,7 +103,7 @@ def test_process_block_emits_control_fields():
     cap = _make_capture(emb)
     rec = _process_block(
         cap, emb, "resid_post", 0,
-        transform=Identity(), attack_split_mode="row",
+        transform=Identity(), attack_split_mode="row", with_mdl=True,
         controls=frozenset({"shuffle", "vocab"}),
     )
     # shuffle floor + selectivity for every estimator
@@ -129,3 +129,35 @@ def test_process_block_no_controls_is_unchanged():
     )
     assert "v_information_selectivity" not in rec
     assert "ttrsr_mem_gap" not in rec
+
+
+# --- PVI-only mode (--no-club / --no-attack) ------------------------------
+
+def test_pvi_only_mode_skips_club_and_attack():
+    emb = _embed_table()
+    cap = _make_capture(emb)
+    rec = _process_block(
+        cap, emb, "resid_post", 0,
+        transform=Identity(), attack_split_mode="row",
+        with_club=False, with_attack=False,
+        controls=frozenset({"shuffle", "vocab"}),
+    )
+    # PVI (+ its shuffle floor) still runs
+    assert rec["v_information_bits"] is not None
+    assert "v_information_selectivity" in rec
+    # CLUB + attack disabled → no values, no attack-side controls
+    assert rec["club_mi_bits"] is None
+    assert rec["ttrsr_top1"] is None
+    for absent in ("club_mi_selectivity", "ttrsr_selectivity", "ttrsr_mem_gap"):
+        assert absent not in rec
+
+
+def test_calibrate_capture_skips_calibration_without_attack():
+    emb = _embed_table()
+    cap = _make_capture(emb)
+    report = calibrate_capture(
+        cap, emb, attack_split_mode="row", with_club=False, with_attack=False,
+    )
+    # no recovery column → calibration skipped, but PVI records still produced
+    assert report["calibration"] == {}
+    assert all(r["v_information_bits"] is not None for r in report["records"])

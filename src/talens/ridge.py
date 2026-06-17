@@ -46,15 +46,18 @@ def fit_ridge(
     # path goes through getrs/trsm (``hipblasStrsm``), whose workspace
     # ALLOC_FAILs on gfx1151 for wide systems (d≳2560 — kqv_out d=4096 dies);
     # potrf does not. ``lhs = XᵀX + αI`` is SPD in the over-determined regime
-    # (n_train ≥ d, the full-corpus case); a tiny jitter on the unpenalised
-    # bias diagonal guarantees PD with no effect on the fit (Δ < 1e-6 vs the
-    # CPU LU solve, verified on gfx1151). Fall back to the robust CPU LU solve
-    # for the rare under-determined + tiny-α system that is too ill-conditioned
-    # for float32 Cholesky. Weight stays on the inputs' device.
+    # (n_train ≥ d, the full-corpus case); a fixed 1e-3 jitter on the
+    # unpenalised bias diagonal makes it PD. The recovered map matches the old
+    # CPU LU solve to <1e-5 on *predictions* over-determined (verified on
+    # gfx1151); for under-determined splits the weights differ in the (unused)
+    # null space but predictions still match to ~1e-4 — and only predictions
+    # feed the attack. Falls back to CPU LU for the rare under-determined +
+    # tiny-α system too ill-conditioned for float32 Cholesky (RuntimeError also
+    # caught so an ultra-wide potrf alloc-fail degrades to CPU rather than
+    # crashing). Weight stays on the inputs' device.
+    lhs[-1, -1] += 1e-3  # in place: lhs is freshly built above, not aliased
     try:
-        lhs_pd = lhs.clone()
-        lhs_pd[-1, -1] += 1e-3
-        weight = torch.cholesky_solve(rhs, torch.linalg.cholesky(lhs_pd))
+        weight = torch.cholesky_solve(rhs, torch.linalg.cholesky(lhs))
     except (torch.linalg.LinAlgError, RuntimeError):
         weight = torch.linalg.solve(lhs.cpu(), rhs.cpu()).to(x_aug.device)
     return {

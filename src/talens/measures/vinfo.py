@@ -36,6 +36,7 @@ def v_information(
     *,
     train_frac: float = 0.7,
     max_classes: int = 256,
+    max_rows: int | None = None,
     l2: float = 1e-1,
     max_iter: int = 500,
     seed: int = 20260615,
@@ -52,6 +53,11 @@ def v_information(
     memorising; capping to the top-256 ids (~27 rows/class) makes the
     estimate statistically meaningful **and** ~10× cheaper. The measure
     then reads "token-identity information about the top-256 tokens".
+
+    ``max_rows`` caps the rows used (after class selection, so the class set
+    is unchanged) — the probe-fit cost is ~linear in rows. At 2500 the
+    cross-block rank is slightly looser than full (Spearman-vs-recovery
+    0.91→0.81) for a ~3× speedup; see ``docs/dev/perf_assumptions.md``.
 
     ``control="shuffle"`` is the Hewitt–Liang control task: permute the
     labels (over the *same* kept rows, before the *same* split) so the
@@ -71,6 +77,12 @@ def v_information(
         X, y = X[keep_mask], y[keep_mask]
         y_idx_all, classes = to_class_indices(y)
     num_classes = int(classes.size)
+
+    # Row cap (after class selection, so the class set matches the uncapped
+    # estimate). Mirrors CLUB's ``max_rows``. See docs/dev/perf_assumptions.md.
+    if max_rows is not None and X.shape[0] > max_rows:
+        sel = np.random.default_rng(seed).choice(X.shape[0], size=max_rows, replace=False)
+        X, y_idx_all = X[sel], y_idx_all[sel]
 
     if control == "shuffle":
         # Break X↔Y over the same rows, before the same split (Option A).

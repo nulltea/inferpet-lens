@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from typing import Any, Callable, NamedTuple
 
 import torch
 
@@ -48,6 +49,53 @@ CLUB_FIDELITY = {
 # seed offset so real and control evaluate the same rows.
 CONTROL_SEED = 20260616
 ALL_CONTROLS = ("shuffle", "vocab")
+
+# Cap PVI probe-fit rows. PVI is ~56% of a block's compute (the probe trains on
+# the full ~6.6k-row split); capping to 2500 is ~3× faster for a slight rank
+# loss (Spearman-vs-recovery 0.91→0.81). See docs/dev/perf_assumptions.md.
+PVI_MAX_ROWS = 2500
+
+
+class _MeasureSpec(NamedTuple):
+    """One class-style measure (PVI/MDL/CLUB) as data, so the baseline run,
+    the shuffle-control floor, and the calibration columns all derive from a
+    single registry instead of hand-synced branches. ``make(X, y, Y, opts)``
+    returns ``run(control) -> result dict``; ``src`` is the result key holding
+    the headline value; ``extras`` are baseline-only ``(rec_key, result_key)``
+    side-outputs; ``gate`` (None|"mdl"|"club") is the enabling flag."""
+    key: str
+    sel_key: str
+    src: str
+    gate: str | None
+    extras: tuple[tuple[str, str], ...]
+    make: Callable[..., Callable[[str], dict]]
+
+
+_MEASURES: tuple[_MeasureSpec, ...] = (
+    _MeasureSpec(
+        "v_information_bits", "v_information_selectivity", "v_information_bits", None, (),
+        lambda X, y, Y, o: lambda c: v_information(
+            X, y, max_classes=o["max_classes"], max_rows=o["pvi_max_rows"],
+            control=c, control_seed=CONTROL_SEED),
+    ),
+    _MeasureSpec(
+        "mdl_surplus_bits", "mdl_selectivity", "surplus_description_length_bits", "mdl",
+        (("mdl_compression", "compression"),),
+        lambda X, y, Y, o: lambda c: online_code_length(
+            X, y, max_classes=o["max_classes"], control=c, control_seed=CONTROL_SEED),
+    ),
+    _MeasureSpec(
+        "club_mi_bits", "club_mi_selectivity", "club_mi_bits", "club", (),
+        lambda X, y, Y, o: lambda c: club_mi_upper_bound(
+            X, Y, **CLUB_FIDELITY[o["club_fidelity"]], control=c, control_seed=CONTROL_SEED),
+    ),
+)
+
+
+def _active_measures(*, with_mdl: bool, with_club: bool) -> list[_MeasureSpec]:
+    """The measures enabled for this run (PVI always; MDL/CLUB gated)."""
+    on = {"mdl": with_mdl, "club": with_club}
+    return [m for m in _MEASURES if m.gate is None or on[m.gate]]
 
 
 def _parse_controls(arg: str) -> frozenset[str]:
@@ -82,20 +130,25 @@ def _process_block(
     *,
     transform: Transform,
     attack_split_mode: str,
-    with_mdl: bool = True,
+    with_mdl: bool = False,
+    with_club: bool = True,
+    with_attack: bool = True,
     max_classes: int = 256,
+    pvi_max_rows: int | None = PVI_MAX_ROWS,
     club_fidelity: str = "fast",
     controls: frozenset[str] = frozenset(),
 ) -> dict:
     """All attack + measure work for one (kind, layer) block. ``with_mdl``
-    toggles the (expensive, prequential) MDL online-code probe; PVI and
-    CLUB always run. ``club_fidelity`` ∈ {fast, full} — see
-    ``CLUB_FIDELITY`` / docs/dev/perf_assumptions.md.
+    toggles the (expensive, prequential) MDL online-code probe; ``with_club``
+    / ``with_attack`` toggle CLUB and the ridge attack (+cover-break) for fast
+    PVI-only iteration. PVI always runs. ``club_fidelity`` ∈ {fast, full} —
+    see ``CLUB_FIDELITY`` / docs/dev/perf_assumptions.md.
 
-    ``controls`` (see docs/dev/control-tasks.md) adds, per estimator:
+    ``controls`` (see docs/dev/control-tasks.md) adds, per *enabled* estimator:
     ``shuffle`` → a label-permutation floor + ``*_selectivity`` (real −
-    floor) for PVI/MDL/CLUB/attack; ``vocab`` → the attack's vocab-disjoint
-    memorisation gap (``ttrsr_top1_row − ttrsr_top1_vocab``)."""
+    floor); ``vocab`` → the attack's vocab-disjoint memorisation gap
+    (``ttrsr_top1_row − ttrsr_top1_vocab``). Attack-side controls are skipped
+    when ``with_attack`` is false; the CLUB shuffle floor when ``with_club``."""
     if kind not in ("resid_post", "kq", "kqv_out"):
         return {}
 
@@ -110,72 +163,54 @@ def _process_block(
     atk = hidden_state.run(
         cap, embed_table, layer=layer, kind=kind, transform=transform,
         split_mode=attack_split_mode, xy=(X, y), attack_name=attack_name,
-    )
+    ) if with_attack else None
     cover = (
         cover_break.run(cap, layer=layer, kind=kind, transform=transform)
-        if kind == "resid_post" else None
+        if with_attack and kind == "resid_post" else None
     )
 
-    vinfo = v_information(X, y, max_classes=max_classes)   # GPU torch probe
-    mdl = (
-        online_code_length(X, y, max_classes=max_classes)  # GPU torch probe (off by default)
-        if with_mdl else {}
-    )
-    has_Y = X.shape[0] >= 8
-    if has_Y:
-        Y = embed_table[torch.from_numpy(y)].numpy()
-        club = club_mi_upper_bound(X, Y, **CLUB_FIDELITY[club_fidelity])  # GPU
-    else:
-        club = {"club_mi_bits": None}
+    # Class-style measures from the registry (PVI always; MDL/CLUB gated). Y is
+    # the embedding target CLUB regresses to; built once, reused by its shuffle.
+    Y = embed_table[torch.from_numpy(y)].numpy() if with_club else None
+    opts = {"max_classes": max_classes, "pvi_max_rows": pvi_max_rows, "club_fidelity": club_fidelity}
+    measures = [(m, m.make(X, y, Y, opts)) for m in _active_measures(with_mdl=with_mdl, with_club=with_club)]
 
-    rec = {
+    rec: dict[str, Any] = {
         "kind": kind,
         "layer": layer,
-        "attack": atk.attack,
-        "primary_metric_value": atk.primary_metric_value,
-        "ttrsr_top1": atk.ttrsr_top1,
+        "attack": atk.attack if atk else None,
+        "primary_metric_value": atk.primary_metric_value if atk else None,
+        "ttrsr_top1": atk.ttrsr_top1 if atk else None,
         "cover_break_p95": cover.primary_metric_value if cover else None,
-        "v_information_bits": vinfo.get("v_information_bits"),
-        "mdl_surplus_bits": mdl.get("surplus_description_length_bits"),
-        "mdl_compression": mdl.get("compression"),
-        "club_mi_bits": club.get("club_mi_bits"),
     }
+    # Stable schema: every measure key present (None when its measure is off).
+    for m in _MEASURES:
+        rec[m.key] = None
+        for rec_key, _ in m.extras:
+            rec[rec_key] = None
+    for m, run in measures:
+        d = run("none")
+        rec[m.key] = d.get(m.src)
+        for rec_key, res_key in m.extras:
+            rec[rec_key] = d.get(res_key)
 
     if "shuffle" in controls:
         # Hewitt–Liang label-permutation floor, same rows/split, only labels
         # broken (Option A). selectivity = real − shuffled.
-        vinfo_s = v_information(
-            X, y, max_classes=max_classes, control="shuffle", control_seed=CONTROL_SEED
-        )
-        rec["v_information_bits_shuffle"] = vinfo_s.get("v_information_bits")
-        rec["v_information_selectivity"] = _selectivity(
-            rec["v_information_bits"], rec["v_information_bits_shuffle"]
-        )
-        if with_mdl:
-            mdl_s = online_code_length(
-                X, y, max_classes=max_classes, control="shuffle", control_seed=CONTROL_SEED
+        for m, run in measures:
+            floor = run("shuffle").get(m.src)
+            rec[f"{m.key}_shuffle"] = floor
+            rec[m.sel_key] = _selectivity(rec[m.key], floor)
+        if with_attack:
+            atk_s = hidden_state.run(
+                cap, embed_table, layer=layer, kind=kind, transform=transform,
+                split_mode=attack_split_mode, control="shuffle", control_seed=CONTROL_SEED,
+                xy=(X, y), attack_name=attack_name,
             )
-            rec["mdl_surplus_bits_shuffle"] = mdl_s.get("surplus_description_length_bits")
-            rec["mdl_selectivity"] = _selectivity(
-                rec["mdl_surplus_bits"], rec["mdl_surplus_bits_shuffle"]
-            )
-        if has_Y:
-            club_s = club_mi_upper_bound(
-                X, Y, **CLUB_FIDELITY[club_fidelity], control="shuffle", control_seed=CONTROL_SEED
-            )
-            rec["club_mi_bits_shuffle"] = club_s.get("club_mi_bits")
-            rec["club_mi_selectivity"] = _selectivity(
-                rec["club_mi_bits"], rec["club_mi_bits_shuffle"]
-            )
-        atk_s = hidden_state.run(
-            cap, embed_table, layer=layer, kind=kind, transform=transform,
-            split_mode=attack_split_mode, control="shuffle", control_seed=CONTROL_SEED,
-            xy=(X, y), attack_name=attack_name,
-        )
-        rec["ttrsr_top1_shuffle"] = atk_s.ttrsr_top1
-        rec["ttrsr_selectivity"] = _selectivity(rec["ttrsr_top1"], atk_s.ttrsr_top1)
+            rec["ttrsr_top1_shuffle"] = atk_s.ttrsr_top1
+            rec["ttrsr_selectivity"] = _selectivity(rec["ttrsr_top1"], atk_s.ttrsr_top1)
 
-    if "vocab" in controls:
+    if "vocab" in controls and with_attack:
         # Per-vocabulary memorisation gap (M3): real labels, but test ids
         # held out of training. gap = row − vocab. Reuse the baseline arm
         # when its split already matches.
@@ -200,16 +235,21 @@ def calibrate_capture(
     *,
     transform: Transform | None = None,
     attack_split_mode: str = "row",
-    with_mdl: bool = True,
+    with_mdl: bool = False,
+    with_club: bool = True,
+    with_attack: bool = True,
     max_classes: int = 256,
+    pvi_max_rows: int | None = PVI_MAX_ROWS,
     workers: int = 4,
     club_fidelity: str = "fast",
     controls: frozenset[str] = frozenset(),
 ) -> dict:
     """Run attacks + measures over every (kind, layer) block and fit the
     IT-measure → recovery calibration. Model-free: a synthetic CaptureSet
-    exercises this in tests. ``with_mdl`` toggles the MDL probe (and its
-    calibration column).
+    exercises this in tests. ``with_mdl`` toggles the MDL probe; ``with_club``
+    / ``with_attack`` toggle CLUB and the attack (fast PVI-only iteration).
+    With the attack off there is no recovery column, so the measure→recovery
+    calibration is skipped.
 
     Blocks are independent, so they run on a bounded thread pool
     (``workers``): the per-block CPU prep (stacking, splits) overlaps the
@@ -228,8 +268,9 @@ def calibrate_capture(
         return _process_block(
             cap, embed_table, k, layer,
             transform=transform, attack_split_mode=attack_split_mode,
-            with_mdl=with_mdl, max_classes=max_classes, club_fidelity=club_fidelity,
-            controls=controls,
+            with_mdl=with_mdl, with_club=with_club, with_attack=with_attack,
+            max_classes=max_classes, pvi_max_rows=pvi_max_rows,
+            club_fidelity=club_fidelity, controls=controls,
         )
 
     n_workers = max(1, min(workers, len(blocks)))
@@ -239,23 +280,22 @@ def calibrate_capture(
         with ThreadPoolExecutor(max_workers=n_workers) as pool:
             results = list(pool.map(work, blocks))  # map preserves input order
     records = [r for r in results if r]
-    keys = ["v_information_bits", "club_mi_bits"]
-    if with_mdl:
-        keys.insert(1, "mdl_surplus_bits")
-    calibration = {key: calibrate_records(records, measure_key=key) for key in keys}
+    # Calibration correlates each measure against attack recovery; with the
+    # attack off there is no recovery column, so skip it.
+    calibration: dict[str, Any] = {}
+    if with_attack:
+        active = _active_measures(with_mdl=with_mdl, with_club=with_club)
+        calibration = {m.key: calibrate_records(records, measure_key=m.key) for m in active}
 
-    if "shuffle" in controls:
-        # Does the floor-subtracted measure predict recovery better than the
-        # raw measure? Calibrate each *_selectivity column against raw recovery
-        # and against the selectivity-adjusted recovery. (docs/dev/control-tasks.md)
-        sel_keys = ["v_information_selectivity", "club_mi_selectivity"]
-        if with_mdl:
-            sel_keys.insert(1, "mdl_selectivity")
-        for key in sel_keys:
-            calibration[key] = calibrate_records(records, measure_key=key)
-            calibration[f"{key}__vs_ttrsr_selectivity"] = calibrate_records(
-                records, measure_key=key, recovery_key="ttrsr_selectivity"
-            )
+        if "shuffle" in controls:
+            # Does the floor-subtracted measure predict recovery better than the
+            # raw measure? Calibrate each *_selectivity column against raw recovery
+            # and against the selectivity-adjusted recovery. (docs/dev/control-tasks.md)
+            for m in active:
+                calibration[m.sel_key] = calibrate_records(records, measure_key=m.sel_key)
+                calibration[f"{m.sel_key}__vs_ttrsr_selectivity"] = calibrate_records(
+                    records, measure_key=m.sel_key, recovery_key="ttrsr_selectivity"
+                )
 
     return {
         "transform": transform.name,
@@ -275,7 +315,10 @@ def run_pass1(
     every_n: int = 1,
     attack_split_mode: str = "row",
     with_mdl: bool = False,
+    with_club: bool = True,
+    with_attack: bool = True,
     max_classes: int = 256,
+    pvi_max_rows: int | None = PVI_MAX_ROWS,
     cache_dir: str | None = None,
     refresh_capture: bool = False,
     workers: int = 4,
@@ -314,7 +357,8 @@ def run_pass1(
 
     report = calibrate_capture(
         cap, emb, attack_split_mode=attack_split_mode,
-        with_mdl=with_mdl, max_classes=max_classes, workers=workers,
+        with_mdl=with_mdl, with_club=with_club, with_attack=with_attack,
+        max_classes=max_classes, pvi_max_rows=pvi_max_rows, workers=workers,
         club_fidelity=club_fidelity, controls=controls,
     )
     report["model_id"] = model_id
@@ -372,8 +416,23 @@ def main() -> None:
              "Its shuffle-control floor reads ≈0 like PVI — see docs/dev/control-tasks.md",
     )
     p.add_argument(
+        "--no-club", action="store_true",
+        help="skip CLUB (and its control floor) — fast PVI-focused iteration",
+    )
+    p.add_argument(
+        "--no-attack", action="store_true",
+        help="skip the ridge attack + cover-break (and attack-side controls). "
+             "No recovery column, so the measure→recovery calibration is skipped",
+    )
+    p.add_argument(
         "--max-classes", type=int, default=256,
         help="cap distinct token-ids the class-probe predicts (top-N most frequent)",
+    )
+    p.add_argument(
+        "--pvi-max-rows", type=int, default=PVI_MAX_ROWS,
+        help=f"cap PVI probe-fit rows (default {PVI_MAX_ROWS}; ~3× faster, "
+             "Spearman-vs-recovery 0.91→0.81 — see docs/dev/perf_assumptions.md). "
+             "<=0 = uncapped (full rows)",
     )
     p.add_argument(
         "--control", default="none", choices=["none", "shuffle", "vocab", "all"],
@@ -398,7 +457,9 @@ def main() -> None:
     report = run_pass1(
         args.model, prompts, layers=layers, capture_layers=capture_layers,
         every_n=args.every_n, attack_split_mode=args.attack_split_mode,
-        with_mdl=args.mdl, max_classes=args.max_classes,
+        with_mdl=args.mdl, with_club=not args.no_club, with_attack=not args.no_attack,
+        max_classes=args.max_classes,
+        pvi_max_rows=(args.pvi_max_rows if args.pvi_max_rows > 0 else None),
         cache_dir=args.cache_dir, refresh_capture=args.refresh_capture,
         workers=args.workers, club_fidelity=args.club_fidelity,
         controls=_parse_controls(args.control),

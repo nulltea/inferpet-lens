@@ -1,8 +1,8 @@
 ---
-type: reference
+type: dev-log
 status: current
 created: 2026-06-16
-updated: 2026-06-16
+updated: 2026-06-17
 tags: [performance, calibration, club, probe, tradeoffs]
 companion: [it-leakage-estimation-set, attacks-setting]
 ---
@@ -36,6 +36,7 @@ it makes the absolute number untrustworthy.
 |---|---|---|---|---|---|---|
 | 1 | **PVI/MDL class cap** `max_classes=256` | probe predicts only the 256 most-frequent token ids; rows of rarer ids dropped | measure becomes "token-identity info about the **top-256** tokens", not the full ~2.5k-token corpus vocab | statistical: full vocab → <3 rows/class (memorisation); 256 → ~27 rows/class | `256` | `--max-classes N` (e.g. 4096 ≈ all) |
 | 2 | **CLUB fast mode** `steps=150, max_rows=2500` | variational net trained 150 (not 400) steps on ≤2500 (not ~6.6k) rows | CLUB loss does **not** plateau by 400 steps → 150 steps **undertrains** → bound magnitude ~20% lower; the value is **no longer a converged MI upper bound**, only a rank-faithful proxy | 11-block spread on the cached 512-prompt capture: Spearman(full, fast)=**0.982**; Spearman-vs-recovery **0.989 (full) = 0.989 (fast)**; **~10.3×** faster | `fast` | `--club-fidelity full` or `TALENS_CLUB_FIDELITY=full` |
+| 3 | **PVI row cap** `max_rows=2500` (`PVI_MAX_ROWS`) | softmax probe fits on a 2500-row subsample (after class selection) instead of the full ~6.6k-row train split | **rank loss**, unlike entries 1–2: cross-block `Spearman(PVI, recovery)` drops **0.91→0.81**. Acceptable only because PVI is the *secondary* predictor (CLUB ranks recovery at 0.99) and PVI's row count does **not** change its control-task reading (see §3) | 30-block subset of the 512 sweep: see §3. PVI was ~56% of a block (MDL off) → **~3×** faster PVI, ~−17% off the sweep | `2500` | `--pvi-max-rows 0` (uncapped) |
 
 ### 1. `max_classes = 256` (PVI / MDL)
 
@@ -74,6 +75,41 @@ lr=1e-3, so **raising the learning rate** could reach a *tighter* bound in
 fewer steps — cutting cost without undertraining (would recover magnitude
 fidelity). Validate the rank before switching.
 
+### 3. PVI row cap (`max_rows = 2500`)
+
+With MDL off, **PVI is the dominant cost** — ~56% of a block (it fits the
+softmax probe on the full ~6.6k-row train split; CLUB is already capped at
+2500 and ~5× cheaper, and the attack solve is GPU-Cholesky). Capping PVI to
+2500 rows (after class selection, so the class set is unchanged) makes it ~3×
+faster and takes the full control sweep from ~23 min toward ~12 min.
+
+**Unlike entries 1–2, this one costs cross-block rank**, so it was a
+deliberate call, not a free lunch. Validated on a 30-block subset (10 layers ×
+3 kinds) of the 512-prompt sweep, vs the full-row PVI in
+`results/sweep-controls.json`:
+
+| PVI rows | Spearman(PVI, recovery) | Spearman(PVI selectivity, recovery) | shuffle floor (mean bits) |
+|---|---|---|---|
+| full (~6.6k, ~26/class) | **0.91** | 0.61 | −41 |
+| cap 5000 (~14/class) | 0.91 | 0.52 | −41 |
+| **cap 2500 (~7/class)** | **0.81** | 0.59 | −44 |
+
+Why it's acceptable:
+- **CLUB, not PVI, is the headline predictor** (Spearman-vs-recovery 0.99 vs
+  PVI's 0.81–0.91); PVI is corroborating. A 0.81 rank is still clearly
+  informative.
+- **The cap does not change PVI's control-task reading.** PVI *selectivity*
+  ↔ recovery is ~0.6 at every budget (it is *not* a row-count artifact), and
+  the shuffle floor stays ~−41 to −44 bits independent of rows — so the
+  CLUB↔PVI selectivity asymmetry is intrinsic, not a budget confound. (This
+  cap was added *after* confirming that, so it doesn't muddy the control
+  analysis in `control-tasks.md`.)
+- `cap 5000` would preserve the 0.91 rank at ~1.5× — a safer knob if PVI's
+  baseline rank ever matters; `--pvi-max-rows 5000` selects it, `0` = uncapped.
+
+Note this cap supersedes the "PVI is now the dominant recurring component"
+cost noted in the divergence-fix section below (that was at full rows).
+
 ## Resolved — PVI probe divergence (was an open correctness bug)
 
 **Symptom:** PVI was strongly negative on deep/attn blocks where the attack
@@ -110,6 +146,7 @@ Listed for completeness; these change speed only, verified equivalent.
 |---|---|
 | cover-break dual-form solve (`O(d³)→O(k³)`) | algebraic push-through identity; verified rel-err ~1e-4 (float32) vs primal |
 | attack ridge → GPU (device-correct `ridge.py`) | identical math, different device |
+| attack ridge **solve** → GPU Cholesky (was CPU LU) | SPD normal equations + bias jitter; matches CPU LU to <1e-6, pipeline TTRSR bit-identical; CPU LU kept as fallback for ill-conditioned under-determined systems |
 | dropped `*_NUM_THREADS=1` caps in `run_in_rocm.sh` | environment only |
 | stack `(X,y)` once per block | same arrays, computed once instead of 3× |
 | block thread-pool (`--workers`) | verified `workers=1 ≡ workers=4` bit-for-bit (CLUB seed+init under a lock) |
