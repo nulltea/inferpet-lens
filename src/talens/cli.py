@@ -274,7 +274,7 @@ def run_pass1(
     capture_layers: list[int] | None = None,
     every_n: int = 1,
     attack_split_mode: str = "row",
-    with_mdl: bool = True,
+    with_mdl: bool = False,
     max_classes: int = 256,
     cache_dir: str | None = None,
     refresh_capture: bool = False,
@@ -366,8 +366,10 @@ def main() -> None:
         help="row = resolution A (match class-probe measures); vocab = honest attacker",
     )
     p.add_argument(
-        "--no-mdl", action="store_true",
-        help="skip the (expensive) MDL online-code probe; keep PVI + CLUB",
+        "--mdl", action="store_true",
+        help="run the MDL online-code probe (OFF by default: it trains ~7 probes "
+             "per block and ~doubles the measure phase; PVI + CLUB always run). "
+             "Its shuffle-control floor reads ≈0 like PVI — see docs/dev/control-tasks.md",
     )
     p.add_argument(
         "--max-classes", type=int, default=256,
@@ -396,7 +398,7 @@ def main() -> None:
     report = run_pass1(
         args.model, prompts, layers=layers, capture_layers=capture_layers,
         every_n=args.every_n, attack_split_mode=args.attack_split_mode,
-        with_mdl=not args.no_mdl, max_classes=args.max_classes,
+        with_mdl=args.mdl, max_classes=args.max_classes,
         cache_dir=args.cache_dir, refresh_capture=args.refresh_capture,
         workers=args.workers, club_fidelity=args.club_fidelity,
         controls=_parse_controls(args.control),
