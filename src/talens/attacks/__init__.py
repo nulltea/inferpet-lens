@@ -6,10 +6,12 @@ through the agnostic :class:`~talens.transforms.Transform` seam:
 * :mod:`hidden_state` — IMA/ISA ridge inversion of the residual stream.
 * :mod:`attn_score`   — ISA inversion of per-head attention scores.
 * :mod:`cover_break`  — anchor-based linear recovery (p95 cosine).
+* :mod:`vocab_match`  — Hidden No More greedy vocab-search inversion
+  (the only attack that runs the model, via a ``forward_fn`` callback).
 """
 
 from __future__ import annotations
 
-from . import attn_score, cover_break, hidden_state
+from . import attn_score, cover_break, hidden_state, vocab_match
 
-__all__ = ["hidden_state", "attn_score", "cover_break"]
+__all__ = ["hidden_state", "attn_score", "cover_break", "vocab_match"]
