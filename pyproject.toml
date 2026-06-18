@@ -24,6 +24,9 @@ capture = [
     "tokenizers>=0.20",
     "safetensors>=0.4",
 ]
+# Gemma-scope SAE probes (loads pretrained JumpReLU SAEs for gemma-2-2b).
+# Heavy + pulls transformer-lens; kept separate from `capture`.
+sae = ["sae-lens>=6"]
 test = ["pytest>=7"]
 
 [tool.setuptools.packages.find]

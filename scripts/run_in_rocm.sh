@@ -37,6 +37,7 @@ exec docker run --rm \
     -v "$HF_CACHE:$HF_CACHE" \
     -v "/tmp:/tmp" \
     -e HF_HOME="$HF_CACHE" \
+    -e HF_TOKEN="${HF_TOKEN:-}" \
     -e HOME="$HOME" \
     -e PYTHONPATH="$REPO_DIR/src" \
     -e ROCBLAS_USE_HIPBLASLT=1 \

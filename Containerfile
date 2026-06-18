@@ -24,4 +24,17 @@ RUN pip install --no-cache-dir \
         scikit-learn \
         nnsight
 
+# Gemma-scope SAE probes via sae-lens. Installed so it does NOT clobber the
+# inherited ROCm torch/torchvision: sae-lens + transformer-lens pull a PyPI
+# torchvision that exact-pins (and thus downgrades) torch, so install THOSE
+# TWO with --no-deps and supply their (pure-python, non-torch-pinning) deps
+# separately. Recipe validated in scripts/spikes/_resolve_sae_deps.sh.
+RUN pip install --no-cache-dir --no-deps sae-lens transformer-lens \
+ && pip install --no-cache-dir \
+        datasets accelerate pandas rich sentencepiece fancy-einsum \
+        better-abc beartype jaxtyping typeguard pydantic simple-parsing \
+        einops wandb nltk plotly plotly-express python-dotenv tenacity \
+        babe transformers-stream-generator \
+ && python3 -c "import torch; from sae_lens import SAE; assert torch.__version__.find('rocm')>0, torch.__version__; print('sae_lens OK on', torch.__version__)"
+
 WORKDIR /work
