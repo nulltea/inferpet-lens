@@ -302,9 +302,10 @@ Run after the plaintext direct sparse-code probing result; `T` stays a pluggable
   | 256 | 2.15 | .36/.29/.27 | 2637 | 5.59 |
 
   **TTRSR and CLUB fall monotonically with noise; ~50% recovery-destruction knee
-  at ε≈400–512 (r≈1)**, near-clean for ε≳2048. **PVI is non-monotonic (rises
-  ~16% mid-range) — treat as V-info estimator variance, not signal; CLUB+TTRSR
-  are the reliable axes.** **DP takeaway:** the knee is at ε≈500 — a *non-private*
+  at ε≈400–512 (r≈1)**, near-clean for ε≳2048. **PVI was non-monotonic — now
+  DIAGNOSED & FIXED (see "PVI overfit diagnosis" below): the class-probe
+  `v_information` overfits; the runner now uses the retrieval family. CLUB+TTRSR
+  were always the reliable axes.** **DP takeaway:** the knee is at ε≈500 — a *non-private*
   budget; with the floored result at ε≤8, input per-token-embedding LDP is
   **all-or-nothing** (√d blowup) — no ε is both private and utility-preserving.
 
@@ -331,3 +332,31 @@ SAE can't touch it. The manifold-prior attack is not a general cover-breaker.
 
 - **Next (same seam):** faithful Alg1 keymat cover (rectangular `d×(d+2h)` P̂,
   expected null/hurt per the table); faithful Alg2 needs Qwen3 + llama.cpp.
+
+## PVI overfit diagnosis (the #7 non-monotonicity) — resolved
+
+Fast model-free loop on the cached gemma capture (`scripts/spikes/diag_pvi.py`,
+layer 12, X 9722×2304).
+
+- **Root cause — the class-probe `v_information` overfits.** Its shuffle-control
+  floor (a healthy estimator ⇒ ≈0) is **−48.5 bits** at the runner's `l2=0.1`:
+  a 2304→256 softmax (~590k params) on ~6800 rows memorises even shuffled labels
+  → test CE explodes. And it is **non-monotonic in noise** — post-hoc σ sweep gives
+  5.79 → **5.87** (rises at σ=.25) → 4.91 → 2.60 → −0.76, reproducing #7's anomaly
+  on a controlled axis. Raising `l2`→10 lifts the floor to −9.5 (confirming
+  overfit) but degenerates at `l2`≥100. The earlier real-PVI "rise" was this
+  noise-dependent floor leaking through.
+- **Red herring — split type.** `v_information` *always* row-splits (no
+  `split_mode`); the runner's `--split-mode` only touches the ridge/TTRSR. The
+  "row-split will fix PVI" lead was refuted by reading the code.
+- **Fix — the retrieval family `v_information_retrieval`** (bounded ridge→embedding,
+  generalizes): shuffle floor **−1.2** (sane) and **monotonic** under noise
+  (27.6→11.4→10.7→9.5→2.6). `localdp_runner.py` now uses it for PVI. Locked by
+  `tests/test_retrieval.py::{test_classprobe_overfits_high_d_but_retrieval_floor_is_sane,
+  test_retrieval_pvi_monotone_under_noise}`.
+- **⚠ Systemic flag (post-mortem).** The **main pipeline** (`cli.py:77`,
+  `calibrate_capture`) uses the **class-probe** `v_information` for PVI on
+  `resid_post` (d=2304) — so its reported PVI is **also overfit-contaminated**.
+  Prevention: switch the main PVI to the retrieval family for high-d operands,
+  or warn/auto-regularise when `d ≫ rows/class`. (Calibration decision — left to
+  the user; not changed here.)

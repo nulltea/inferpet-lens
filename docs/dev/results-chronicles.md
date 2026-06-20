@@ -12,6 +12,88 @@ companion: [control-tasks]
 Running log of headline experimental results and performance characterisations.
 Newest first. Raw outputs live in the gitignored `results/`.
 
+## 2026-06-20 — Capacity-matched class-PVI: fixing the independent family (gemma-2-2b)
+
+Resolves the 2026-06-18 tension (independent class-PVI overfits; retrieval-PVI is the
+attack; CLUB upper-bound-only). New measure `talens.measures.vinfo_capacity`
+(PCA/randproj/gauss/knn readers over token-id, dim-reduced). Built+validated via
+`/experiment-bridge` → `/auto-review-loop` (3 rounds, gpt-5.5 xhigh: 5→6.5→**7/10,
+scoped-established**). Scripts: `scripts/spikes/{diag_capacity,diag_nondp,
+analyze_faithfulness}.py`; `localdp_runner.py` extended (`--capacity-family/-dim/-l2`,
+`--every-n`); results `results/{capacity_screen*,nondp_intervention*,localdp_m2_*}.json`.
+
+**Headline:** class-PVI's failure is the `d>n_val` regime, not the token-id family.
+Capacity-matching (PCA→dim<n + linear reader, GPU cov-eigh) removes the catastrophe:
+shuffle floor **−49 → −1.5 b** (dim-anchored, *not* l2-anchored), monotone, **~0.3× cost**.
+The robust fixed measure is the **reader's token-id accuracy** (bounded), which tracks
+the attack (TTRSR):
+
+| defense | reader-accuracy ρ vs TTRSR (L5/L12/L20) |
+|---|---|
+| PCA-subspace ablation | 0.87 / 0.90 / 0.82 |
+| isotropic hidden-state noise | 0.90 / 0.90 / 1.00 |
+| input-local-DP | 0.68 / 0.43 / **−0.21** |
+
+- **PVI-in-bits is only partially rescued** — the −48 floor & "rise under noise" are
+  unbounded-log-loss artifacts; bits track only with regularisation, fragile under
+  iso-noise / late-DP. Report accuracy as primary, bits as auxiliary (NOT "V-information").
+- **Unfixed class-PVI is within-layer anti-correlated** (L5/12/20 ≈ −0.86/−0.68/−0.79).
+- **Characterised divergence**: late-layer × input-DP — token-id decodability outlives
+  embedding-reconstruction (persists in the bounded readout) → localises what input-DP
+  protects (embedding geometry) vs not (id-decodability).
+- **Independence**: token-id target, never the embedding table; ρ(cap, retrieval-PVI)
+  0.66–0.76 (<0.9). vs the 2026-06-18 CLUB (pooled DP ρ 0.81), cap-accuracy 0.67 but is
+  the only *independent token-target* measure that also tracks (CLUB shares the embedding
+  target; retrieval-PVI *is* the attack).
+
+Perf note: an early screen CPU-thrashed 26 min (redundant full SVD); fixed with GPU
+covariance-eigh (11s→0.44s, GPU→100%). See `vinfo_capacity._pca_basis`.
+
+## 2026-06-18 — Input local-DP (ε) sweep: PVI families + CLUB vs the attack (gemma-2-2b)
+
+Config: input local-DP runner (`scripts/spikes/localdp_runner.py`), gemma-2-2b,
+256 prompts, layers {5,12,20}, vocab split, Gaussian mechanism δ=1e-5, clip at
+p99.9 of **runtime** embed-norms (C=199, median=84 → clip-only≈clean; curve is
+noise-driven). `r = ‖noise‖/‖signal‖ ≈ σ√d / median`. Outputs:
+`results/localdp_curve.json` (class-PVI) + `results/localdp_curve_retrieval.json`
+(retrieval-PVI); both share CLUB + TTRSR. Replication: see
+`docs/handoffs/2026-06-18-independent-vfamily-attack-correlation.md`.
+
+| ε | r | TTRSR frac L5/12/20 | **class-PVI** L5/12/20 (b) | **retrieval-PVI** L5/12/20 (b) | CLUB L5/12/20 (b) |
+|---|---|---|---|---|---|
+| ∞    | 0.00 | 1.00/1.00/1.00 | 5.0/4.4/4.9 | 32.1/30.6/31.1 | 3404/3267/3397 |
+| 8192 | 0.07 | 0.99/0.97/0.99 | 5.0/4.5/4.9 | 32.1/30.5/**12.6** | 3398/3278/3393 |
+| 4096 | 0.13 | 1.01/0.98/0.98 | 5.1/4.5/5.0 | 32.2/**12.3**/30.9 | 3405/3268/3399 |
+| 2048 | 0.27 | 1.00/0.97/1.02 | 5.1/4.5/5.0 | 32.0/**12.2**/30.6 | 3413/3262/3387 |
+| 1024 | 0.54 | 0.94/0.88/1.01 | 5.3/4.5/5.0 | 32.1/12.2/12.7 | 3328/3238/3386 |
+| 512  | 1.08 | 0.62/0.66/0.85 | **5.8**/5.0/5.6 | 11.8/11.6/12.8 | 3054/3217/3504 |
+| 256  | 2.15 | 0.36/0.29/0.27 | 5.6/4.0/4.7 | 10.1/9.0/8.9 | 2637/2461/2524 |
+
+**Read per measure (vs TTRSR = ground truth, which falls monotonically 1.0→~0.3):**
+- **class-PVI (independent family):** ~flat ≈5 b and **non-monotonic** — it even
+  *rises* at ε=512 where the attack is collapsing. **Fails to track the attack.**
+  Cause: the free `d→256` softmax overfits in the high-d regime (`d>n_val`); its
+  shuffle floor is ≈ −48 b (diagnosis: `docs/dev/sae-attack.md`).
+- **retrieval-PVI (= the attack, in bits):** collapses to ~9–12 b exactly when
+  TTRSR collapses (ε≤512) → "correlates" — but only because it *is* the attack
+  (same ridge→embedding map). Magnitude is also **τ-bimodal** (mid-sweep cells
+  flip 32↔12 b from the temperature-grid pick while TTRSR is still 1.0) — an
+  estimator artifact, not leakage.
+- **CLUB (independent estimator, MI upper bound):** monotone-ish decline
+  3404→~2540 b, tracks the attack (consistent with the 2026-06-17 sweep's
+  CLUB↔TTRSR Spearman 0.99). Currently the **most usable independent** measure —
+  caveat: it shares the *embedding* target with the attack (different estimator).
+
+### The tension (concise)
+
+Class-PVI is the family we *want* — independent of the attack (a free token-id
+classifier, not the embedding map) — but it overfits in this high-d regime, stays
+~flat/non-monotonic, and so **fails to track the attack**. Retrieval-PVI tracks
+the attack only because it **is** the attack (same ridge→embedding, scored in bits
+not top-1), so its agreement is **mechanical, not independent validation**. We
+still lack a measure that is **both** independent of the attack **and** a faithful
+predictor of it (CLUB is the closest today).
+
 ## 2026-06-17 — Full 36-layer control-task sweep (Qwen3-4B, 512 prompts)
 
 Config: `--control all` (shuffle + vocab), MDL off, `--workers 4`, GPU

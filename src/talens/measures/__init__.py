@@ -13,9 +13,11 @@ from __future__ import annotations
 from .club import club_mi_upper_bound
 from .mdl import online_code_length, online_code_length_retrieval
 from .vinfo import v_information, v_information_retrieval
+from .vinfo_capacity import v_information_capacity
 
 __all__ = [
     "v_information",              # class-probe family (row-split; resolution A)
+    "v_information_capacity",     # capacity-matched class-probe (PCA/randproj/gauss/knn)
     "v_information_retrieval",    # retrieval family (vocab-disjoint; resolution B)
     "online_code_length",
     "online_code_length_retrieval",

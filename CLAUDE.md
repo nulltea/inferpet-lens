@@ -106,3 +106,11 @@ V-info, PVI, PID, IB, DAS/IIA) is dense and ambiguous across communities.
 Research docs describe *what is known / measured / decided* and *why*, with
 comparative tables over prose-lists. Cite a paper's arXiv/DOI inline.
 Citation counts are point-in-time snapshots — note that they drift.
+<!-- ARIS:BEGIN -->
+## ARIS Skill Scope
+ARIS skills installed in this project: 80 entries.
+Manifest: `.aris/installed-skills.txt` (lists every skill ARIS installed and its upstream target).
+For ARIS workflows, prefer the project-local skills under `.claude/skills/` over global skills.
+Do not modify or delete files inside any skill that is a symlink (symlinks point into `/home/timo/repos/Auto-claude-code-research-in-sleep`).
+Update with: `bash /home/timo/repos/Auto-claude-code-research-in-sleep/tools/install_aris.sh`  (re-runnable; reconciles new/removed skills).
+<!-- ARIS:END -->
