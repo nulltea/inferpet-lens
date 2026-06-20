@@ -38,9 +38,29 @@ the attack (TTRSR):
   unbounded-log-loss artifacts; bits track only with regularisation, fragile under
   iso-noise / late-DP. Report accuracy as primary, bits as auxiliary (NOT "V-information").
 - **Unfixed class-PVI is within-layer anti-correlated** (L5/12/20 ≈ −0.86/−0.68/−0.79).
-- **Characterised divergence**: late-layer × input-DP — token-id decodability outlives
-  embedding-reconstruction (persists in the bounded readout) → localises what input-DP
-  protects (embedding geometry) vs not (id-decodability).
+- **Characterised divergence — a depth-resolved decoupling (depth sweep L0/5/12/20,
+  `results/localdp_depth_L0_5_12_20.json`):** the fixed measure tracks the attack
+  *perfectly at shallow depth and decouples monotonically with depth*:
+
+  | layer | clean TTRSR | ρ(PVI-acc, TTRSR) | ρ(CLUB, TTRSR) |
+  |---|---|---|---|
+  | L0  | 0.809 | **+0.99** | +0.96 |
+  | L5  | 0.559 | +0.68 | +0.96 |
+  | L12 | 0.347 | +0.43 | +0.89 |
+  | L20 | 0.462 | **−0.21** | +0.29 |
+
+  *Why clean TTRSR is <1*: vocab-disjoint top-1 vs a ~2048 pool + contextualisation —
+  L0 (≈input embedding) is 0.81, falling with depth. *Why PVI rises while TTRSR falls
+  at depth*: DP noise is injected at the **embedding**; at L0 it hits the representation
+  directly so reconstruction and id-decodability fall in lockstep (ρ +0.99), but the more
+  transformer blocks it propagates through, the more the network reshapes it into a regime
+  where coarse token-id separability is preserved/sharpened while the fine embedding
+  geometry the attack needs is destroyed → the two decouple and invert by L20. **CLUB shows
+  the same depth gradient → it's a property of the signal under propagated DP, not a probe
+  artifact.** Conclusion: input-DP protects *embedding geometry* (the attack's target)
+  before it protects *token-identity decodability* (the measure's target), with propagation
+  depth as the knob — so an attack-independent measure and an embedding-reconstruction
+  attack provably diverge, and that divergence is a measurable, depth-localised quantity.
 - **Independence**: token-id target, never the embedding table; ρ(cap, retrieval-PVI)
   0.66–0.76 (<0.9). vs the 2026-06-18 CLUB (pooled DP ρ 0.81), cap-accuracy 0.67 but is
   the only *independent token-target* measure that also tracks (CLUB shares the embedding

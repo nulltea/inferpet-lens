@@ -112,3 +112,31 @@ the robust predictor; **PVI-in-bits is partially rescued, not solved**. Do NOT c
 
 **Remaining polish (non-blocking, for a paper)**: calibration diagnostic (NLL/ECE) on the artifact cells;
 within-layer/macro-avg ρ as primary stat; cross-model replication; dim16 sensitivity. None change the verdict.
+
+---
+## Depth sweep (L0/5/12/20) — the divergence is a depth-resolved decoupling
+
+`results/localdp_depth_L0_5_12_20.json`. Spearman(measure, TTRSR) per layer:
+
+| layer | clean TTRSR | ρ(PVI-acc, TTRSR) | ρ(CLUB, TTRSR) |
+|---|---|---|---|
+| L0  | 0.809 | **+0.99** | +0.96 |
+| L5  | 0.559 | +0.68 | +0.96 |
+| L12 | 0.347 | +0.43 | +0.89 |
+| L20 | 0.462 | **−0.21** | +0.29 |
+
+**Conclusions.**
+- **Clean TTRSR <1 is expected** (vocab-disjoint top-1 vs ~2048-pool + contextualisation):
+  L0 (≈input embedding) 0.81, falling with depth. Not a defect — it's the conservative
+  honest-attack ceiling, normalised away by `frac`.
+- **The PVI-rises-as-TTRSR-falls anticorrelation is a DEPTH/propagation effect, not a probe
+  bug.** DP noise is injected at the embedding; at L0 it hits the representation directly →
+  reconstruction and id-decodability fall in lockstep (ρ +0.99, no rise). Tracking degrades
+  monotonically with propagation depth (+0.99→+0.68→+0.43→−0.21). **CLUB shows the same
+  gradient (0.96→0.96→0.89→0.29)** ⇒ a property of the signal, not the estimator.
+- **Interpretation (sharper than the L20 caveat):** input-DP destroys *embedding geometry*
+  (the attack's target) before *token-identity decodability* (the measure's target); the
+  network's depthwise processing reshapes embedding-injected noise so the two leakage
+  channels decouple and finally invert. An attack-independent measure and an
+  embedding-reconstruction attack **provably diverge**, and the divergence is a measurable,
+  depth-localised quantity — a contribution in its own right (what a defense protects, by depth).
