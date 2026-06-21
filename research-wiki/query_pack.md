@@ -30,9 +30,7 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
 - [paper:ding2021_planted_matching_problem] The planted matching problem: Sharp threshold and infinite-order phase transition
 - [paper:dong2025_depth_gives_false] Depth Gives a False Sense of Privacy: LLM Internal States Inversion
 - [paper:fan2019_spectral_graph_matching] Spectral Graph Matching and Regularized Quadratic Relaxations I: The Gaussian Model
-## Recent Relationships (37 total)
-  idea:info-efficient-attacks --inspired_by--> paper:pananjady2017_denoising_linear_models
-  idea:info-efficient-attacks --inspired_by--> paper:chung2022_diffusion_posterior_sampling
+## Recent Relationships (39 total)
   idea:info-efficient-attacks --addresses_gap--> gap:G1
   paper:kale2025_beamclean_language_aware --addresses_gap--> gap:G1
   paper:dai2023_gaussian_database_alignment --supersedes--> paper:dai2019_database_alignment_gaussian
@@ -42,4 +40,7 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
   claim:thm-t1-info-efficient --uses--> paper:cover2006_elements_information_theory
   idea:info-efficient-attacks --tested_by--> exp:b2-l0-bayes-vs-ridge
   exp:b2-l0-bayes-vs-ridge --supports--> claim:strict-improvement
-  exp:b2-l0-bayes-vs-ridge --supports--
+  exp:b2-l0-bayes-vs-ridge --supports--> claim:restore-correlation
+  idea:info-efficient-attacks --tested_by--> exp:b2-lpos-decoder-vs-ridge
+  exp:b2-lpos-decoder-vs-ridge --supports--> claim:restore-correlation
+  idea:inf

@@ -45,3 +45,5 @@ _Append-only timeline._
 - `2026-06-21T13:42:43Z` VMA: full-sorted-row matcher beats RowSort-64 +0.43@α0.2/+0.60@α0.35 (3 seeds) — RowSort's 64-quantile binning is lossy; permutation channel confirms info-efficiency thesis (probe faithful, weak-attack collapse = attack weakness).
 - `2026-06-21T13:57:52Z` add_experiment: added exp:b6-strong-decoder [verdict=partial confidence=high]
 - `2026-06-21T13:57:52Z` B6: Vec2Text-style decoder implemented+tested. C6 CONFIRMED — trained decoder re-correlates with MI +0.83 (deep)/+0.71(iter) vs ridge −0.09 under propagated DP L20. Uplift crossover (decoder wins high-noise). Iteration null (embedding-space T3=T1; need forward-model-in-loop). 
+- `2026-06-21T14:19:11Z` add_experiment: added exp:b6c-forward-model-vec2text [verdict=partial confidence=high]
+- `2026-06-21T14:19:11Z` B6c forward-model-in-loop Vec2Text BUILT+tested: FMV recovers 0.738 clean vs ridge 0.212/dec 0.380 (+0.53) — closes low-noise gap; noise-fragile (collapses 0.025 @ε256). Mirror of decoder (high-noise winner). Optimal attack regime-dependent; next = noise-aware FMV (denoise then match).

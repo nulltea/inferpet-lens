@@ -393,3 +393,38 @@ with the MI probes (+0.83) where ridge anti-correlates (−0.09)** under propaga
 faithful, ridge is information-inefficient. Honest limits: (a) the decoder beats ridge only at high noise
 (crossover), (b) embedding-space iteration/capacity don't help — closing the low-noise gap and beating
 ridge across all ε needs the forward-model-in-loop Vec2Text (the named next step).
+
+---
+
+## B6c — Forward-model-in-loop Vec2Text attack under PROPAGATED input-DP @L20 — RUN (2026-06-21)
+
+`results/b6c_forward_model.json`, GPU (~1.5 min). FMV = re-embed each decoder-seeded candidate token
+(top-k=16) through the actual model (clip-only reference) and match to the observed noised resid Y_obs;
+teacher-forced prefix (oracle-prefix per-position upper bound). gemma-2-2b L20, ε∈{∞,512,256}, 400
+scored test positions, vocab-disjoint, WEIGHTS-PUB.
+
+| ε | ridge | decoder top1 | **FMV** | uplift FMV−ridge | uplift FMV−dec |
+|---|---|---|---|---|---|
+| ∞ | 0.212 | 0.380 | **0.738** | **+0.526** | **+0.357** |
+| 512 | 0.489 | 0.431 | 0.495 | +0.006 | +0.064 |
+| 256 | 0.227 | 0.245 | **0.025** | −0.202 | −0.220 |
+
+**Findings — the forward model is the strongest LOW-noise attack but is noise-fragile:**
+- **Closes the low-noise gap decisively.** At clean/low noise FMV recovers 0.738 vs ridge 0.212 / decoder
+  0.380 (+0.53 / +0.36). Re-embedding candidates through the known model matches Y_obs almost exactly
+  when noise is small — extracting what ridge/decoder miss. (Within-run comparison; absolute ridge varies
+  across configs/pool, not cross-run-comparable — the relative FMV≫ridge/dec at clean is the valid claim.)
+- **Collapses at high noise** (ε=256 → 0.025, below ridge). FMV matches the *clean* forward to a single
+  heavily-noised observation, so at high σ the token signal is swamped → ~chance. **Mirror image of the
+  decoder** (B6: wins high-noise, loses clean).
+- **No single attack dominates the noise range** → the optimal attack is **regime-dependent**:
+  forward-model match (low noise) ⊕ learned denoiser/decoder (high noise). FMV is non-monotone so it does
+  not re-correlate over the full sweep (FMV↔capPVI +0.50 = ridge, coarse 3-ε); the decoder (B6, +0.83) is
+  the re-correlating attack.
+
+**Verdict (frontier built):** the faithful forward-model-in-loop Vec2Text attack is implemented + tested.
+It confirms the thesis's strongest form at low noise (the model-in-loop recovers +0.53 over ridge where
+the embedding-space corrector could not) and reveals the honest limit: it is noise-fragile because it
+matches a clean reference to a single noisy draw. **The named optimum is a NOISE-AWARE FMV** —
+denoise Y_obs (or match to E[Y|cand] under the noise model) before the forward-model match — which would
+combine FMV's low-noise power with the decoder's high-noise robustness. Concrete next step.
