@@ -3,177 +3,194 @@ type: plan
 status: current
 created: 2026-06-20
 updated: 2026-06-20
-tags: [experiment-plan, class-PVI, capacity-matched, leakage-measure, calibration, independence]
-companion: [idea-stage/IDEA_REPORT.md]
+tags: [experiment-plan, matched-probe, leakage-channels, decoupling-law, AloePri, Shredder, PID, cross-scheme-calibration]
+companion: [FINAL_PROPOSAL, idea-stage/IDEA_REPORT]
+supersedes: [archive-capacity-pvi/EXPERIMENT_PLAN]
 ---
 
-# Experiment Plan — fix (or formally retire) the independent leakage family
+# Experiment Plan — matched probes × leakage channels × defences
 
-**Problem**: We need a leakage measure that is **both** (a) *independent* of the inversion
-attack (not a reparameterisation of its ridge `X→embedding` map/target) **and** (b) a
-*faithful* predictor of token-recovery (TTRSR). The only independent+cheap family we have,
-**class-PVI**, overfits in the `d>n_val` regime (free `d=2304→256` softmax; shuffle floor
-≈ −48 b, non-monotonic under noise). retrieval-PVI is faithful only because it *is* the
-attack; CLUB is independent-estimator but upper-bound-only and shares the embedding target.
+Grounded in `refine-logs/FINAL_PROPOSAL.md`. The program tests **one principle**
+(matched independent probe predicts its channel's attack; mismatched pairs
+decouple) over **4 channels × 6 defences**, and produces the data that
+**adjudicates the headline framing (F-A/B/C) and selects the Π-probe** — both
+deferred by the user to data.
 
-**Method Thesis**: class-PVI's failure is an **estimator-validity regime** (`capacity ≫
-data`), not the token-id V-family being wrong — a **capacity-matched** member of the *same*
-family is well-posed *and* cheaper, and tracks the attack; if no such member can, we deliver
-a **formal impossibility verdict** for the family. Either outcome closes the standing question.
+## Definitions
 
-**Non-negotiable constraints**: probe cost ≤ current class-PVI cost (PVI is already 56–59% of
-every block); heavy runs only via `scripts/run_in_rocm.sh`; favour the model-free cached-capture
-loop. This is **not** an LLM-component paper — the frontier-necessity block is explicitly skipped.
+| Term | Meaning |
+|------|---------|
+| **Channel** | A (target × surface) leakage path: {token-id, permutation-Π, embedding-geometry, attention-QK/OV}. |
+| **Matched probe `P_c`** | An IT readout with high `I(P_c; target_c)` computed *without* the attack's fitted map (independent by construction). |
+| **`m_c`** | Channel `c`'s attack success metric (TTRSR; τ-recovery rate; ridge cosine; ISA recovery). |
+| **Diagonal** | Matched pair correlation ρ(P_c, m_c). **Off-diagonal**: ρ(P_c, m_{c′}), c≠c′. |
+| **Decoupling law** | Diagonal calibrates (ρ≥0.9); off-diagonal systematically lower / sign-flips under defences (the L20×DP datum, generalised). |
+| **Defence knob** | Per-family monotone leakage control: DP ε; AloePri noise α_e; Shredder SNR/cut; split depth. |
 
-## Claim Map
+## Claim map
 
-| Claim | Why it matters | Minimum convincing evidence | Linked blocks |
-|-------|----------------|-----------------------------|---------------|
-| **C1 (primary)** — class-PVI's failure is the `d>n_val` regime; a capacity-matched member of the same independent token-id family is well-posed, faithful, and cheaper. | This is the whole standing objective: an independent **and** faithful **and** cheap predictor either exists or it doesn't. | ≥1 variant with shuffle floor ∈ ~[−1, +1] b, PVI monotone↓ under post-hoc noise, Spearman(measure, TTRSR) ≥ 0.9 across blocks, wall-clock/block ≤ class-PVI — while class-PVI fails ≥1 of these (known: floor −48 b, non-monotonic). | B1, B2, B3 |
-| **C1′ (fallback, mutually exclusive with C1)** — if no variant qualifies, the unconstrained token-id V-family is formally the wrong methodology in `d>n`. | A clean negative is publishable and is *required* before abandoning the family. | An estimator-validity / identifiability condition + a bias-floor argument that predicts the observed failure; consistent with McAllester–Stratos O(ln N). | B5 |
-| **C2 (supporting, gated on C1)** — the working independent measure *calibrates across defense schemes*: one measure→TTRSR map holds across DP-ε, static obfuscation, and split-depth. | This is the edge over PAF / Jacobian-Rank-Recovery (correlation, one scheme) and FSInfo (obfuscation-only): IT + **calibrated** + **cross-scheme**. | A single monotone calibration curve whose fit transfers (held-out-scheme Spearman ≥ 0.85) across ≥2 (ideally 3) defense families. | B4 |
+| Claim | Statement | Minimum convincing evidence | Blocks |
+|-------|-----------|------------------------------|--------|
+| **C1 (per-channel matching)** | Each channel has a matched **independent** probe that calibratedly predicts its attack. | ≥1 probe/channel with macro/within-layer ρ(P_c,m_c) ≥ 0.9 across ≥2 defences, **and** per-instance collinearity <0.9 with the channel's attack-in-bits reference. Channel 1 already PASSED. | B1, B2, B5 |
+| **C2 (decoupling law — the prediction)** | Mismatched probe↔target pairs decouple; the matrix diagonal dominates the off-diagonal. | A K×K ρ-matrix (K=#channels) whose diagonal mean − off-diagonal mean > 0 with non-overlapping bootstrap CIs, **and** ≥1 off-diagonal cell that *sign-flips* under a defence (extends L20×DP). CLUB-replicates-gradient control rules out "estimator artifact." | B3 |
+| **C3 (cross-scheme calibration)** | A channel's matched curve transfers across defence families. | Fit `P_c→m_c` on one defence, predict on a held-out defence: ρ ≥ 0.85, for ≥2 channels across ≥3 of the 6 defences. | B4 |
+| **C4 (Π-probe selection)** | Identify the independent Π-probe (resolve the deferred question). | Of {CLUB-on-φ, capacity-reader-on-φ, retrieval-PVI-on-φ}, the winner has ρ(·,τ-recovery)≥0.9 over the AloePri α_e sweep **and** per-instance collinearity <0.9 vs VMA-PVI. If none → Π-channel has no independent probe (a result; weakens F-A, informs F-C). | B2 |
+| **C5 (framing verdict)** | Conclude F-A / F-B / F-C from the matrix. | The B6 decision rule (FINAL_PROPOSAL table) applied to B1–B5 outputs. | B6 |
+| **C1′ (conditional formal)** | If a channel's matching fails, an identifiability / MI↔success argument predicts the failure. | A condition (e.g. floor ∝ d/n; MI-success gap from de Chérisey) reproducing the observed failure. | B6-formal |
 
 **Anti-claims to rule out**
-- **A1 — "it secretly became the attack."** The capacity-matched variant tracks TTRSR only
-  by re-deriving the embedding map. → Ruled out in **B3**: variant uses token-*id* classes,
-  never the embedding table; its per-instance PVI is **not** collinear with retrieval-PVI.
-- **A2 — "it's just shrinkage of the same softmax."** Plain l2 on the full `d=2304` softmax
-  is enough, capacity/dim is irrelevant. → Ruled out in **B3**: l2-only sweep (known: floor
-  −48→−9.5 at l2=10, degenerates at l2≥100) does *not* reach floor≈0; reducing dim < n_val
-  does. Dim is the operative lever.
-- **A3 — "it's row-split memorisation."** → shuffle-control floor ≈ 0 and a vocab-disjoint
-  check where the family admits it.
+- **"The probe is the attack."** → per-instance collinearity test in every channel
+  (Π: vs VMA-PVI; token-id: vs retrieval-PVI — already done, ρ=0.76).
+- **"Decoupling is an estimator artifact."** → CLUB (independent estimator) must
+  show the same off-diagonal gradient (it did at L20). Report as the control.
+- **"AloePri obfuscation broke the model, not the probe."** → logit-fidelity check
+  (B0): obfuscated forward must match plaintext within tolerance.
 
-## Paper Storyline
-- **Main paper must prove**: C1 (B1–B3) — the independent family, fixed and cheap, tracks the
-  attack — *or* C1′ (B5) if it can't. Plus C2 (B4) for the cross-scheme calibration headline.
-- **Appendix can support**: MDL/SDL same-family robustness check (B6a); two-sided bracket (B6b).
-- **Intentionally cut**: PML/α-leakage on activations (Idea 6), SAE effective-DoF (Idea 8) —
-  parked until the standing question resolves. No frontier-necessity block (non-frontier method).
+## Experiment blocks
 
-## Experiment Blocks
+### B0 — Implement + unit-test (model-free / synthetic) — MUST-RUN
+- **Builds:**
+  1. **AloePri Alg1 obf-table generator** — `KEYMATGEN`/`INVKEYMATGEN` (orthogonal
+     `U`, `B=U+λV`, null-space `C⊥F`, `D⊥E`, `P̂=[B C E]Z`, `Q̂=Zᵀ[B⁻¹ F D]ᵀ`,
+     verify `P̂Q̂=I`), + per-row permutation Π + Gaussian α_e on embed/head →
+     emits an obfuscated `WeightPair`. (lives in defence-eval / Part 2, not core.)
+  2. **AloePri permutation-core Transform** (`Tensor→Tensor`): token + embed-row
+     permutation; `name="aloepri_perm"`.
+  3. **Shredder static-Laplace Transform**: additive Laplace at a split activation.
+  4. **Shredder learned-noise trainer**: noise tensor min `1/SNR`+task-CE at a cut,
+     fit Laplace, per-input sample (stub the train loop; tested on a toy net).
+  5. **Capacity-reader-on-invariants** Π-probe: `v_information_capacity` adapted to
+     predict *row-position* from φ(obf) (the independent bake-off candidate).
+  6. **PID QK-vs-OV probe**: redundant/unique/synergistic decomposition of
+     `I(tokens; {QK, OV})` (BROJA or CVXPY discrete PID on binned/clustered tokens,
+     or a Gaussian-PID approximation — pick cheapest that passes the toy oracle).
+- **Tests:** `P̂Q̂=I` to fp tol; AloePri obf preserves logits on a toy linear net;
+  permutation Transform is a bijection; Laplace fit recovers known b; PID
+  non-negativity + sums to total MI on a synthetic redundant/synergistic source;
+  capacity-reader floor≈0 on shuffle. Full suite stays green.
+- **Cost:** <20 min CPU. **Gate:** all unit tests pass → B1.
 
-### Block 1 — Capacity-matched class-PVI: well-posedness + cost (model-free fast loop) — MUST-RUN
-- **Claim tested**: C1 (well-posedness + cost half).
-- **Why**: the standing objective; cheapest decisive screen before any GPU sweep.
-- **Data/split**: cached gemma-2-2b capture (`results/capture_cache/capture-4ca8a33e16bfbec9.pt`),
-  `resid_post` L12 (primary), L5 + L20 (confirm). Same `(X,y)` as the attack.
-- **Compared systems** (new `v_information` variants in `src/talens/measures/`, same token-id
-  target + class-prior null + shuffle control): (a) **PCA→dim k<n_val** then linear softmax
-  (sweep k∈{64,128,256,384}); (b) **control-anchored l2/dim** (pick the knob by *shuffle floor≈0*,
-  not val-CE); (c) **non-parametric** kNN and Gaussian class-conditional (no iterative fit);
-  (d) **random-projection→dim k** + linear readout. Reference: current class-PVI (free `d→256`).
-- **Metrics**: shuffle-control floor (bits), monotonicity of PVI vs post-hoc Gaussian noise
-  σ∈{0,.25,.5,1,2} (existing `diag_pvi.py` sweep), wall-clock/fit. 3 seeds (report mean±sd).
-- **Setup**: extend `scripts/spikes/diag_pvi.py`; model-free, runs on host `.venv` (CPU) or ROCm.
-- **Success**: ≥1 variant with floor ∈ ~[−1,+1] b, monotone↓, wall-clock ≤ class-PVI.
-- **Failure interpretation**: if *no* variant is well-posed at ≤ cost → strong prior for C1′; go to B5.
-- **Table/figure**: Table 1 (variant × {floor, monotone?, cost}); Fig 1 (PVI vs σ curves).
-- **Priority**: MUST-RUN.
+### B1 — Per-channel matched calibration on cheap defences (cached capture) — MUST-RUN
+- **Claim:** C1 (channels 1,3; channel 2 in B2; channel 4 in B5).
+- **Data:** cached gemma-2-2b capture (`results/capture_cache/…`), layers {0,5,12,20}.
+  Defences: input-DP ε-sweep + split-depth (both exist, cheap).
+- **Systems:** ch1 capacity-PVI reader-acc (✅) vs ridge TTRSR; ch3 CLUB vs ridge
+  cosine. Reference: retrieval-PVI (attack-in-bits), class-PVI (broken baseline).
+- **Metrics:** within-layer + macro ρ, partial-ρ|knob, per-instance collinearity.
+- **Success:** ch1 ρ≥0.9 (already 0.82–1.0); ch3 CLUB ρ≥0.85.
+- **Cost:** ~20–40 min ROCm (cache hit). **Priority:** MUST-RUN.
 
-### Block 2 — Faithfulness: does the survivor track TTRSR across sweeps — MUST-RUN
-- **Claim tested**: C1 (faithfulness half).
-- **Why**: well-posed ≠ predictive; this is the headline correlation.
-- **Data/split**: (i) DP ε-sweep via `scripts/spikes/localdp_runner.py` (swap `panel()`'s measure
-  to the B1 survivor), ε∈{∞,8192,4096,2048,1024,512,256}, layers {5,12,20}, vocab split; (ii) the
-  36-layer control sweep (108 blocks: resid_post/kqv_out/kq) for cross-block rank.
-- **Compared systems**: survivor variant vs class-PVI (expected: fails), retrieval-PVI (mechanical
-  reference), CLUB (independent upper-bound reference). Ground truth = TTRSR.
-- **Metrics**: Spearman & r² (measure ↔ TTRSR) across blocks/ε; monotonicity vs ε. Decisive =
-  Spearman across the 108-block sweep (compare to CLUB's 0.987, class-PVI's 0.891 from 2026-06-17).
-- **Setup**: ROCm container; capture cache hit (no recapture). ~10–23 min/sweep.
-- **Success**: survivor Spearman ≥ 0.9 across blocks **and** monotone over ε (where class-PVI is flat).
-- **Failure interpretation**: well-posed but not faithful → the independent family carries
-  bounded-reader info that the attack's geometry doesn't → evidence for C1′ (bias-floor).
-- **Table/figure**: Table 2 (measure × {Spearman, r², monotone-ε}); Fig 2 (calibration scatter).
-- **Priority**: MUST-RUN.
+### B2 — Π-channel: AloePri sweep + the 3-way probe bake-off — MUST-RUN
+- **Claim:** C1 (channel 2) + **C4 (resolves the deferred Π-probe)**.
+- **Data:** AloePri-obfuscated `WeightPair` from B0, **α_e noise sweep**
+  {0, 0.1, 0.2, 0.5, 1.0} (low→high noise = the calibration knob); embed surface
+  primary, head surface confirm. VMA τ-recovery (RowSort+Hungarian) = ground truth.
+- **Systems:** the 3 candidate probes on φ=sorted_quantile — **CLUB-on-φ** (✅
+  `club_mi_weights`), **capacity-reader-on-φ** (B0, independent), **retrieval-PVI-on-φ**
+  (✅ `v_information_weights`, the *dependent* reference = VMA in bits).
+- **Metrics:** ρ(probe, τ-recovery) over α_e; per-instance collinearity(probe,
+  VMA-PVI) — independence iff <0.9; cost.
+- **Success (C4):** a probe with ρ≥0.9 **and** collinearity<0.9. **Failure:** only
+  retrieval-PVI tracks → Π has no independent probe (result; informs framing).
+- **Cost:** ~15–30 min (mostly CPU table algebra + a few CLUB fits). **Priority:** MUST-RUN.
 
-### Block 3 — Independence isolation (rule out A1/A2) — MUST-RUN
-- **Claim tested**: C1's *independence* (the half that distinguishes us from retrieval-PVI).
-- **Why**: a faithful tracker that secretly is the attack is worthless; this block is what makes
-  the result "independent," not "another attack."
-- **Compared systems**: survivor vs retrieval-PVI (per-instance PVI vectors), and a **deletion
-  study**: l2-only on full `d` (no dim reduction) vs dim<n_val.
-- **Metrics**: (i) per-instance Spearman(survivor-PVI, retrieval-PVI) — want **moderate, not ≈1**
-  (collinearity ≈1 ⇒ it's the attack); (ii) confirm the measure never reads the embedding table;
-  (iii) floor≈0 reached by dim-reduction but **not** by l2-only (rules out A2).
-- **Success**: survivor preserves floor≈0 + faithfulness while *not* collinear with retrieval-PVI,
-  and dim (not shrinkage) is the operative lever.
-- **Failure interpretation**: if faithfulness coincides with retrieval-PVI collinearity → the only
-  faithful capacity-matched member is a disguised attack → independence is unattainable in-family → C1′.
-- **Table/figure**: Table 3 (collinearity + deletion study).
-- **Priority**: MUST-RUN. *(Doubles as the simplicity/elegance check: prefer the cheapest variant
-  that passes; show l2-only is insufficient and the non-parametric family is not needed if PCA suffices.)*
+### B3 — The decoupling matrix (the prediction, headline) — MUST-RUN
+- **Claim:** C2. **This is the experiment the paper lives or dies on** (round-1 reviewer).
+- **Protocol (reviewer-specified — shared CONDITION INDEX, never a shared metric scale):**
+  1. **One shared defence grid that moves ≥3 channels non-identically** — a **2D
+     `ε × depth` grid** (a single monotone knob can *fake* diagonal dominance):
+     ε ∈ {0.25, 0.5, 1, 2, 4} (or the existing {∞,…,256} mapped) × depth/layer ∈
+     {0, 5, 12, 20} → **≥16–20 shared settings** `s` (7 is too few). 3 seeds.
+  2. At each setting `s`, compute **every probe** `P_i(s)` and **every attack**
+     `A_j(s)`; build `M[i,j] = Spearman(P_i(s), A_j(s))` — **rank** correlations
+     only (never raw TTRSR vs cosine vs τ-recovery), with bootstrap CIs.
+  3. Channels (rows/cols): token-id (probe: cap-PVI acc / attack: ridge TTRSR),
+     Π (CLUB-on-φ / VMA τ-recovery), embedding (CLUB I(rep;emb) / ridge cosine);
+     attention (MMI-PID increment / ISA) **only if B5 is ready and 3×3 is clean**.
+  4. **Diagonal-dominance test:** per row `i`, `Δ_i = ρ(i,i) − max_{j≠i} ρ(i,j)`,
+     bootstrap over settings (+seeds/tokens); **strong claim = most `Δ_i > 0` with
+     95% CIs excluding 0**.
+  5. **≥1 genuine sign-flip, preferably 2** across different channels/defences (the
+     L20×DP cell is the seed). Repeated flips / near-zero off-diagonals across >1
+     defence family is what would upgrade "principle" → "law" (do not claim yet).
+  6. **Negative controls (all four):** shuffled defence labels; a random probe; the
+     attack-derived probe (retrieval-PVI) marked *dependent*; a **monotone
+     shared-noise baseline** demonstrating diagonal dominance is *not* automatic.
+- **Figure:** Spearman heatmap with CI annotations + a diagonal-vs-best-off-diagonal bar plot.
+- **Success:** most `Δ_i > 0` (CIs exclude 0) **and** ≥1 sign-flip **and** the
+  monotone-baseline control does *not* show diagonal dominance.
+- **Cost:** the headline GPU run — unified runner over the ε×depth grid × 3 seeds on
+  the ROCm container (~1–2 GPU-hr; validate optimality + saturation first, restrict
+  to L0/5/12/20). **Priority:** MUST-RUN (highest leverage; run before B5).
 
-### Block 4 — Cross-scheme calibration (supporting claim C2) — NICE-TO-HAVE (gated on C1)
-- **Claim tested**: C2.
-- **Why**: turns a metric note into a paper; the white-space contribution (G2) and the anti-scoop edge.
-- **Data/split**: same measure→TTRSR map fit on DP-ε; tested on **static obfuscation** and
-  **split-depth** schemes. Obfuscation + split-depth runners **do not exist** — build minimal ones
-  modelled on `localdp_runner.py` (an obfuscation Transform; a layer-skip/cut harness).
-- **Compared systems**: survivor measure; report PAF/FSInfo-style baselines if cheaply reproducible.
-- **Metrics**: held-out-scheme calibration transfer (fit on one scheme, predict TTRSR on another;
-  Spearman ≥ 0.85); single-curve overlap across schemes.
-- **Success**: one calibration curve transfers across ≥2 (ideally 3) schemes.
-- **Failure interpretation**: scheme-specific calibration → report as a scoped (per-scheme) result.
-- **Table/figure**: Table 4 (cross-scheme transfer matrix); Fig 3 (overlaid calibration curves).
-- **Priority**: NICE-TO-HAVE; gated on C1 passing B1–B3.
+### B2+ — Firm up the Π channel (reviewer fix #4) — SHOULD-RUN (cheap, CPU)
+- Extend B2: **3–5 seeds** (perm + noise), **12+ α_e** densifying the 0.2–0.7
+  transition, **bootstrap CIs** for CLUB and VMA, confirm CLUB is invariant to
+  RowSort/Hungarian details, and **one more model width** (Qwen3-4B embed, d=2560).
+- **Success:** ρ(CLUB-on-φ, τ-recovery) ≥ 0.9 with CI lower bound > 0.8, stable across
+  seeds + both widths. **Cost:** ~10 min CPU. Promotes B2 from go/no-go to a channel claim.
 
-### Block 5 — Formal verdict on the token-id V-family (C1′) — CONDITIONAL MUST-RUN
-- **Claim tested**: C1′ (only if B1/B2/B3 fail to yield an independent+faithful+cheap variant).
-- **Why**: the "decisively conclude wrong methodology" obligation; prevents an unjustified pivot.
-- **Deliverable**: (i) estimator-validity / identifiability condition for `I_V` with an
-  unconstrained family when `d>n` (when is the plug-in estimate consistent?); (ii) a **bias-floor**
-  argument for why a token-id classifier cannot track an embedding-geometry attack; (iii) numerical
-  corroboration on the cached capture. Anchors: McAllester–Stratos O(ln N); de Chérisey et al.
-  MI↔success-rate; Pimentel & Cotterell Bayesian-probing estimand.
-- **Success**: a condition that *predicts* the observed B1/B2 failures (e.g. floor magnitude scaling
-  with `d/n_val`).
-- **Table/figure**: Theorem + Fig 4 (predicted vs observed floor vs `d/n_val`).
-- **Priority**: MUST-RUN **iff** the decision gate after M3 is "fix failed."
+### B4 — Cross-scheme calibration over all 6 defences — NICE-TO-HAVE (gated on C1)
+- **Claim:** C3.
+- **Data:** for channels with a matched probe (≥ch1, ch3, and ch2 if C4 passes),
+  fit `P_c→m_c` on one defence, predict held-out: matrix over {DP, split-depth,
+  AloePri-perm, AloePri-full, Shredder-static, Shredder-learned}.
+- **Order (cheapest first):** split-depth → AloePri-perm → Shredder-static →
+  AloePri-full → Shredder-learned. **Gate each behind the previous transferring.**
+- **Success:** held-out-scheme ρ≥0.85 for ≥2 channels across ≥3 defences.
+- **Cost:** ~4–10 GPU-hr (dominated by AloePri-full logit-verify + learned-Shredder
+  training). **Priority:** NICE-TO-HAVE; the F-B robustness story.
 
-### Block 6 — Appendix robustness — NICE-TO-HAVE
-- **6a (MDL/SDL same-family check)**: confirm `online_code_length` inherits the overfit (small-prefix
-  fits) and costs 6–7× — justifying its exclusion from the critical path. Reuses `mdl.py`.
-- **6b (two-sided bracket)**: add a MINE/InfoNCE lower bound to pair with CLUB (upper); report
-  bracket width as a confidence signal (Idea 3, G1b).
-- **Priority**: NICE-TO-HAVE / appendix.
+### B5 — Attention QK/OV PID channel — NICE-TO-HAVE
+- **Claim:** C1 (channel 4) + the `softmax(QK^T)`-cover-invariance whitespace.
+- **Data:** kq / kqv_out captures; ISA-AttnScore attack; PID(tokens; QK, OV).
+- **Probe-target match:** PID *unique-to-QK* tracks kq-leakage; *unique-to-OV*
+  tracks kqv_out-leakage. Cover-invariance check: inject a shared rotation
+  Transform; confirm `I(tokens; QK)` and ISA recovery are unchanged (the lemma).
+- **Success:** PID component ρ≥0.85 with its surface's attack; invariance confirmed.
+- **Cost:** ~30–60 min + PID solve. **Priority:** NICE-TO-HAVE; richest if B1–B3 hold.
 
-## Run Order and Milestones
+### B6 — Framing decision gate (+ conditional formal) — MUST-RUN (decision)
+- **Claim:** C5 (and C1′ only if a channel's matching failed).
+- **Method:** apply the FINAL_PROPOSAL decision rule to B1–B5: count channels with
+  matched diagonal ≥0.9; check off-diagonal dominance (B3); check Π-channel sharpness
+  (B2). Emit verdict F-A / F-B / F-C with the supporting cells. If any channel
+  failed matching, write the identifiability/MI-success argument (C1′).
+- **Cost:** analysis only. **Priority:** MUST-RUN — this is what the user deferred.
 
-| Milestone | Goal | Runs | Decision Gate | Cost | Risk |
-|-----------|------|------|---------------|------|------|
-| **M0** sanity | implement 4 variants + unit tests; floor≈0 on a synthetic separable toy | host `.venv` pytest | variants pass oracle + toy floor≈0 | <10 min CPU | impl bug |
-| **M1** fast screen | B1 on cached capture (L12, then L5/L20), 3 seeds | extended `diag_pvi.py` | ≥1 variant: floor∈[−1,1], monotone, ≤ cost | ~10–20 min CPU/ROCm | no variant well-posed → M3 gate toward B5 |
-| **M2** faithfulness | B2: DP ε-sweep + 108-block sweep with survivor | `localdp_runner.py`, `--control all` sweep | survivor Spearman≥0.9, monotone-ε | ~30–45 min ROCm | well-posed but unfaithful |
-| **M3** independence | B3 collinearity + deletion study | model-free on cached capture | not collinear w/ retrieval-PVI; dim is lever | ~15 min | faithful⇒collinear ⇒ C1′ |
-| **M4** decision | branch: **PASS**→B4 (cross-scheme) / **FAIL**→B5 (formal verdict) | new obfuscation+split runners *or* theory | — | B4: ~1–2 GPU-hr (new runners) | new-runner code cost |
-| **M5** polish | B6a/B6b, figures | `mdl.py`, MINE | — | ~30 min | — |
+## Run order & milestones
 
-## Compute and Data Budget
-- **Total estimated**: ~2–4 GPU-hours if C1 passes through B4 (most spent building the
-  obfuscation/split-depth runners); ~1 GPU-hour if the run stops at the formal-verdict branch.
-- **Data prep**: none new — cached capture + existing corpora. B4 needs an obfuscation Transform
-  and a split-depth/layer-skip harness (new code, modelled on `localdp_runner.py`).
-- **Human eval**: none.
-- **Biggest bottleneck**: M4-B4 new runners. Everything up to the C1 verdict is the cheap
-  model-free loop + two existing sweeps.
+| M | Goal | Blocks | Decision gate | Cost |
+|---|------|--------|---------------|------|
+| **M0** | implement + unit-test all new probes/defences | B0 | all tests green (incl. `P̂Q̂=I`, logit-fidelity, PID non-neg) | <20 min CPU |
+| **M1** | per-channel matched calibration (cheap defences) | B1 | ch1 ρ≥0.9 (✅), ch3 CLUB ρ≥0.85 | 20–40 min ROCm |
+| **M2** | Π bake-off + AloePri sweep → **select Π-probe** | B2 | C4: independent probe found, or "none" | 15–30 min |
+| **M3** | **decoupling matrix** | B3 | C2: diagonal>off-diag (CIs), ≥1 sign-flip | ~10 min |
+| **M4** | **framing verdict** | B6 | F-A / F-B / F-C declared + Π-probe locked | analysis |
+| **M5** | cross-scheme calibration (gated) | B4 | C3 transfer ρ≥0.85 | 4–10 GPU-hr |
+| **M6** | attention PID + invariance lemma | B5 | C1 ch4 + invariance | 30–60 min |
 
-## Risks and Mitigations
-- **R1 — capacity reduction kills the signal** (dim<n_val too small to carry token info): sweep k;
-  fall back to kNN/Gaussian which regularise without a hard linear bottleneck.
-- **R2 — faithful-but-collinear** (the only tracker is a disguised attack): B3 is designed to detect
-  this; if so it is itself the evidence for C1′, not a failure of the plan.
-- **R3 — new-runner cost for B4**: gate B4 behind C1; reuse `localdp_runner.py` scaffolding; start
-  with split-depth (cheapest — just change capture layer) before obfuscation.
-- **R4 — 256-class cap limits resolution**: documented design choice; note in limitations; the cap is
-  the same across all compared measures so rank comparisons are fair.
-- **R5 — scoop (PAF / Rank-Recovery)**: keep the IT + calibration + cross-scheme + formal-independence
-  framing front-and-centre; cite and out-position, don't ignore.
+**External review:** run `/auto-review-loop` (gpt-5.5 xhigh) **after M3** — once the
+matrix exists, per the user's data-first stance (and the Codex-sandbox-can't-read-
+files constraint makes pre-data review low-value). Paste matrix tables inline.
 
-## Final Checklist
-- [x] Main paper tables covered (T1 well-posedness, T2 faithfulness, T3 independence, T4 cross-scheme)
-- [x] Novelty isolated (B3 independence + deletion study)
-- [x] Simplicity defended (B3 prefers cheapest passing variant; l2-only deletion study)
-- [x] Frontier contribution explicitly **not** claimed (non-frontier method; block skipped)
-- [x] Nice-to-have (B4 partial, B6) separated from must-run (B1–B3, conditional B5)
+## Compute & data budget
+- **To the framing verdict (M0–M4):** ~1.5–2.5 GPU-hr — all on cached capture +
+  CPU table algebra + the existing DP/split sweeps. **Cheap; decides the headline.**
+- **Full program (through M5–M6):** ~6–13 GPU-hr, dominated by AloePri-full
+  logit-verification and learned-Shredder training. Heavily gated.
+- **Data prep:** none new for M0–M4 (cached capture + synthetic obf tables). M5
+  AloePri-full / Shredder-learned need GPU forward passes (+training for Shredder).
+
+## Discipline (from auto-memory)
+- Heavy runs via `scripts/run_in_rocm.sh` only; validate GPU saturation; inspect if
+  >10 min. PCA = covariance-eigh on GPU (never full SVD). Kill containers by explicit ID.
+- Fast loop: `--layers 12 --every-n 2` on the cached capture; capture-fresh only for L0/L20.
+
+## Final checklist
+- [x] Main tables: T1 per-channel matching, T2 Π bake-off, T3 decoupling matrix, T4 cross-scheme
+- [x] Novelty isolated (B2/B3 independence + the decoupling law)
+- [x] Simplicity defended (membership cut; Vec2Text→CLUB; cheapest PID solver)
+- [x] No frontier-LLM-primitive claimed (non-frontier method)
+- [x] Must-run (B0–B3, B6) vs nice-to-have (B4, B5) separated
+- [x] Deferred decisions (framing, Π-probe) routed to explicit gates (B6, B2)

@@ -1,49 +1,62 @@
-# Auto Review Loop — capacity-matched independent leakage measure
+# Auto Review Log — matched-probe program
+
+Reviewer: gpt-5.5 (Codex MCP, xhigh), difficulty=medium. Artifacts pasted inline
+(sandbox can't read repo files). (Prior capacity-PVI thread archived as
+`AUTO_REVIEW.capacity-pvi.md`.)
 
 ## Round 1 (2026-06-20)
 
 ### Assessment (Summary)
-- Score: 5/10
-- Verdict: almost (central claim NOT established; "almost" only for the narrow L12-DP statement)
-- Key criticisms (ranked):
-  1. Single intervention/single layer (L12 input-DP) — tracking one noise knob ≠ prediction. Fix: multi-layer + one non-DP intervention (split-depth/obfuscation).
-  2. Selectivity carries the result (ρ 0.93 vs raw 0.64); shuffle floor drifts −3.79→−1.85 → correction is part of signal. Fix: predeclare selectivity, decompose raw/real/shuffle, leave-one-out, partial-rank corr controlling for noise ratio r; tune dim/reg by floor health not TTRSR.
-  3. n=7 too small. Fix: seeds/prompt-split CIs (bootstrap), denser ε between 512–256.
-  4. randproj floor −3.9 not ≈0 (pca −1.9, knn −1.1 healthier). Fix: sweep dim {32,64,128,256}+reg, pick smallest with floor∈[−1,+1], then evaluate faithfulness.
-  5. Independence structurally plausible but redundancy w/ retrieval-PVI untested. Fix: per-instance collinearity (logit/CKA/R²); does cap-PVI add beyond retrieval-PVI/freq/norm/position.
-  6. Family fragility (gauss fails, knn weak). Fix: pick family by M0/M1 only, freeze for M2; also run pca_softmax + lower-dim randproj M2.
+- **Score: 6.5/10**
+- **Verdict: ALMOST** (meets stop condition: ≥6 AND almost)
+- Key criticisms:
+  1. **B3 not yet demonstrated** — the off-diagonal decoupling matrix is the headline; without it the paper reads as "correlations among leakage proxies."
+  2. **"Law" language overclaims** — call it a channel-specific *calibration principle* / empirical decoupling *protocol* until replicated across defense families.
+  3. **Correlations may be driven by one monotone knob** — use a 2D grid (ε × depth) or multiple defense families; add monotone-baseline + shuffled-label controls.
+  4. **B2 statistically thin** — ρ=0.976 over 7 α points, 1 seed. Add seeds, densify the 0.2–0.7 transition, bootstrap CIs, a second model width.
+  5. **Channel definitions may blur** — add a table: per channel {secret, surface, probe, attack, independence criterion, metric, expected failure mode}.
 
 ### Reviewer Raw Response
-<details><summary>full</summary>
+<details><summary>Full response</summary>
 
-Score 5/10. Verdict ALMOST, not established. Established: capacity matching fixes the broken class-PVI estimator and preserves structural independence. Not established: that the family GENERALLY/faithfully predicts TTRSR. [W1] single L12 DP sweep — both TTRSR and cap-PVI driven by same noise knob → tracking along one path, not prediction; fix: several layers + one non-DP intervention. [W2] selectivity does the work (raw ρ0.64 vs sel ρ0.93); floor not near zero, drifts −3.79→−1.85 so correction is part of signal; nuance: dropping ε=256 still leaves ρ≈0.89, but pre-collapse selectivity barely moves (8.05→7.68) while TTRSR moves a lot → "flat then cliff"; fix: predeclare selectivity, decompose, leave-one-out, partial/rank corr controlling for r, tune by floor health only. [W3] n=7: ρ0.929 → permutation p≈0.007 if only planned test, but with family/dim/raw-vs-sel choices not enough; fix seeds/CIs + denser ε. [W4] floor −3.9 not ≈0; fix dim+reg sweep pick floor∈[−1,1]. [W5] not circular under your defn, but test redundancy w/ retrieval-PVI per-instance + added value over controls. [W6] family fragility → freeze family by M0/M1, run pca + lower-dim randproj M2. Bottom line: Almost for narrow "capacity-matched token-ID selectivity tracks TTRSR on this L12 DP sweep"; NOT established for the general claim.
+Verdict: ALMOST, not top-venue ready yet. Score 6.5/10. Core idea promising, B2 a useful new channel result, but risks reading as "correlations among several leakage proxies" unless B3 cleanly proves channel specificity with strong controls.
+
+SHARPEST FRAMING — do not call it an IT "law" yet. Frame as: "Confidential-inference leakage is channel-specific: a probe is meaningful only relative to a target secret, observation surface, and attacker family. Matched probes calibrate their paired operational attack, while mismatched probes can anti-calibrate or become statistically irrelevant." Stronger than "different measures correlate with different attacks" because it gives a falsifiable protocol: define channels, require probe/attack independence, test diagonal calibration, test off-diagonal failure, show security conclusions change under scalar aggregation.
+
+B3 MINIMUM DESIGN — use a shared CONDITION INDEX, not a shared metric scale. For each defense setting s, compute every probe P_i(s) and attack metric A_j(s); build M[i,j]=Spearman(P_i(s),A_j(s)). Compare rank correlations with bootstrap CIs (never raw TTRSR vs cosine vs τ). (1) one defense sweep moving ≥3 channels non-identically — input-DP depth/ε grid or split-depth×noise; 2D grid stronger (monotone shared degradation can fake diagonal dominance). (2) ≥12–20 shared settings (7 too few): e.g. ε∈{.25,.5,1,2,4}×depth∈{0,5,10,15}=20. (3) K×K matrix over identical settings: token vs TTRSR, Π vs τ-recovery, embedding vs ridge cosine, attention PID increment vs ISA. (4) diagonal dominance test: per row i, Δ_i=ρ(i,i)−max_{j≠i}ρ(i,j), bootstrap over settings (+seeds/tokens), strong claim = most Δ_i>0 with CIs excluding 0. (5) ≥1 genuine sign flip, preferably 2 across different channels/defenses; a "law" needs repeated flips or near-zero off-diagonals across >1 defense family. (6) negative controls: shuffled defense labels, random probe, attack-derived probe marked dependent, monotone shared-noise baseline showing diagonal dominance is not automatic. Best figure: Spearman heatmap with CI annotations + diagonal-vs-best-offdiag bar plot.
+
+B2/CLUB-on-φ: ρ=0.976 over 7 α promising but thin; enough for go/no-go not a top-venue channel claim. Add 3–5 seeds, 12+ α (densify 0.2–0.7), bootstrap CIs for CLUB and VMA, show CLUB independent of RowSort/Hungarian details, one more model width / subset size. Separate the keymat floor result clearly (perm-core exposes the channel; dense keymat closes it).
+
+Capacity-reader degeneracy: deferring to activations is sound but the bake-off wording is risky — say explicitly "the weight-table Π surface does not admit a meaningful capacity-reader baseline; the activation Π surface is the appropriate place to test reader-style probes." Stop presenting the weight-table reader as a failed competitor.
+
+Ranked weaknesses + min fixes: (1) B3 not demonstrated → one shared 12–20 condition sweep, full probe×attack matrix, bootstrap diagonal dominance, ≥1 sign flip. (2) "law" overclaims → "empirical decoupling protocol / channel-specific calibration principle." (3) correlations may be one monotone knob → 2D grid or multiple defense families + monotone-baseline + shuffled-label controls. (4) B2 low support → more α, seeds, CIs, transition density. (5) channel definitions blur → table {secret, surface, probe, attack, independence criterion, metric, expected failure mode}.
+
+HIGHEST-LEVERAGE NEXT: run B3, not B5. The paper lives or dies on the off-diagonal matrix. Minimum GPU run: 3 channels, 12–20 shared settings, 3 seeds. A clean 3×3 diagonal-dominant decoupling matrix with a sign flip is more publishable than a scattered 4-channel story without off-diagonal rigor.
+
 </details>
 
+### Actions Taken (this round — documentation fixes, no GPU needed)
+- Reframed "decoupling law" → **"channel-specific calibration principle / empirical decoupling protocol"** in FINAL_PROPOSAL + EXPERIMENT_PLAN (fix #2).
+- Rewrote **B3** with the reviewer's concrete protocol: shared condition index, 2D ε×depth grid (≥16 settings), K×K Spearman matrix, bootstrap Δ_i diagonal-dominance test, ≥1–2 sign-flips, 4 negative controls (fixes #1, #3).
+- Added the **channel-definition table** to FINAL_PROPOSAL (fix #5).
+- Fixed the **capacity-reader / weight-table** wording in EXPERIMENT_RESULTS + plan (fix; not a "failed competitor").
+- Logged the **B2+ firm-up** block (seeds, α density, CIs, 2nd width) (fix #4).
+
 ### Status
-- continuing to round 2. Difficulty: medium.
-
-## Round 2 (2026-06-20)
-### Assessment
-- Score: 6.5/10 — Verdict: almost (STOP threshold met; continuing one round for the cheap path to "established")
-- Accepts the scoped claim: capacity-matching + control-anchored reg fixes the pathological class-PVI estimator → structurally independent token-ID measure that moderately-strongly tracks TTRSR across layer×DP, exposing meaningful divergences. Not yet the unqualified "faithfully tracks."
-- Remaining (ranked): (1) single defense — add ONE non-DP intervention (cheap rep-space: iso noise / PCA ablation / split-depth); (2) make L20 divergence a RESULT — show token-id accuracy stable while embedding cosine/retrieval collapses; (3) pooled ρ hides repeated-measure structure — macro-avg per-layer ρ + mixed/fixed-effects; (4) partial ρ|retr 0.275 weak — give CI/perm-p + residual plot; (5) l2 selection auditability — show l2 sweep, selection by floor health not TTRSR; (6) floor precision — report mean±sd, −1.53 is just outside [−1.5,1.5].
-### Status: continuing to round 3 (non-DP intervention + L20 mechanism). Difficulty: medium.
-
-## Round 3 (2026-06-20)
-### Assessment
-- Score: 7/10 — Verdict: ESTABLISHED (scoped) IF reframed; ALMOST if still claiming "PVI-in-bits faithfully tracks".
-- Conceptual center (per reviewer): original failed object = high-d class-PVI **bits**; FIXED object = capacity-matched independent **token-ID reader**; best readout = bounded **token-ID accuracy**; PVI/selectivity = useful but calibration-sensitive (partially rescued).
-- Must-fix (framing, not experiments): (1) STOP calling accuracy "V-information" — split all claims into `reader accuracy` (robust predictor) vs `PVI bits/selectivity` (fragile, partially rescued). (2) calibration diagnostic (NLL/conf/ECE) on the bad cells to prove the log-loss-artifact story. (3) report within-layer/macro-avg ρ as PRIMARY, partial ρ|r as secondary (class-PVI's +0.613 partial|r shows the statistic can mislead under layer×ε structure). (4) one model only → scope to gemma or add cheapest cross-model subset. (5) dim16 sensitivity (floor −1.10 vs dim64 −1.53).
-
-### Status: STOP — positive assessment (7/10, established-scoped). Loop complete at round 3/4.
-
-## FINAL SUMMARY
-**Objective** (fix the independent token-id V-family to track the attack, or formally retire it): **ACHIEVED, scoped + honest.**
-- class-PVI's failure was an estimator regime (d>n_val), not the family. **Capacity-matching (PCA→dim<n + linear reader)** removes the catastrophe: shuffle floor −49→−1.5 b (dim-anchored, NOT l2-anchored), monotone, ~0.3× class-PVI cost; gauss reader fails, pca_softmax is the pick.
-- **The robust fixed measure is the reader's token-ID accuracy** (bounded), which tracks the inversion attack (TTRSR) at ρ **0.82–1.0 across all layers** under representation-space defenses (PCA-ablation, isotropic noise), and at early/mid layers under input-DP (partial ρ|r≈0.71, beyond the noise knob). The **unfixed class-PVI is within-layer anti-correlated** everywhere.
-- **PVI-in-bits is only partially rescued**: the −48 floor and "rise under noise" are unbounded-log-loss artifacts; bits track only with regularization and remain fragile under iso-noise / late-layer DP.
-- **Characterized divergence (a result, not a failure)**: under propagated input-DP at late layers (L20), token-ID decodability survives while embedding-reconstruction (the attack) collapses → cap diverges from TTRSR (ρ −0.21, in the bounded readout too). This localizes WHAT input-DP protects (embedding geometry) vs not (id-decodability).
-- **Independence**: token-ID target, never the embedding table; ρ(cap, retrieval-PVI)=0.66–0.76 (<0.9); the capacity fix changes only `dim`, not the target → not "becoming the attack."
+- **Loop TERMINATED** at round 1: stop condition met (6.5 ≥ 6 AND verdict=almost).
+- Next concrete experiment (reviewer #1, highest-leverage): the **B3 off-diagonal GPU run** — unified runner, 3 channels × ε×depth grid × 3 seeds, ROCm container. Needs user go-ahead (GPU discipline: validate optimality + saturation first).
 
 ## Method Description
-`v_information_capacity` (src/talens/measures/vinfo_capacity.py): an attack-independent leakage probe over token-ID classes. Pipeline: standardize hidden state X (train stats) → reduce dimensionality to `dim<n_val` (PCA via GPU covariance-eigh, or random projection) → a cheap reader (linear softmax / Gaussian class-conditional / kNN) predicts the token id; null = class prior; Hewitt–Liang shuffle control. Two readouts: PVI-in-bits (= log2 q(y|x) − log2 prior, calibration-sensitive) and the reader's bounded top-1 token-ID accuracy (robust). It never reads the token-embedding table, so it is structurally independent of the ridge→embedding inversion attack whose top-1 recovery (TTRSR) is the ground truth. Faithfulness is evaluated by Spearman vs TTRSR across (layer × defense-strength) grids for input-DP, PCA-subspace-ablation, and isotropic-hidden-state-noise defenses.
+The method decomposes confidential-inference leakage into (target × surface)
+**channels** {token-identity, permutation-Π, embedding-geometry, attention-QK/OV}.
+Each channel is paired with a **matched independent information-theoretic probe**:
+capacity-matched PVI reader accuracy (token-id), CLUB on the sorted-quantile row
+signature φ (permutation-Π), CLUB I(rep;emb) (embedding), and MMI-PID
+conditional-increment atoms (attention). A probe is *independent* iff it is computed
+without the paired attack's fitted map (verified by per-instance collinearity). Data
+flow: capture activations / load the weight table → apply a defense (input-DP,
+split-depth, AloePri permutation-core / Algorithm-1 key-matrix, Shredder
+static/learned Laplace) → run each channel's attack (ridge TTRSR, VMA τ-recovery,
+ridge cosine, ISA) and its matched probe over a shared defense-setting grid → build
+the K×K probe×attack Spearman matrix and test diagonal dominance (matched pairs
+calibrate; mismatched pairs decouple, with documented sign-flips).

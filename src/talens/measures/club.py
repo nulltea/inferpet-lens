@@ -112,6 +112,7 @@ def club_mi_upper_bound(
     control: str = "none",
     control_seed: int = 20260616,
     device: str | None = None,
+    grad_clip: float = 5.0,
 ) -> dict[str, Any]:
     """Estimate an MI upper bound between rows of ``X`` (representation)
     and ``Y`` (token embeddings). Both standardised per-feature for
@@ -170,14 +171,29 @@ def club_mi_upper_bound(
         torch.manual_seed(seed)
         net = CLUB(Xs.shape[1], Ys.shape[1], hidden_size).to(dev)
     opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    diverged = False
     for _ in range(steps):
         opt.zero_grad()
         loss = net.learning_loss(xtr, ytr)
+        # Heavy-tailed inputs (e.g. Laplace-noised activations) can blow up
+        # ``p_mu`` → non-finite loss → nan weights. Skip the step on a
+        # non-finite loss and clip grads to keep the optimiser stable.
+        if not torch.isfinite(loss):
+            diverged = True
+            continue
         loss.backward()
+        if grad_clip and grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(net.parameters(), grad_clip)
         opt.step()
 
     net.eval()
     mi_nats = _club_estimate(net, xte, yte)
+    # Guard: never propagate a non-finite estimate downstream (it poisons
+    # Spearman/aggregation). Report None + a note so callers filter the cell.
+    if not np.isfinite(mi_nats):
+        return {"club_mi_bits": None, "club_mi_nats": None,
+                "note": "non-finite estimate (training diverged)", "diverged": True,
+                "n_train": int(tr.size), "n_test": int(te.size), "device": dev}
     return {
         "club_mi_nats": mi_nats,
         "club_mi_bits": mi_nats / _LN2,
@@ -186,4 +202,5 @@ def club_mi_upper_bound(
         "hidden_size": hidden_size,
         "device": dev,
         "control": control,
+        "diverged": diverged,
     }

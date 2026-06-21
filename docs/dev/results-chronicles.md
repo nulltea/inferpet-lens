@@ -192,3 +192,66 @@ estimate (GPU-bound; little further headroom).
    shuffle/vocab) — modest now that the solve is on GPU.
 4. **On-demand controls** — run controls on a flagged subset, not all 108
    blocks every sweep.
+
+---
+
+## 2026-06-20 — matched-probe program: B0 (impl+review) + B2 (permutation-Π) 
+
+New thread (`refine-logs/FINAL_PROPOSAL.md`): per-channel matched probes +
+decoupling law. Numbers + tables in `refine-logs/EXPERIMENT_RESULTS.md` — **do
+not duplicate; read there.** Headlines:
+
+- **B0**: AloePri Algorithm 1 (`scripts/defenses/aloepri.py`) — invertible keymat
+  `P̂Q̂=I` validated at d=2304 (err 6e-9, float64-build+solve). + Shredder
+  (`shredder.py`) + MMI-PID (`measures/pid.py`). 76/76 tests. gpt-5.5 review
+  caught 2 CRITICAL pre-run: Shredder SNR sign inverted; V-info-in-MMI not a sound
+  Shannon PID (→ operational reader-atoms + conditional increments + lattice guard).
+- **B2** (GPU-free, weight surface, gemma-2-2b embed, N=1200): AloePri perm-core
+  α_e sweep, VMA τ-recovery 1.00→0.007. **CLUB-on-φ (independent) tracks at
+  Spearman +0.976**; retrieval-PVI +1.000 (mechanical, = VMA in bits). **C4 →
+  CLUB-on-φ is the independent Π-probe.** The dense Alg1 keymat drives VMA *and*
+  both φ-measures to floor (keymat defeats the RowSort channel; perm-core is the
+  vulnerable regime). 
+- **Pending**: B3 decoupling-matrix off-diagonal (cross-apply each probe to each
+  target) needs a unified GPU activation run; diagonal + L20×DP sign-flip in hand.
+
+### 2026-06-21 — B3 decoupling matrix (headline)
+
+`results/b3_decoupling_matrix.json` (gemma-2-2b, ε×depth×3 seeds, 72 settings,
+~13 min GPU). Full numbers in `refine-logs/EXPERIMENT_RESULTS.md`. Honest verdict:
+**channel-specificity is depth-resolved, not pooled.** 2/3 matched diagonals
+dominate (token Δ+0.087, Π Δ+0.162; CIs exclude 0); embedding's CLUB is generic
+(ties). Sign-flip: token-id probe↔attack ρ goes +0.89(L0)→−0.11(L12)→+0.08(L20)
+while embedding stays positive (+0.98→+0.36). **Methodological finding:** the
+monotone noise-index alone correlates with every attack (−0.73/−0.75/−0.99) →
+common-cause decay inflates pooled off-diagonals and deflates Δ_i; the depth axis
+carries the real channel-specific signal. Separating channels along the noise axis
+needs a 2nd defence family (B4). Random/shuffled controls ≈0; retr-PVI dep +0.885.
+
+### 2026-06-21 — B4 cross-scheme (Shredder vs input-DP)
+
+`results/b4_cross_scheme.json`. 2nd defence family = Shredder static-Laplace
+(direct activation inject; clean acts captured once, noise swept in-memory).
+Numbers in `refine-logs/EXPERIMENT_RESULTS.md`. Two findings: (1) **the decoupling
+is defence-injection-specific** — token-id per-layer diagonal is entirely different
+under propagated DP (+0.89→+0.53→−0.11→+0.08) vs direct Shredder (+0.16→−0.16→
+−0.18→+0.62); not a universal property. (2) **transfer is channel-specific** —
+generic embedding-CLUB transfers across schemes (ρ_DP 0.75 / Shr 0.70 / pooled
+0.72), the specific token-id reader does NOT (0.64/0.39/0.45 pooled<within); perm_Π
+high seed variance. Same 2/3 diagonal-dominance pattern (token, Π; embedding generic).
+Instability: seed-1 CLUB→nan (20/72); finite estimates stable — clamp/retry in club.
+Sharpest framing: no single scheme-agnostic leakage scalar; calibration curve =
+f(channel, defence-injection-geometry).
+
+### 2026-06-21 — B2+ Π firm-up + CLUB nan fix
+
+`results/b2plus_pi_firmup.json`. Π channel firmed: **per-seed ρ(CLUB-on-φ, VMA
+τ-recovery) = +1.000 ± 0.000** across 5 seeds × 2 model widths (gemma d2304, qwen
+d2560); match-mode independent (ρ with NN assignment +0.998). B4's apparent Π
+"seed variance" was a **pooling artifact** — per-seed curves are monotone (ρ=1),
+but pooling raw CLUB magnitudes across heterogeneous token draws adds baseline
+offsets that deflate pooled ρ (gemma 0.44, qwen 0.90). **Methodological takeaway:
+the calibration unit is the within-condition sweep, not pooled raw magnitudes**
+(reframes the B3 monotone-confound and B4 transfer reads). CLUB nan bug fixed
+(`measures/club.py`: grad-clip + non-finite skip + None-guard; `test_club_stability.py`;
+suite 78/78).

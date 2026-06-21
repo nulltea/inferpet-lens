@@ -1,20 +1,72 @@
+---
+type: reference
+status: current
+created: 2026-06-20
+updated: 2026-06-20
+tags: [experiment-tracker, checklist]
+companion: [EXPERIMENT_PLAN]
+---
+
 # Experiment Tracker
 
-Compact, execution-oriented. Status: TODO / RUNNING / DONE / BLOCKED. Newest decisions at bottom.
+Status: ☐ todo · ◐ in-progress · ☑ done · ✗ failed/blocked
 
-| Run ID | Milestone | Purpose | System / Variant | Split | Metrics | Priority | Status | Notes |
-|--------|-----------|---------|------------------|-------|---------|----------|--------|-------|
-| R001 | M0 | sanity: impl + oracle | 4 capacity-matched variants (pca/randproj/gauss/knn) | synthetic separable + noise | shuffle floor≈0, monotone, signal>0 | MUST | DONE | `vinfo_capacity.py` + `tests/test_vinfo_capacity.py` (9/9); full suite 60/60; Codex review: no critical bugs, independence confirmed; capacity-match applied to ALL families (full-d gauss/knn also overfit) |
-| R002 | M1 | well-posedness screen | each variant vs class-PVI/retrieval-PVI | cached cap L12, every-n 2, 3 seeds | shuffle floor, monotonicity vs σ, wall-clock | MUST | DONE | PASS. Survivor=**randproj_softmax** (floor −3.9 vs class-PVI −49.7, real 5.17, 0.42× cost, graceful monotone decay). pca_softmax backup (floor −1.9). gauss FAILS (miscalibrated). Perf: fixed redundant-SVD→cov-eigh on GPU (11s→0.44s), GPU 100%. results/capacity_screen.json |
-| R003 | M1 | depth confirm | survivors of R002 | cached cap, L5 + L20 | same as R002 | MUST | TODO | only run survivors |
-| R004 | M2 | faithfulness (DP) | randproj cap-PVI vs class/retr/CLUB | DP ε-sweep {∞..256}, **L12**, vocab, every-n 2 | Spearman vs TTRSR | MUST | DONE | **cap-PVI selectivity Spearman +0.929** vs TTRSR (= retr-PVI; beats CLUB 0.536); **class-PVI −0.929 (anti)**. PASS. localdp_m2_randproj_L12.json. TODO: extend L5/L20 |
-| R005 | M2+ | multi-layer faithfulness (review R1) | pca64 cap vs class/retr/CLUB | DP ε-sweep ×L{5,12,20}, n=21, every-n2 | pooled/per-layer/partial-ρ\|r Spearman | MUST | DONE | pca64 floor STABLE −1.2 (fixed drift). cap pooled ρ 0.642, **partial ρ\|r 0.738** (tracks beyond noise knob); but per-layer L5 .68/L12 .32/**L20 −.21** (rises under moderate DP). CLUB 0.809 / retr 0.978 beat it. ρ(cap,retr)=0.66 (not collinear). class-PVI within-layer anti (−.64..−.86). analyze_faithfulness.py |
-| R005b | M2+ | l2-anchor lever (R1-W2/W4) | pca64 l2=10 multi-layer | same | does strong reg fix within-layer rise? | MUST | RUNNING | distinguishes overfit-artifact vs genuine measure-vs-attack divergence |
-| R006 | M3/R2 | non-DP intervention + L20 mechanism | cap vs TTRSR/retr/CLUB under pca-ablate & iso-noise | cached cap L{5,12,20}, model-free | Spearman per layer; cap_acc vs TTRSR | MUST | DONE | **cap tracks TTRSR ρ 0.9 (ablate) / 1.0 (iso) at ALL layers incl L20**. L20-DP divergence is DP-propagation-specific (vanishes under direct hidden-state intervention). Mechanism: iso@L20 cap_acc 0.68→0.11 lockstep w/ TTRSR. nondp_intervention.json |
-| R006b | audit | l2 selection (R2-W5) | pca64 l2∈{.1,1,3,10,30} | cached L12 | floor vs l2 | MUST | DONE | **floor = −1.53 INVARIANT to l2** (set by dim, not reg) → "control-anchored l2" framing RETRACTED; l2 only trades signal magnitude. Floor anchored by dim (dim16 −1.1, dim64 −1.53). |
-| R007 | M4 | DECISION GATE | — | — | PASS(R002–R006)→R008; FAIL→R010 | MUST | **PASS** | Objective achieved (scoped). Auto-review 3 rounds → 7/10 established. Fixed family = capacity-matched token-id reader (accuracy readout); PVI-bits partially rescued. Formal-retire branch (R010) NOT needed. Next = paper-grade polish (calibration diag, cross-model, B4 obfuscation) — non-blocking. |
-| R008 | M4 | cross-scheme: split-depth | survivor calibration | split-depth/layer-skip (new runner) | held-out-scheme Spearman ≥0.85 | NICE | TODO | cheapest new scheme first |
-| R009 | M4 | cross-scheme: obfuscation | survivor calibration | obfuscation Transform (new runner) | calibration-curve overlap | NICE | TODO | gated on R008 signal |
-| R010 | M4 | formal verdict (C1′) | estimator-validity + bias-floor | cached cap (corroboration) | predicted vs observed floor ~ d/n_val | MUST* | TODO | *only if R007=FAIL |
-| R011 | M5 | MDL same-family check | online_code_length | cached cap | floor + cost vs class-PVI | NICE | TODO | justifies MDL exclusion |
-| R012 | M5 | two-sided bracket | CLUB(upper)+MINE/InfoNCE(lower) | cached cap | bracket width as confidence | NICE | TODO | Idea 3 / G1b |
+## B0 — Implement + unit-test (MUST-RUN, <20 min CPU) — ☑ DONE
+- ☑ AloePri Alg1 obf-table generator (`keymat_gen`, `P̂Q̂=I` @ d=2304, err 6e-9) → obf `WeightPair`
+- ☑ AloePri permutation-core + keymat activation covers (`AloePriPermCover`, `AloePriKeyMatCover`)
+- ☑ Shredder static-Laplace cover + learned-noise trainer (SNR-sign fixed per review)
+- ◐ Capacity-reader-on-invariants Π-probe — degenerate on weight surface (1 row=1 class); deferred to activation surface (B4)
+- ☑ PID QK-vs-OV probe (`pid_mmi`; reframed to operational reader-atoms + cond-increments per review)
+- ☑ Unit tests green: 16 new, **76/76 suite**
+- ☑ Cross-model code review (gpt-5.5 xhigh): 2 CRITICAL caught + fixed (Shredder sign, PID soundness)
+- **Gate:** PASSED → B1/B2
+
+## B1 — Per-channel matched calibration, cheap defences (MUST-RUN, 20–40 min ROCm)
+- ☐ ch1 capacity-PVI reader-acc vs ridge TTRSR (DP-ε + split-depth) — expect ρ≥0.9 (prior: 0.82–1.0)
+- ☐ ch3 CLUB vs ridge cosine — expect ρ≥0.85
+- ☐ partial-ρ|knob + per-instance collinearity logged
+- **Gate (C1, ch1/3):** both meet threshold
+
+## B2+ — Π firm-up (5 seeds × 12 α × 2 widths) — ☑ DONE (CPU, 2026-06-21)
+- ☑ per-seed ρ(CLUB-on-φ, VMA) = **+1.000 ± 0.000** (gemma d2304 + qwen d2560)
+- ☑ match-mode independence: ρ(CLUB, VMA-nn) = +0.998 (not tied to assignment algo)
+- ☑ B4 "seed variance" = pooling artifact (raw-magnitude offsets); within-sweep ρ=1
+- ☑ **CLUB nan FIXED** (`club.py` grad-clip + None-guard; `test_club_stability.py`; 78/78)
+
+## B2 — Π bake-off + AloePri α_e sweep → select Π-probe (MUST-RUN) — ☑ DONE (CPU, ~9s)
+- ☑ AloePri-obfuscated WeightPair, α_e ∈ {0,.1,.2,.35,.5,.75,1.0,1.5}; VMA τ-recovery truth (1.00→0.007)
+- ☑ CLUB-on-φ (independent): ρ = **+0.976**
+- ☑ retrieval-PVI-on-φ (dependent ref): ρ = +1.000 (mechanical)
+- ◐ capacity-reader-on-φ: degenerate on weight surface → activation surface (B4)
+- ☑ keymat point: VMA→0.000, CLUB/retr→floor (keymat defeats RowSort φ-channel)
+- **Gate (C4): RESOLVED → CLUB-on-φ is the independent Π-probe** (weight surface)
+
+## B3 — Decoupling matrix (MUST-RUN) — ☑ DONE (GPU, ~13 min, 72 settings, 3 seeds)
+- ☑ K×K ρ(P_c, m_{c′}) over {token-id, Π, embedding} (`results/b3_decoupling_matrix.json`)
+- ☑ diagonal-dominance Δ_i + bootstrap CIs: **2/3 dominant** (token +0.087✓, Π +0.162✓; embedding tie)
+- ☑ controls: random≈0, shuffled≈0, retr-PVI dep +0.885; **monotone-index confound demonstrated (−0.73/−0.75/−0.99)**
+- ☑ **sign-flip: token-id @ L12 (ρ −0.108)**; per-layer depth axis carries the decoupling
+- **Gate (C2): PARTIALLY MET** — depth-resolved channel-specificity holds; pooled matrix confounded by common-cause noise → needs 2nd defence family (B4)
+
+## B6 — Framing verdict (MUST-RUN, analysis)
+- ☐ apply decision rule → F-A / F-B / F-C
+- ☐ lock Π-probe
+- ☐ (conditional) C1′ formal argument if any channel's matching failed
+- **→ run `/auto-review-loop` here (paste matrix tables inline)**
+
+## B4 — Cross-scheme calibration (Shredder vs input-DP) — ☑ DONE (GPU, 2026-06-21)
+- ☑ Shredder static-Laplace as 2nd family (post-capture transform; `results/b4_cross_scheme.json`)
+- ☑ Shredder matrix: token-id + perm_Π diagonals dominate (2/3); embedding CLUB generic (same as B3)
+- ☑ **Finding 1**: decoupling is **defence-injection-specific** — token-id per-layer diagonal differs
+  entirely (DP propagated +0.89→+0.08 vs Shredder direct +0.16→+0.62)
+- ☑ **Finding 2 (C3)**: transfer is channel-specific — embedding transfers (0.75/0.70/0.72 pooled≈within),
+  token-id does NOT (0.64/0.39/0.45 pooled<within); perm_Π high seed variance (flag → B2+)
+- ⚠ instability: seed-1 CLUB → nan (20/72); finite-cell estimates stable. Fix: clamp/retry in `club`.
+- **Gate (C3): partially met + sharpened** — no single scheme-agnostic leakage scalar; calibration curve = f(channel, injection-geometry)
+
+## B5 — Attention QK/OV PID (NICE-TO-HAVE, 30–60 min)
+- ☐ PID unique-QK vs kq-leakage; unique-OV vs kqv_out-leakage
+- ☐ shared-rotation cover-invariance lemma check (I(tokens;QK) & ISA unchanged)
+
+## Milestones
+- ☐ M0 (B0) ☐ M1 (B1) ☐ M2 (B2) ☐ M3 (B3) ☐ M4 (B6 verdict) ☐ M5 (B4) ☐ M6 (B5)

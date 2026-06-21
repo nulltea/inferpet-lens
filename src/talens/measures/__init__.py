@@ -6,12 +6,15 @@
   Surplus Description Length (code-length / complexity axis).
 * :func:`~talens.measures.club.club_mi_upper_bound` — CLUB MI upper
   bound (brackets leakage from above).
+* :func:`~talens.measures.pid.pid_mmi` — MMI partial-information
+  decomposition of the QK/OV attention channel (which operand leaks).
 """
 
 from __future__ import annotations
 
 from .club import club_mi_upper_bound
 from .mdl import online_code_length, online_code_length_retrieval
+from .pid import pid_mmi
 from .vinfo import v_information, v_information_retrieval
 from .vinfo_capacity import v_information_capacity
 
@@ -22,4 +25,5 @@ __all__ = [
     "online_code_length",
     "online_code_length_retrieval",
     "club_mi_upper_bound",
+    "pid_mmi",                    # MMI-PID of the QK/OV attention channel
 ]

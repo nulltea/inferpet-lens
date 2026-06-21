@@ -3,140 +3,180 @@ type: dev-log
 status: current
 created: 2026-06-20
 updated: 2026-06-20
-tags: [results, capacity-matched-pvi, randproj, faithfulness, DP-sweep, calibration]
-companion: [EXPERIMENT_PLAN, idea-stage/IDEA_REPORT]
+tags: [results, matched-probe, aloepri, vma, permutation-pi, pid, shredder, code-review]
+companion: [EXPERIMENT_PLAN, FINAL_PROPOSAL]
 ---
 
-# Initial Experiment Results
+# Initial Experiment Results — matched-probe program (B0 + B2 + B3)
 
-**Date**: 2026-06-20  **Plan**: `refine-logs/EXPERIMENT_PLAN.md`
-**Objective**: fix class-PVI (independent token-id V-family) so it tracks the attack, or formally retire it.
+**Date**: 2026-06-20 / 2026-06-21  **Plan**: `refine-logs/EXPERIMENT_PLAN.md`
 
-## Results by Milestone
+## M0 / B0 — Implement + unit-test — PASSED (76/76 suite, +16 new)
 
-### M0: Sanity — PASSED
-`vinfo_capacity.py` (4 families: pca_softmax / randproj_softmax / gauss / knn), 9/9 new tests,
-60/60 suite. Codex (gpt-5.5 xhigh) review: no critical bugs; **confirmed the measure never
-touches the token-embedding table** (predicts token-id classes) → structurally independent of
-the ridge→embedding attack. Finding: full-`d` gauss/knn are *also* overconfident, so every family
-is capacity-matched by PCA/randproj reduction first.
+New code (defences in `scripts/defenses/`, agnostic measures in `src/talens/`):
+- **AloePri Algorithm 1** (`defenses/aloepri.py::keymat_gen`) — invertible key pair
+  `P̂ Q̂ = I_d` via null-space construction. Validated at **d=2304** (gemma-2-2b
+  width): float32-stored `P̂@Q̂` max error **6e-9** (float64 build + `solve`, per review).
+- **AloePri obf-table generator** + activation covers (`AloePriPermCover`,
+  `AloePriKeyMatCover`); **Shredder** static-Laplace cover + learned-noise trainer
+  (`defenses/shredder.py`); **MMI-PID** QK/OV probe (`measures/pid.py`).
+- 16 new oracle tests (`test_aloepri/test_shredder/test_pid`), full suite green.
 
-### M1: Well-posedness + cost screen — PASSED (`results/capacity_screen.json`)
-L12, every-n 2, 3 seeds. Healthy floor ≈ 0 (class-PVI = **−49.7**); cost must be ≤ class-PVI (2.85s).
+### Cross-model code review (gpt-5.5 xhigh) — 2 CRITICAL caught + fixed pre-run
+1. **Shredder SNR sign was inverted** — `min task_loss + λ·(noise/signal)` shrinks
+   noise. Fixed to `min task_loss + λ·SNR` (signal/noise) so the term *rewards*
+   noise; test now pre-trains + freezes the head (faithful Shredder).
+2. **V-info-in-MMI is not a sound Shannon PID** — reader bounds don't preserve
+   lattice identities. Reframed to *operational reader atoms*; report raw unclamped
+   `I_V`, a `lattice_ok` guard, and the **conditional increments** `I_joint−I_other`
+   (the sound "additional usable leakage" read). Plus keymat numerics hardened.
 
-| family | real PVI | shuffle floor | cost vs class-PVI | noise decay |
-|---|---|---|---|---|
-| class-PVI | 4.96 | **−49.7** ❌ | 1× | non-monotone (rises) ❌ |
-| **randproj_softmax** | 5.17 | −3.9 | **0.42×** ✅ | graceful monotone ✅ |
-| pca_softmax | 5.39 | −1.9 ✅ | 0.57× ✅ | monotone (steep) |
-| gauss | −12.0 ❌ | −32.6 ❌ | 0.15× | non-monotone ❌ |
-| knn | 1.35 | −1.1 ✅ | 0.13× ✅ | monotone, weak |
+## M2 / B2 — Permutation-Π channel: AloePri α_e sweep + Π-probe bake-off — PASSED
 
-→ The independent family **can** be made well-posed *and* cheaper. Survivor: **randproj_softmax**.
-gauss fails (miscalibrated reader — "the reader matters" ablation). Perf note: a redundant full-SVD
-made an early run CPU-thrash 26 min at idle GPU; replaced with covariance-eigh on GPU
-(11s→0.44s, GPU→100%).
+GPU-free (weight surface), gemma-2-2b embedding, N=1200 token rows,
+`results/aloepri_vma_sweep.json`. Permutation-core regime; VMA τ-recovery = truth.
 
-### M2: Faithfulness — PASSED (`results/localdp_m2_randproj_L12.json`)
-DP ε-sweep {∞,8192,4096,2048,1024,512,256}, L12, randproj dim 256, every-n 2. Ground truth = TTRSR
-(falls 0.35→0.05). Spearman(measure, TTRSR):
+| α_e | VMA τ-recovery | CLUB-on-φ (indep) | retrieval-PVI-on-φ (dep ref) |
+|-----|----------------|-------------------|------------------------------|
+| 0.0 | 1.000 | 252.4 b | 3.34 b |
+| 0.2 | 0.561 | 250.4 b | 3.31 b |
+| 0.35| 0.212 | 246.4 b | 3.25 b |
+| 0.5 | 0.088 | 240.4 b | 3.17 b |
+| 1.0 | 0.022 | 214.1 b | 2.75 b |
+| 1.5 | 0.007 | 180.7 b | 2.27 b |
+| **keymat, α_e=0** | **0.000** (chance ≈8e-4) | **−2.4 b** | **0.00 b** |
 
-| measure | Spearman | note |
-|---|---|---|
-| **cap-PVI selectivity (real − shuffle)** | **+0.929** | independent **and** faithful |
-| retrieval-PVI | +0.929 | mechanical (= the attack in bits) |
-| **class-PVI** | **−0.929** | independent but **anti**-correlated (fails) |
-| CLUB | +0.536 | independent upper bound, weak on this sweep |
-| cap-PVI raw bits | +0.643 | flat-then-cliff; selectivity is the faithful read |
+**Spearman(measure, τ-recovery) over α_e: CLUB(indep) = +0.976, retr-PVI(dep) = +1.000.**
+
+- **C1 (Π channel, weight surface): PASSED** — CLUB-on-φ is independent (an MI
+  estimator on paired signatures, not the matching attack) **and** faithful (ρ 0.976).
+- **C4 (Π-probe selection) RESOLVED on the weight surface → CLUB-on-φ.** retrieval-PVI's
+  +1.000 is mechanical (it *is* the VMA in bits, per its docstring); the capacity-reader
+  candidate is degenerate here (1 row = 1 class) → deferred to the activation surface (B4).
+- **Keymat finding (replicated at d=2304):** the dense Algorithm-1 key matrix drives
+  VMA *and* both φ-measures to floor — it erases the sorted-quantile channel entirely.
+  So the **permutation-core** is the VMA-vulnerable regime; the **full keymat** defends it
+  (attacking it needs the raw-row / trained EmbedRow inverter, not RowSort). A cross-scheme
+  cell for B4 surfacing early.
+
+## Matched-probe diagonal so far
+
+| Channel | Matched independent probe | Attack | ρ(probe, attack) | Source |
+|---------|---------------------------|--------|------------------|--------|
+| Token-identity | capacity-PVI reader accuracy | ridge TTRSR | 0.82–1.0 | prior thread (depth sweep) |
+| **Permutation-Π** | **CLUB-on-φ** | **VMA τ-recovery** | **+0.976** | **B2 (new)** |
+| Embedding-geometry | CLUB I(rep;emb) | ridge cosine | ~0.81–0.96 | prior thread |
+| Attention QK/OV | MMI-PID unique/cond-increment | ISA | — | B5 (pending) |
 
 ## Summary
-- **4/4 must-run blocks to date completed** (M0, M1, M2). Main result: **POSITIVE** — a
-  capacity-matched member of the independent token-id family (randproj_softmax), read as
-  shuffle-control selectivity, tracks the attack at Spearman **0.929** (= the mechanical attack
-  measure) while costing **0.42×** class-PVI, where class-PVI is **anti-correlated (−0.929)**.
-- **Independence argument (built-in)**: the *only* change class-PVI → cap-PVI is capacity-matching
-  (dim reduction); no embedding/attack info is added. So tracking comes from fixing the estimator
-  regime, not from becoming the attack. (Formal per-instance collinearity test vs retrieval-PVI =
-  the next rigor step, B3.)
-- **Open / next** (for the review loop to prioritise): (i) B3 independence isolation — per-instance
-  cap-PVI vs retrieval-PVI collinearity + l2-only-vs-dim deletion study; (ii) extend M2 to L5/L20 +
-  the 108-block control sweep (n=7 per layer is thin); (iii) raw-bits flat-then-cliff vs
-  selectivity — characterise which to report; (iv) other defenses (split-depth, obfuscation) = B4.
+- **Must-run done:** B0 (impl+review+test), B2 (Π channel + C4 resolved). Main result: **POSITIVE**.
+- **Pending (need a unified GPU activation run):** B1 same-pipeline anchor for token-id/embedding
+  rows under the *new* defences; **B3 decoupling matrix off-diagonal** (cross-apply each probe to
+  each target — the diagonal + the L20×DP sign-flip seed are in hand); B4 cross-scheme; B5 attention.
+- **Ready for `/auto-review-loop`:** YES (review to prioritise B3 off-diagonal + the GPU run plan).
 
 ## Next Step
-→ `/auto-review-loop` to critique and prioritise (B3 independence + multi-layer robustness expected).
+→ `/auto-review-loop` (paste these tables inline — Codex sandbox can't read repo files).
 
 ---
-## Round 2 (review-driven) — multi-layer + control-anchored regularization
 
-Reviewer R1 (5/10, "almost"): single-layer overstated it; need multi-layer, freeze family by floor health, control for noise knob, CIs.
+## M3 / B3 — Decoupling matrix (headline) — RUN (gemma-2-2b, ε×depth×3 seeds, 72 settings)
 
-- **Family frozen by M1 floor health only**: dim-sweep → `pca_softmax` (floor mild & dim-stable; randproj's floor blew up to −3.9 at high dim). Predeclared floor band [−1.5,1.5] b.
-- **Multi-layer (L5/12/20) × denser ε (n=21)** breaks the single-noise-knob collinearity (DP noise is at the embedding so r depends only on ε; the layer axis gives TTRSR variation at fixed noise).
-- **Control-anchored regularization** (`--capacity-l2`): l2=10 vs 0.1.
+`results/b3_decoupling_matrix.json`, GPU (~13 min). K×K Spearman M[probe][attack] over the shared grid:
 
-| pca64 cap-PVI selectivity | pooled ρ | partial ρ\|r | partial ρ\|retr | per-layer L5/L12/L20 | floor |
-|---|---|---|---|---|---|
-| l2=0.1 | 0.642 | 0.738 | −0.05 | 0.68/0.32/−0.21 | −1.2 stable |
-| **l2=10** | **0.779** | **0.666** | **+0.275** | 0.96/0.89/0.32 | ~ stable |
-| (ref) CLUB | 0.810 | 0.716 | — | 0.96/0.89/0.29 | — |
-| (ref) class-PVI | −0.173 | — | — | −.86/−.64/−.79 anti | −49 |
-
-**Verdict update**: capacity-matching + control-anchored reg **repairs the independent token-id family** — pooled ρ 0.78, tracks *beyond the noise knob* (partial ρ|r 0.67) **and beyond the attack-in-bits measure** (partial ρ|retr +0.275), at ~0.3× cost, where class-PVI is anti-correlated. Floor fixed −49→−1.2 (stable). 2/3 layers strongly faithful (0.89–0.96). **Residual**: L20 (late layer) still rises under moderate DP even at l2=10 → a genuine measure-vs-attack divergence (token-id decodability is more DP-robust than embedding reconstruction), not pure overfit. Independence empirically supported (ρ(cap,retr)=0.76 <0.9; adds beyond retr).
-
----
-## Round 3 + FINAL (review-driven) — non-DP defense, the readout split, honest verdict
-
-Reviewer R3: **7/10, scoped result ESTABLISHED if reframed.** The conceptual center shifted (correctly):
-the fixed object is the **capacity-matched independent token-ID reader**, whose **bounded accuracy** is
-the robust predictor; **PVI-in-bits is partially rescued, not solved**. Do NOT call accuracy "V-information".
-
-**Faithfulness across THREE defenses** (Spearman vs TTRSR; default reg l2=0.1):
-| defense | readout | L5 | L12 | L20 |
-|---|---|---|---|---|
-| PCA-subspace ablation | reader accuracy | 0.87 | 0.90 | 0.82 |
-| isotropic hidden-state noise | reader accuracy | 0.90 | 0.90 | 1.00 |
-| input-local-DP | reader accuracy | 0.68 | 0.43 | −0.21 (divergence) |
-| input-local-DP | PVI bits (sel) | 0.68 | 0.32 | −0.21 |
-| (PVI bits fragile) iso-noise | PVI bits (sel) | 0.40 | 0.40 | 0.70 |
-
-**Verdict on the standing objective — ACHIEVED (scoped, honest):**
-- **FIXED**: class-PVI's d>n_val catastrophe is removed by capacity-matching (floor −49→−1.5 b, *dim*-anchored
-  not l2-anchored; ~0.3× cost). The **token-ID reader accuracy** faithfully tracks the attack (ρ 0.82–1.0)
-  under representation-space defenses and at early/mid layers under DP, beyond the noise knob (partial ρ|r≈0.71),
-  where the unfixed class-PVI is anti-correlated.
-- **PARTIALLY RESCUED**: PVI-in-bits — the −48 floor & non-monotone rises are unbounded-log-loss artifacts;
-  bits track only with regularization and stay fragile (iso-noise, late-DP). Report bits as auxiliary, accuracy as primary.
-- **CHARACTERIZED LIMIT (a result)**: late-layer × input-DP divergence — token-id decodability outlives
-  embedding-reconstruction; localizes what input-DP protects (embedding geometry) vs not (id-decodability).
-
-**Remaining polish (non-blocking, for a paper)**: calibration diagnostic (NLL/ECE) on the artifact cells;
-within-layer/macro-avg ρ as primary stat; cross-model replication; dim16 sensitivity. None change the verdict.
-
----
-## Depth sweep (L0/5/12/20) — the divergence is a depth-resolved decoupling
-
-`results/localdp_depth_L0_5_12_20.json`. Spearman(measure, TTRSR) per layer:
-
-| layer | clean TTRSR | ρ(PVI-acc, TTRSR) | ρ(CLUB, TTRSR) |
+| probe ↓ \ attack → | token_id (TTRSR) | embedding (cosine) | perm_Π (VMA) |
 |---|---|---|---|
-| L0  | 0.809 | **+0.99** | +0.96 |
-| L5  | 0.559 | +0.68 | +0.96 |
-| L12 | 0.347 | +0.43 | +0.89 |
-| L20 | 0.462 | **−0.21** | +0.29 |
+| **token_id** (cap-PVI acc) | **0.642** | 0.556 | 0.252 |
+| **embedding** (CLUB) | 0.782 | **0.750** | 0.599 |
+| **perm_Π** (CLUB-φ) | 0.633 | 0.641 | **0.812** |
 
-**Conclusions.**
-- **Clean TTRSR <1 is expected** (vocab-disjoint top-1 vs ~2048-pool + contextualisation):
-  L0 (≈input embedding) 0.81, falling with depth. Not a defect — it's the conservative
-  honest-attack ceiling, normalised away by `frac`.
-- **The PVI-rises-as-TTRSR-falls anticorrelation is a DEPTH/propagation effect, not a probe
-  bug.** DP noise is injected at the embedding; at L0 it hits the representation directly →
-  reconstruction and id-decodability fall in lockstep (ρ +0.99, no rise). Tracking degrades
-  monotonically with propagation depth (+0.99→+0.68→+0.43→−0.21). **CLUB shows the same
-  gradient (0.96→0.96→0.89→0.29)** ⇒ a property of the signal, not the estimator.
-- **Interpretation (sharper than the L20 caveat):** input-DP destroys *embedding geometry*
-  (the attack's target) before *token-identity decodability* (the measure's target); the
-  network's depthwise processing reshapes embedding-injected noise so the two leakage
-  channels decouple and finally invert. An attack-independent measure and an
-  embedding-reconstruction attack **provably diverge**, and the divergence is a measurable,
-  depth-localised quantity — a contribution in its own right (what a defense protects, by depth).
+**Diagonal-dominance Δ_i (bootstrap 95% CI):** token_id +0.087 [+0.018,+0.178] ✓ · embedding −0.033 [−0.086,+0.010] ✗(tie) · perm_Π +0.162 [+0.037,+0.312] ✓ → **2/3 channels diagonal-dominant** (CIs exclude 0); embedding's CLUB is a *generic* MI upper bound (ties with the token attack), not channel-specific.
+
+**The decoupling lives on the DEPTH axis (per-layer diagonal ρ):**
+- token_id: L0 **+0.888** → L5 +0.527 → **L12 −0.108 (sign-flip)** → L20 +0.082
+- embedding: L0 +0.975 → L5 +0.959 → L12 +0.919 → L20 +0.360 (stays positive)
+
+→ The token-id probe↔attack relationship **inverts at mid-depth** under input-DP while embedding's does not — the L20×DP seed reproduced and localized, and the matched/mismatched **decoupling demonstrated as a depth-resolved effect**.
+
+**Controls (the methodological finding):**
+- **Monotone-noise-index → every attack: −0.728 / −0.752 / −0.990.** A single monotone knob "predicts" all attacks (common-cause decay) → it **inflates the pooled off-diagonals and deflates Δ_i**. So the pooled matrix UNDERSTATES channel-specificity; read decoupling on the depth axis (off the noise axis), exactly why the 2D ε×depth grid was needed.
+- Random probe ≈ 0 (−0.08/−0.07/−0.14) ✓; shuffled pairing ≈ 0 (−0.12) ✓; retrieval-PVI (dependent ref) +0.885 vs token attack ✓.
+
+**B3 verdict (honest):** C2 **partially supported** — (a) 2/3 matched diagonals dominate (CIs exclude 0); (b) ≥1 sign-flip (token-id @ L12); (c) sanity controls clean. BUT the shared monotone-noise axis is a demonstrated confound that compresses the pooled margin → the **depth axis carries the channel-specific signal**, and embedding's generic CLUB is not channel-specific. Sharpest framing: *channel-specificity is a depth-resolved phenomenon; pooled scalar correlations are confounded by common-cause noise decay.* Firming up needs a second defence family (the noise axis alone can't separate channels) — the B4 direction.
+
+---
+
+## B4 — Cross-scheme calibration: Shredder vs input-DP — RUN (2026-06-21)
+
+`results/b4_cross_scheme.json`, GPU. Second defence family = **Shredder static-Laplace
+injected directly at the captured layer** (post-capture Transform; clean acts captured
+once, noise swept in-memory). 6 levels × 4 layers × 3 seeds.
+
+**Shredder matrix M[probe][attack]** (embedding row finite-corrected, 52/72 cells; see instability note):
+
+| probe ↓ \ attack → | token_id | embedding | perm_Π |
+|---|---|---|---|
+| **token_id** | **0.389** | 0.275 | 0.108 |
+| **embedding** (CLUB) | 0.769 | 0.702 | 0.383 |
+| **perm_Π** | 0.147 | 0.229 | **0.425** |
+
+→ Same pattern as B3: token-id and perm_Π diagonals dominate their rows (2/3); embedding's
+CLUB is generic (ties/loses to the token attack). Magnitudes lower than DP (direct-inject Laplace
+is less monotone-structured than propagated DP).
+
+**Finding 1 — the decoupling is DEFENCE-INJECTION-SPECIFIC.** Per-layer token-id diagonal ρ:
+- input-DP (embedding-injected, **propagated**): L0 +0.89 → L5 +0.53 → L12 −0.11 → L20 +0.08
+- Shredder (layer-injected, **direct**):        L0 +0.16 → L5 −0.16 → L12 −0.18 → L20 +0.62
+
+Completely different depth shapes → **the channel-specific decoupling is not a universal property;
+it depends on where the defence injects noise.** (The naive "Shredder = flat like DP@L0" prediction
+was wrong — but the stronger "defence-specific" claim is supported: the two schemes share no depth profile.)
+Embedding diagonal stays high under both (Shredder: +0.98→+0.81; DP: +0.98→+0.36) — robust, scheme-agnostic.
+
+**Finding 2 — cross-scheme transfer (C3) is CHANNEL-DEPENDENT** (per-channel ρ_DP / ρ_Shredder / ρ_pooled):
+- **embedding: 0.750 / 0.702 / 0.722** → pooled ≈ within ⇒ **one calibration curve fits both schemes** (generic CLUB transfers).
+- **token_id: 0.642 / 0.389 / 0.453** → pooled < within ⇒ **does NOT transfer** (the specific reader↔TTRSR shape is scheme-specific).
+- **perm_Π: 0.812 (B3 draw) / 0.425 (B4 draw) / 0.569** → high **seed variance** (different random draws); flagged — needs the B2+ multi-seed firm-up to stabilise.
+
+**Instability (flagged, non-fatal):** seed-1 CLUB diverged to `nan` (20/72 cells, all seed-1). Finite-cell
+(52) estimates are stable. Fix: clamp/retry in `club_mi_upper_bound` (variational net init for that seed).
+
+**B4 verdict:** C3 **partially supported + sharpened** — channel-specific calibration holds across two
+defence families (2/3 diagonals dominate under both), but (a) the decoupling's **depth profile is
+defence-injection-specific** (propagated DP ≠ direct Shredder), and (b) **transfer is channel-specific**:
+the *generic* embedding CLUB transfers across schemes, the *specific* token-id reader does not. Sharpest
+framing for the paper: *a matched probe calibrates its channel, but the calibration CURVE is jointly a
+function of (channel, defence-injection-geometry) — there is no single scheme-agnostic leakage scalar.*
+
+---
+
+## B2+ — Π-channel firm-up (auto-review fix #4) — PASSED (CPU, 2026-06-21)
+
+`results/b2plus_pi_firmup.json`. 5 seeds × 12 α_e (dense in 0.2–0.7) × 2 model widths.
+
+| model (d) | ρ(CLUB-on-φ, VMA) per-seed | min | match-indep ρ(CLUB, VMA-nn) | pooled (raw) |
+|---|---|---|---|---|
+| gemma-2-2b (2304) | **+1.000 ± 0.000** | +1.000 | +0.998 | +0.438 [0.20,0.62] |
+| Qwen3-4b (2560) | **+1.000 ± 0.000** | +1.000 | +0.998 | +0.895 [0.79,0.95] |
+
+- **Π channel firmed: per-seed ρ = 1.000 across 5 seeds × 2 widths** — the within-sweep calibration
+  is perfect and width-robust. retrieval-PVI (dependent ref) also +1.000 (mechanical).
+- **Independent of the attack's assignment algorithm:** CLUB-on-φ tracks VMA equally under Hungarian
+  AND nearest-neighbour matching (ρ +0.998) — it is not a reparameterisation of the assignment.
+- **Resolves B4's apparent Π "seed variance":** it was a **pooling artifact**, not channel instability.
+  Each seed's CLUB-vs-α curve is monotone (ρ=1), but pooling *raw* CLUB magnitudes across heterogeneous
+  token draws adds baseline offsets that deflate the *pooled* rank-correlation (gemma 0.44, qwen 0.90).
+  **Methodological refinement: the calibration unit is the within-condition sweep, not pooled raw
+  magnitudes** — which also reframes B3/B4 (pool ranks within a defence axis, not raw values across draws).
+
+## Updated matched-probe diagonal (post B2+/B3/B4)
+
+| Channel | Matched independent probe | Attack | calibration (within-sweep) | cross-scheme | 
+|---------|---------------------------|--------|----------------------------|--------------|
+| Token-identity | capacity-PVI reader acc | ridge TTRSR | ρ 0.82–1.0; **depth sign-flip** | does NOT transfer (scheme-specific) |
+| **Permutation-Π** | **CLUB-on-φ** | VMA τ-recovery | **ρ +1.000 ± 0.000** (5 seeds × 2 widths) | keymat closes channel |
+| Embedding-geometry | CLUB I(rep;emb) | ridge cosine | ρ 0.70–0.98 (depth-robust) | **transfers** (generic) |
+| Attention QK/OV | MMI-PID cond-increment | ISA | — (B5 pending) | — |
+
+**CLUB nan bug FIXED** (`measures/club.py`): grad-clipping + non-finite skip + None-guard (never propagates
+nan). Regression test `test_club_stability.py`; suite **78/78**.
