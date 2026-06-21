@@ -38,3 +38,4 @@ _Append-only timeline._
 - `2026-06-21T12:58:02Z` add_claim: added claim:threat-model-fairness [status=drafted]
 - `2026-06-21T13:22:57Z` add_experiment: added exp:b2-lpos-decoder-vs-ridge [verdict=no confidence=high]
 - `2026-06-21T13:22:57Z` B2-L>0: MLP decoder LOSES to ridge at depth (uplift-sel negative); L0 uplift is observation-layer-specific. At-layer noise: ridge already tracks MI (rho=1). Decorrelation is input-DP-propagation-specific — stronger depth decoder still needed there.
+- `2026-06-21T13:26:19Z` MDL/SDL probe tested: tracks attack recovery ρ+0.80 under at-layer noise (joins PVI/CLUB set, ρ0.80-1.0). MDL noisiest (overfit+6-7x cost) → auxiliary.

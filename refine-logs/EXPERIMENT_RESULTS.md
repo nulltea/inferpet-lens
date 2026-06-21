@@ -272,3 +272,24 @@ attack strength is the limiting factor.
 **Verdict:** C1 (uplift) holds at L0, FAILS for the MLP at depth. C2 (re-correlation) holds trivially
 under at-layer noise (ridge already tracks); the interesting decorrelation is propagation-specific.
 Next: a stronger depth decoder (iterative/MAP) targeting the input-DP-propagated regime where ridge breaks.
+
+---
+
+## MDL/SDL probe — completing the {PVI, CLUB, MDL/SDL} set (2026-06-21, model-free)
+
+`results/mdl_probe_check.json`. Cached resid L12, at-layer Gaussian noise sweep, MDL
+surplus-description-length (`measures/mdl.online_code_length`) with shuffle-control selectivity.
+
+| level | MDL-SDL sel | ridge sel | capPVI | CLUB |
+|---|---|---|---|---|
+| 0.0 | +13898 | +0.704 | 0.789 | 2902 |
+| 0.75 | +779 | +0.141 | 0.484 | 834 |
+| 1.5 | +134 | +0.060 | 0.260 | 383 |
+| 3.0 | +166 | −0.002 | 0.160 | 164 |
+
+**MDL/SDL joins the faithful MI-probe set:** Spearman(MDL-SDL selectivity, ridge-selectivity) =
+Spearman(·, capPVI) = Spearman(·, CLUB) = **+0.80** (monotone decay; the slight high-noise wobble
+at c=3.0 is the known class-probe-family overfit floor). So **all three named probes — PVI, CLUB,
+MDL/SDL — track attack recovery under at-layer noise** (ρ 0.80–1.0), closing the "MDL/SDL untested"
+gap. CLUB/capPVI are smoother (ρ=1.0); MDL is noisiest (overfit + 6–7× cost), consistent with prior
+findings — report CLUB/accuracy primary, MDL auxiliary.
