@@ -108,3 +108,59 @@ gap *is* the measurable Bayes-optimality gap. (Frontier-LLM-component block: **N
 - [x] Frontier contribution **explicitly not claimed** (non-frontier method)
 - [x] Theoretic-guarantee gate FIRST (B0 proof, with verified caveats)
 - [x] Must-run (B0–B4) vs nice-to-have (B5) separated
+
+---
+
+# Block B6 — Stronger decoder attacks (Vec2Text-style / forward-model) — appended 2026-06-21
+
+**Problem**: R004c showed a plain MLP decoder beats ridge under propagated input-DP @L20 but only
+*suggestively* (4 ε, 1 seed, uplift ≤+0.14). Is a properly-strong attack (more capacity, iterative
+refinement, or forward-model optimization) **conclusively** stronger AND clearly re-correlating?
+
+**Method thesis**: An information-efficient decoder that (i) has adequate capacity, (ii) iteratively
+refines, and/or (iii) uses the known forward model closes the gap ridge leaves in the propagated-DP
+regime — making uplift-vs-ridge conclusive and re-correlation clearly > ridge.
+
+## Claim map
+| Claim | Min convincing evidence | Block |
+|---|---|---|
+| **C5 (primary)** — a strong decoder beats ridge conclusively under propagated-DP @L20 | uplift-selectivity > 0 across ≥5 ε × ≥2 seeds, CI excludes 0; and > the one-shot MLP | B6a |
+| **C6 (re-correlation)** — its selectivity tracks MI clearly better than ridge | Spearman(strong-sel, capPVI) ≥ ridge+0.2, ≥0.6 absolute | B6a |
+| **C7 (novelty isolation)** — the win is iteration/forward-model, not just capacity | iterative/forward-model > capacity-matched deep one-shot decoder; OR honest null (pure embedding iteration = capacity) | B6b |
+
+**Anti-claims**: "just more parameters" (B6b capacity control); "memorization" (vocab-disjoint + shuffle
+selectivity, established); "unfair info" (WEIGHTS-PUB — corrector trained on attacker-generated triples,
+forward-model uses public weights; all admissible, [[threat-model-fairness]]).
+
+## Blocks
+### B6a — strong decoder vs ridge/MLP under propagated-DP @L20 — MUST-RUN
+- Systems: ridge · one-shot MLP (R004c) · **deep/long-trained decoder** · **iterative corrector**
+  c(Y,ê_t)→ê_{t+1}, T∈{1,2,3} rounds (Vec2Text-style, embedding space, trained on WEIGHTS-PUB triples).
+- Data: propagated input-DP capture @L20 (reuse R004c capture if persisted; else 1 small fresh capture
+  L20 only, ε∈{∞,1024,768,512,384,256}, 160 prompts), vocab-disjoint + shuffle selectivity.
+- Metric: τ-selectivity uplift vs ridge AND vs one-shot MLP; Spearman(sel, capPVI/CLUB) over ε.
+- Success: C5 + C6. Failure: strong decoder no better than MLP → the limit is information, not estimator
+  (would weaken the thesis at depth — honest).
+### B6b — novelty isolation (iteration/forward-model vs capacity) — MUST-RUN
+- Capacity-matched deep one-shot decoder vs the iterative corrector (same params). Simplicity check:
+  does T>1 help over T=1? If pure embedding iteration = capacity, conclude faithful Vec2Text needs the
+  forward model (forward-model optimization = future work if it exceeds budget).
+### B6c — forward-model optimization (ER-style) — NICE-TO-HAVE (budget-permitting)
+- Optimize continuous z to min ‖f_L(z)−Y‖² via backprop through L blocks, snap to token. Strongest but
+  costliest; run only on a small prompt subset if B6a leaves GPU budget.
+
+## Run order / budget
+| M | Goal | Gate | Cost |
+|---|---|---|---|
+| M6a | B6a strong+iterative decoder vs ridge/MLP @L20 | C5+C6 | ≤12 min GPU |
+| M6b | B6b capacity control + T-sweep | C7 | reuse M6a (~+3 min) |
+| M6c | B6c forward-model opt (if budget) | — | ≤5 min, small subset |
+
+**Hard budget: 10–20 min GPU total, ONE GPU process.** Reuse capture; decoders/correctors are small
+MLPs on GPU (cheap). Forward-model opt gated to leftover budget.
+
+## Checklist
+- [x] capacity control (B6b) isolates iteration vs params
+- [x] simplicity (T>1 vs T=1) defended
+- [x] threat-model fairness + selectivity controls carried
+- [x] no frontier-LLM-component claim (non-frontier)

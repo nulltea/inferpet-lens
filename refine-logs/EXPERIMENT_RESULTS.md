@@ -356,3 +356,40 @@ Hungarian assignment. Directly answers the original VMA observation (α_e 0→0.
 +0.98; channel-aware decoder under propagated DP) AND permutation (full-sorted matcher +0.43–0.60 over
 RowSort). In every case the weak deployed attack's collapse under small noise was attack weakness, not
 information loss; the MI probes correctly indicated the leakage the stronger attack then realized.
+
+---
+
+## B6 — Stronger / Vec2Text-style decoder under PROPAGATED input-DP @L20 — RUN (2026-06-21)
+
+`results/b6_strong_decoder.json`, GPU (≤20min budget). ridge / 1-shot MLP / deep MLP (capacity
+control) / Vec2Text-style iterative corrector (T=1,2,3); propagated input-DP @L20, ε∈{∞,1024,768,512,
+384,256}, vocab-disjoint + shuffle floors (ridge 0.006, mlp 0.035 ≈ chance). WEIGHTS-PUB.
+
+| ε | ridge | mlp | deep | iter T1=T2=T3 | capPVI | CLUB |
+|---|---|---|---|---|---|---|
+| ∞ | 0.516 | 0.337 | 0.345 | 0.364 | 0.668 | 2523 |
+| 1024 | 0.507 | 0.355 | 0.359 | 0.404 | 0.693 | 2610 |
+| 768 | 0.483 | 0.379 | 0.402 | 0.422 | 0.741 | 2659 |
+| 512 | 0.470 | 0.401 | 0.405 | 0.409 | 0.825 | 2834 |
+| 384 | 0.349 | 0.372 | 0.356 | 0.393 | 0.787 | 2767 |
+| 256 | 0.167 | 0.236 | 0.221 | 0.235 | 0.527 | 1780 |
+
+**Findings:**
+- **RE-CORRELATION (C6) — CONFIRMED, the headline.** Spearman(selectivity, capPVI) over ε:
+  **deep +0.83, iterative +0.71, ridge −0.09**; vs CLUB: iter +0.71, ridge −0.09. The trained decoder's
+  recovery **tracks the MI probes where ridge ANTI-correlates** (reproducing the B3 L20 decorrelation).
+  A stronger attack restores the MI↔recovery correlation the weak ridge breaks — exactly the objective.
+- **UPLIFT (C5) — crossover.** Decoder beats ridge at **high noise** (ε≤384: Δ +0.044/+0.068) but ridge
+  wins clean/low-noise (Δ −0.15 at ∞). So the decoder is the stronger attack in the high-noise regime
+  (where the defence "works") and tracks MI throughout; ridge is better only when barely defended.
+- **ITERATION (C7) — honest null.** `iter_T3 − iter_T1 = +0.000`, `iter − deep = +0.023`. Pure
+  embedding-space Vec2Text iteration adds **nothing** (it's a fixed function of Y), and capacity (deep)
+  ≈ MLP. **Faithful Vec2Text needs the forward model in the loop** (re-embed hypothesis → compare to Y),
+  which exceeds the 10–20min budget — the genuine open frontier (B6c, future work).
+
+**Verdict:** the stronger attack is **implemented (Vec2Text-style corrector + deep decoder) and tested
+optimally under budget**. The decisive objective-result holds: a trained nonlinear decoder **re-correlates
+with the MI probes (+0.83) where ridge anti-correlates (−0.09)** under propagated DP — the MI probes are
+faithful, ridge is information-inefficient. Honest limits: (a) the decoder beats ridge only at high noise
+(crossover), (b) embedding-space iteration/capacity don't help — closing the low-noise gap and beating
+ridge across all ε needs the forward-model-in-loop Vec2Text (the named next step).

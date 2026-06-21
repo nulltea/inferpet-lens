@@ -27,3 +27,4 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ✗ blocked
 
 **Gates**: R001 must pass before R004+ claims are asserted. R004 uplift>0 ∀ε. R006 Spearman(strong)≫Spearman(ridge).
 **Discipline**: heavy runs via `scripts/run_in_rocm.sh`; validate GPU saturation; L0/5/12/20 only; inspect if >10 min.
+| R010 | B6 strong decoder | Vec2Text-style iterative + deep vs ridge/MLP, propagated-DP L20 | ridge/mlp/deep/iter-T123 + shuffle sel | vocab | **C6 CONFIRMED: re-corr deep+0.83/iter+0.71 vs ridge −0.09; uplift crossover (decoder>ridge high-noise); iteration null T3=T1, need forward-model-in-loop** (`b6_strong_decoder.json`) | MUST | ☑ |
