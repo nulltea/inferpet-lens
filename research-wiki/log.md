@@ -41,3 +41,5 @@ _Append-only timeline._
 - `2026-06-21T13:26:19Z` MDL/SDL probe tested: tracks attack recovery ρ+0.80 under at-layer noise (joins PVI/CLUB set, ρ0.80-1.0). MDL noisiest (overfit+6-7x cost) → auxiliary.
 - `2026-06-21T13:34:36Z` add_experiment: added exp:b2-propagated-dp [verdict=partial confidence=medium]
 - `2026-06-21T13:34:36Z` B2-propagated: under PROPAGATED input-DP the channel-aware decoder beats ridge (uplift+0.14 @ε256 L20, growing with noise) & re-correlates with capPVI better (0.80/0.40 vs 0.40/0.20) — reverses at-layer-noise negative; decoder advantage is propagation-specific. Suggestive (4eps); thesis confirmed in the open regime.
+- `2026-06-21T13:42:42Z` add_experiment: added exp:vma-fullsort-vs-rowsort [verdict=yes confidence=high]
+- `2026-06-21T13:42:43Z` VMA: full-sorted-row matcher beats RowSort-64 +0.43@α0.2/+0.60@α0.35 (3 seeds) — RowSort's 64-quantile binning is lossy; permutation channel confirms info-efficiency thesis (probe faithful, weak-attack collapse = attack weakness).
