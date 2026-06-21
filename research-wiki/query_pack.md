@@ -30,9 +30,7 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
 - [paper:ding2021_planted_matching_problem] The planted matching problem: Sharp threshold and infinite-order phase transition
 - [paper:dong2025_depth_gives_false] Depth Gives a False Sense of Privacy: LLM Internal States Inversion
 - [paper:fan2019_spectral_graph_matching] Spectral Graph Matching and Regularized Quadratic Relaxations I: The Gaussian Model
-## Recent Relationships (30 total)
-  claim:restore-correlation --uses--> paper:kale2025_beamclean_language_aware
-  claim:restore-correlation --uses--> paper:guo2004_mutual_information_minimum
+## Recent Relationships (32 total)
   claim:restore-correlation --uses--> paper:dai2019_database_alignment_gaussian
   idea:info-efficient-attacks --inspired_by--> paper:kale2025_beamclean_language_aware
   idea:info-efficient-attacks --inspired_by--> paper:guo2004_mutual_information_minimum
@@ -41,4 +39,6 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
   idea:info-efficient-attacks --inspired_by--> paper:pananjady2017_denoising_linear_models
   idea:info-efficient-attacks --inspired_by--> paper:chung2022_diffusion_posterior_sampling
   idea:info-efficient-attacks --addresses_gap--> gap:G1
-  paper:kale2025_beamclean_language_aware --addresses_gap-
+  paper:kale2025_beamclean_language_aware --addresses_gap--> gap:G1
+  paper:dai2023_gaussian_database_alignment --supersedes--> paper:dai2019_database_alignment_gaussian
+  claim:thm-t1-info-efficient --addresses_gap

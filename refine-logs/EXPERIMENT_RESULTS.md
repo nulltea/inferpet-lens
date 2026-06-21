@@ -293,3 +293,35 @@ at c=3.0 is the known class-probe-family overfit floor). So **all three named pr
 MDL/SDL — track attack recovery under at-layer noise** (ρ 0.80–1.0), closing the "MDL/SDL untested"
 gap. CLUB/capPVI are smoother (ρ=1.0); MDL is noisiest (overfit + 6–7× cost), consistent with prior
 findings — report CLUB/accuracy primary, MDL auxiliary.
+
+---
+
+## B2-propagated — stronger decoder vs ridge under PROPAGATED input-DP (L12/L20) — RUN (2026-06-21)
+
+`results/b2_propagated_dp.json`, GPU. Propagated input-DP (embedding-DP hook → forward → capture
+resid at L12/L20), gemma-2-2b, 160 prompts, ε∈{∞,1024,512,256}, vocab-disjoint + shuffle selectivity.
+This is the **open regime** (B3 L20: ridge decorrelates from MI). Channel-aware decoder = MLP trained
+on the propagated-noised resid.
+
+| ε | L | ridge sel | decoder sel | uplift-sel | capPVI | CLUB |
+|---|---|---|---|---|---|---|
+| ∞ | 20 | +0.546 | +0.479 | −0.066 | 0.668 | 2525 |
+| 1024 | 20 | +0.459 | +0.484 | **+0.025** | 0.693 | 2612 |
+| 512 | 20 | +0.405 | +0.475 | **+0.070** | 0.825 | 2835 |
+| 256 | 20 | +0.089 | +0.232 | **+0.143** | 0.527 | 1777 |
+
+**Findings — POSITIVE (reverses the at-layer-noise negative):**
+- **Under propagated DP the decoder increasingly BEATS ridge as noise grows** (uplift-sel
+  −0.07→+0.03→+0.07→**+0.14** @L20). Ridge's linear obs→emb map breaks on the *structured propagated*
+  perturbation (ridge sel collapses 0.546→0.089) while the channel-aware decoder holds (0.479→0.232).
+  Contrast with at-layer noise (B2-L>0) where ridge was near-Bayes and the decoder *lost* — so the
+  decoder's advantage is **specific to noise propagation**, exactly the regime where ridge decorrelated.
+- **Re-correlation improves with the stronger attack:** Spearman(selectivity, capPVI) — decoder vs ridge
+  = **0.80 vs 0.40 @L12** and **0.40 vs 0.20 @L20**. The decoder tracks the MI probe better than ridge
+  where ridge breaks. (CLUB mixed/weaker; only 4 ε points → coarse.)
+
+**Verdict:** the open regime is cracked in the *right direction* — a stronger (channel-aware) attack
+recovers more AND re-correlates with MI under propagated DP, where the weak ridge both collapses and
+decorrelates. **Suggestive, not conclusive** (4 ε, 1 seed, noisy Spearman); firming needs denser ε +
+seeds + a genuinely stronger decoder (iterative/MAP). But the direction confirms the thesis:
+*the MI probes are faithful; closing the recovery gap is an attack-strength problem, even at depth.*

@@ -18,7 +18,7 @@ Status: ☐ todo · ◐ in-progress · ☑ done · ✗ blocked
 | R003 | M1 sanity | clean-case parity | denoise+ridge @ σ=0 | vocab | TTRSR == ridge | MUST | ☐ |
 | R004 | **M2 anchor (L0)** | exact-Bayes vs ridge under DP | ridge / Bayes-NN-to-table | vocab | **uplift +0.98 @ε128; clean 1.0; C1✓ C2✓** (`results/l0_fast.txt`; wiki exp:b2-l0-bayes-vs-ridge) | MUST | ☑ |
 | R004b | **M2 anchor (L>0)** | channel-aware MLP decoder vs ridge | ridge / MLP-decoder (noised-trained) + shuffle ctrl | vocab | **MLP LOSES to ridge (uplift-sel −0.01..−0.30, L5/12/20); at-layer noise → ridge already tracks MI ρ=1.0; decorrelation is input-DP-propagation-specific** (`b2_lpos_decoder.json`) | MUST | ☑ (negative) |
-| R004c | M2 (L>0, propagated DP) | stronger depth decoder (iterative/MAP) vs ridge under PROPAGATED input-DP | iterative-refine / MAP+LM-prior | vocab | uplift + re-correlation where ridge breaks (B3 L20 regime) | MUST | ☐ next |
+| R004c | M2 propagated-DP | stronger decoder vs ridge under PROPAGATED input-DP | MLP channel-aware decoder | vocab+shuffle | **decoder beats ridge, uplift-sel grows -0.07→+0.14 (L20); re-corr decSel↔capPVI 0.80/0.40 vs ridge 0.40/0.20** (`b2_propagated_dp.json`) | MUST | ☑ (partial+) |
 | R005 | M2 width | width robustness | denoise+ridge (Qwen3-4b) | vocab | uplift | NICE | ☐ |
 | R006 | **M3 re-corr** | re-correlation w/ probes | strong vs ridge | vocab | Spearman(rec, CLUB), Spearman(rec, capPVI) | MUST | ☐ |
 | R007 | **M4 novelty** | channel-awareness vs capacity | σ-aware vs noise-naive (matched) vs linear+σ | vocab | uplift attribution | MUST | ☐ |
