@@ -1,0 +1,31 @@
+{"from": "claim:bayes-gap-diagnosis", "to": "paper:cover2006_elements_information_theory", "type": "uses", "evidence": "claim bayes-gap-diagnosis uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:bayes-gap-diagnosis", "to": "paper:cherisey2019_best_information_most", "type": "uses", "evidence": "claim bayes-gap-diagnosis uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:weak-domination", "to": "paper:blackwell1953_equivalent_comparisons_experiments", "type": "uses", "evidence": "claim weak-domination uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:weak-domination", "to": "paper:cover2006_elements_information_theory", "type": "uses", "evidence": "claim weak-domination uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:strict-improvement", "to": "paper:cover2006_elements_information_theory", "type": "uses", "evidence": "claim strict-improvement uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:mi-monotone-gaussian", "to": "paper:guo2004_mutual_information_minimum", "type": "uses", "evidence": "claim mi-monotone-gaussian uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:perm-llr-threshold", "to": "paper:dai2019_database_alignment_gaussian", "type": "uses", "evidence": "claim perm-llr-threshold uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:perm-llr-threshold", "to": "paper:pananjady2017_denoising_linear_models", "type": "uses", "evidence": "claim perm-llr-threshold uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:perm-llr-threshold", "to": "paper:ding2021_planted_matching_problem", "type": "uses", "evidence": "claim perm-llr-threshold uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:perm-llr-threshold", "to": "paper:cover2006_elements_information_theory", "type": "uses", "evidence": "claim perm-llr-threshold uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:restore-correlation", "to": "paper:kale2025_beamclean_language_aware", "type": "uses", "evidence": "claim restore-correlation uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:restore-correlation", "to": "paper:guo2004_mutual_information_minimum", "type": "uses", "evidence": "claim restore-correlation uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "claim:restore-correlation", "to": "paper:dai2019_database_alignment_gaussian", "type": "uses", "evidence": "claim restore-correlation uses paper", "added": "2026-06-21T11:48:34Z"}
+{"from": "idea:info-efficient-attacks", "to": "paper:kale2025_beamclean_language_aware", "type": "inspired_by", "evidence": "idea info-efficient-attacks inspired by paper", "added": "2026-06-21T11:48:59Z"}
+{"from": "idea:info-efficient-attacks", "to": "paper:guo2004_mutual_information_minimum", "type": "inspired_by", "evidence": "idea info-efficient-attacks inspired by paper", "added": "2026-06-21T11:48:59Z"}
+{"from": "idea:info-efficient-attacks", "to": "paper:dai2019_database_alignment_gaussian", "type": "inspired_by", "evidence": "idea info-efficient-attacks inspired by paper", "added": "2026-06-21T11:48:59Z"}
+{"from": "idea:info-efficient-attacks", "to": "paper:blackwell1953_equivalent_comparisons_experiments", "type": "inspired_by", "evidence": "idea info-efficient-attacks inspired by paper", "added": "2026-06-21T11:48:59Z"}
+{"from": "idea:info-efficient-attacks", "to": "paper:pananjady2017_denoising_linear_models", "type": "inspired_by", "evidence": "idea info-efficient-attacks inspired by paper", "added": "2026-06-21T11:48:59Z"}
+{"from": "idea:info-efficient-attacks", "to": "paper:chung2022_diffusion_posterior_sampling", "type": "inspired_by", "evidence": "idea info-efficient-attacks inspired by paper", "added": "2026-06-21T11:48:59Z"}
+{"from": "idea:info-efficient-attacks", "to": "gap:G1", "type": "addresses_gap", "evidence": "idea info-efficient-attacks addresses gap", "added": "2026-06-21T11:48:59Z"}
+{"from": "paper:kale2025_beamclean_language_aware", "to": "gap:G1", "type": "addresses_gap", "evidence": "Empirical PoC: noise-aware MAP+beam attack beats ridge/NN 77% vs 17% but proves no MI-tracking.", "added": "2026-06-21T11:49:16Z"}
+{"from": "paper:dai2023_gaussian_database_alignment", "to": "paper:dai2019_database_alignment_gaussian", "type": "supersedes", "evidence": "Journal/unified version of the AISTATS'19 Gaussian database alignment threshold.", "added": "2026-06-21T11:49:17Z"}
+{"from": "claim:thm-t1-info-efficient", "to": "gap:G1", "type": "addresses_gap", "evidence": "claim thm-t1-info-efficient addresses gap", "added": "2026-06-21T12:08:46Z"}
+{"from": "claim:thm-t1-info-efficient", "to": "paper:blackwell1953_equivalent_comparisons_experiments", "type": "uses", "evidence": "claim thm-t1-info-efficient uses paper", "added": "2026-06-21T12:08:46Z"}
+{"from": "claim:thm-t1-info-efficient", "to": "paper:guo2004_mutual_information_minimum", "type": "uses", "evidence": "claim thm-t1-info-efficient uses paper", "added": "2026-06-21T12:08:46Z"}
+{"from": "claim:thm-t1-info-efficient", "to": "paper:cover2006_elements_information_theory", "type": "uses", "evidence": "claim thm-t1-info-efficient uses paper", "added": "2026-06-21T12:08:46Z"}
+{"from": "idea:info-efficient-attacks", "to": "exp:b2-l0-bayes-vs-ridge", "type": "tested_by", "evidence": "exp b2-l0-bayes-vs-ridge tests idea", "added": "2026-06-21T12:52:35Z"}
+{"from": "exp:b2-l0-bayes-vs-ridge", "to": "claim:strict-improvement", "type": "supports", "evidence": "L0 channel-aware Bayes strictly > linear ridge under noise (+0.98 @r=1.82)", "added": "2026-06-21T12:52:35Z"}
+{"from": "exp:b2-l0-bayes-vs-ridge", "to": "claim:restore-correlation", "type": "supports", "evidence": "strong attack tracks MI-preserved info (Bayes-NN~1.0, capPVI 0.74-0.98) where ridge decorrelates (crashes 50x while CLUB barely drops)", "added": "2026-06-21T12:52:35Z"}
+{"from": "idea:info-efficient-attacks", "to": "exp:b2-lpos-decoder-vs-ridge", "type": "tested_by", "evidence": "exp b2-lpos-decoder-vs-ridge tests idea", "added": "2026-06-21T13:22:57Z"}
+{"from": "exp:b2-lpos-decoder-vs-ridge", "to": "claim:restore-correlation", "type": "supports", "evidence": "qualified: re-correlation holds at L0 (Bayes-NN) and trivially under at-layer noise; decorrelation is input-DP-propagation-specific; MLP fails to beat ridge at depth", "added": "2026-06-21T13:22:57Z"}

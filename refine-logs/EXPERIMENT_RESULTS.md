@@ -180,3 +180,95 @@ function of (channel, defence-injection-geometry) — there is no single scheme-
 
 **CLUB nan bug FIXED** (`measures/club.py`): grad-clipping + non-finite skip + None-guard (never propagates
 nan). Regression test `test_club_stability.py`; suite **78/78**.
+
+---
+
+## B2-L0 — Exact-Bayes attack vs ridge under input-DP (L0 embedding) — RUN (2026-06-21)
+
+`results/l0_fast.txt` (attack) + capacity-PVI/CLUB from the same sweep. GPU-free, gemma-2-2b,
+N=7000 (Zipf token-id sample, real embeddings), vocab-disjoint, pool=2048. **Proof-gated by T1.**
+(Bug fixed: pool truncation had dropped large-valued true ids → clean recovery 0.616; now 1.000.)
+
+| ε (r=σ√d/C) | ridge TTRSR | **Bayes-NN TTRSR** | uplift | capacity-PVI acc | CLUB (b) |
+|---|---|---|---|---|---|
+| ∞ (0.00) | 1.000 | 1.000 | +0.000 | 0.981 | 3084 |
+| 512 (0.45) | 0.993 | 1.000 | +0.007 | 0.977 | 2942 |
+| 256 (0.91) | 0.202 | 1.000 | **+0.798** | 0.935 | 2624 |
+| 128 (1.82) | 0.020 | 1.000 | **+0.980** | 0.736 | 1912 |
+| 96 (2.42) | 0.008 | 1.000 | +0.992 | — | — |
+| 64 (3.63) | 0.002 | 0.993 | +0.992 | — | — |
+
+**Findings.**
+- **C1 (uplift) — CONFIRMED, large.** The channel-aware Bayes-NN attack recovers ~1.0 up to r≈2.4 while ridge collapses to ~0.02 by r=1.82 → uplift **+0.98**, growing with noise exactly as T1(a/b) predicts. At L0 the Bayes attack IS the exact optimum (no approximation slack).
+- **Why:** in d=2304, isotropic DP noise is ~orthogonal to the (2048) inter-embedding directions, so NN-to-the-known-table is geometrically noise-robust → the information is *preserved*, and the optimal attack extracts it.
+- **C2 (re-correlation) — supported.** The MI proxies decay slowly (CLUB −38%, capacity-PVI 0.98→0.74) and the *strong* recoverers (Bayes-NN ~1.0; the capacity-PVI reader, an approx-Bayes classifier, 0.74–0.98) **stay high — tracking the preserved information**; ridge **decorrelates** (crashes 50× while MI barely moves). The MI probes correctly predicted recoverability; ridge was the information-inefficient attack.
+- **Honest limitation.** L0 is the *easiest* layer (observation ≈ noised embedding; attacker knows the exact table). It is a clean proof-of-principle, not the hard case. **The research question lives at L>0**, where DP noise has propagated through nonlinear blocks and NN-to-table no longer applies — a *learned channel-aware denoiser/decoder* is required (next batch).
+
+**Next batch (next iteration):** L>0 channel-aware trained decoder vs ridge under input-DP (does the uplift + re-correlation survive noise propagation?), then other noise profiles (Laplace/Shredder) + MDL/SDL probe.
+
+---
+
+## Threat model & attack-comparison fairness (2026-06-21, per reviewer)
+
+**Fixed threat model for ALL attack comparisons: WEIGHTS-PUB honest-but-curious** (the repo's
+motivating model, CLAUDE.md). The adversary knows weights + embedding table + the DP mechanism
+params (σ, clip C are *published* privacy parameters), observes the DP-protected representation,
+and — having the weights — can run the public model on chosen inputs to synthesize unlimited
+`(noised-representation, token)` training pairs at any σ. **An attack is admissible iff it uses
+only this; a comparison is valid only between admissible attacks.**
+
+| Attack | Information used | Admissible under WEIGHTS-PUB? | Fair vs ridge? |
+|---|---|---|---|
+| ridge (baseline) | table + self-generated noised training pairs | yes | — |
+| **L0 Bayes-NN** | table + public σ, **no training set** | yes (uses strictly *less*) | ✓ |
+| **L>0 channel-aware decoder** | table + self-generated noised pairs **at σ** | yes (same as ridge) | ✓ |
+| capacity-PVI reader | trains on admissible noised data | yes | ✓ (probe, not attack) |
+
+**Out of scope (would be invalid):** under WEIGHTS-BLIND (no weight access) neither ridge nor any
+trained decoder is admissible (cannot synthesize training pairs); σ-awareness is admissible ONLY
+because DP params are public — a secret σ would make channel-aware attacks inadmissible. We do NOT
+claim cross-threat-model comparisons. (wiki: claim:threat-model-fairness)
+
+---
+
+## B2-L>0 — Channel-aware MLP decoder vs ridge under at-layer noise (L5/12/20) — RUN (2026-06-21)
+
+`results/b2_lpos_decoder.json`, GPU. Cached clean resid_post (L5/12/20, gemma-2-2b), in-memory
+Gaussian noise (level = σ/act-RMS), vocab-disjoint + **shuffle control** (selectivity = real − floor).
+Threat model: WEIGHTS-PUB (all attacks admissible, [[threat-model-fairness]]).
+
+| L | level | ridge sel | dec-CA sel | uplift-sel | shuffle floor (r/ca) | capPVI | CLUB |
+|---|---|---|---|---|---|---|---|
+| 5  | 0.0 | +0.779 | +0.556 | **−0.223** | 0.010/0.033 | 0.837 | 2959 |
+| 5  | 1.5 | +0.167 | +0.091 | −0.076 | " | 0.420 | 617 |
+| 12 | 0.0 | +0.704 | +0.406 | **−0.298** | 0.054/0.068 | 0.789 | 2902 |
+| 12 | 3.0 | −0.002 | −0.014 | −0.011 | " | 0.160 | 164 |
+| 20 | 0.0 | +0.720 | +0.495 | **−0.225** | 0.059/0.071 | 0.838 | 3043 |
+| 20 | 3.0 | +0.077 | +0.030 | −0.047 | " | 0.237 | 375 |
+
+**Findings (honest):**
+- **NEGATIVE for the MLP decoder.** A 250-epoch MLP channel-aware decoder **loses to ridge at every
+  depth and noise level** (uplift-selectivity always negative). The dramatic L0 uplift (+0.98) does
+  **NOT** replicate at depth: there the clean embedding is *not* directly observable, ridge's
+  closed-form linear map already captures the resid→embedding geometry well, and a vanilla MLP
+  doesn't beat it. **Beating ridge at depth needs a genuinely stronger decoder** (iterative/Vec2Text
+  refinement or noise-aware MAP+LM-prior à la BeamClean), not a plain MLP.
+- **Shuffle control passes** (floor ≈ chance 0.01–0.07 → selectivity ≈ recovery): both attacks
+  generalize, no memorization — consistent with vocab-disjoint.
+- **KEY NUANCE — re-correlation is noise-geometry-specific.** Under **at-layer** additive Gaussian
+  noise, **both ridge and decoder selectivity track the MI probes PERFECTLY** (Spearman(sel, capPVI)
+  = Spearman(sel, CLUB) = **1.00** at L5/L12/L20). So ridge does NOT decorrelate here. The B3
+  decorrelation (ridge↔MI breaks at L20) was specific to **input-DP noise *propagation*** (noise
+  injected at the embedding, reshaped through depth) — NOT a generic property of ridge under noise.
+
+**Synthesis (the sharpened thesis).** The MI↔recovery decorrelation is **not universal**: under
+at-layer noise even the weak ridge tracks MI (ρ=1.0); it appears specifically under **noise
+propagation** (input-DP through depth, B3 L20). Where decorrelation *does* occur, a stronger
+information-efficient attack restores it — demonstrated decisively at **L0** (Bayes-NN +0.98). At
+depth under propagation, the stronger attack is **not yet found** (the MLP isn't it) → the live
+open problem. So: probes are faithful predictors except under noise-propagation geometry, where
+attack strength is the limiting factor.
+
+**Verdict:** C1 (uplift) holds at L0, FAILS for the MLP at depth. C2 (re-correlation) holds trivially
+under at-layer noise (ridge already tracks); the interesting decorrelation is propagation-specific.
+Next: a stronger depth decoder (iterative/MAP) targeting the input-DP-propagated regime where ridge breaks.

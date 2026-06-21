@@ -1,0 +1,24 @@
+{
+  "audit_skill": "proof-checker",
+  "verdict": "PASS",
+  "reason_code": "all_proofs_complete",
+  "summary": "Theorem T1 (weak-domination + strict-improvement + I-MMSE/degradation monotonicity) PROVABLE AS STATED; 2 rounds, 7 round-1 issues (all LOCAL/MINOR, no FATAL/CRITICAL) + N1 resolved.",
+  "audited_input_hashes": {"docs/research/info-efficient-attack-guarantee.md": "sha256:71e3cefef89a59b9902e2815135b5910455cd90b393abe108af2651f3c225ee7"},
+  "trace_path": ".aris/traces/proof-checker/2026-06-21_run01/",
+  "thread_id": "019eea0d-3e4e-7640-87cb-2c135444a270",
+  "reviewer_model": "gpt-5.5", "reviewer_reasoning": "xhigh",
+  "generated_at": "2026-06-21T00:00:00Z",
+  "details": {
+    "theorems_audited": 1,
+    "issues": [
+      {"id":"I1","severity":"MAJOR","category":"bayes-existence/general-loss","status":"resolved","note":"'every loss' -> stated squared/0-1 losses + selector caveat"},
+      {"id":"I2","severity":"MINOR","category":"attribution","status":"resolved","note":"sigma-inclusion elementary; Rao-Blackwell over-attribution dropped"},
+      {"id":"I3","severity":"MAJOR","category":"L2-assumptions","status":"resolved","note":"added E||S||^2,E||Y||^2<inf"},
+      {"id":"I4","severity":"MINOR","category":"0-1-strictness-ties","status":"resolved","note":"common-MAP-action condition"},
+      {"id":"I5","severity":"MAJOR","category":"mmse-monotonicity","status":"resolved","note":"mmse monotone via degradation+Blackwell, not I-MMSE alone"},
+      {"id":"I6","severity":"MINOR","category":"fano-constants","status":"resolved","note":"base-2 + clip at 0 + nats note"},
+      {"id":"I7","severity":"MINOR","category":"laplace-degradation","status":"resolved","note":"CF ratio valid; increment not Laplace"},
+      {"id":"N1","severity":"MINOR","category":"log-base","status":"resolved","note":"I-MMSE 1/2 is nats-local; sign is all that matters"}
+    ]
+  }
+}

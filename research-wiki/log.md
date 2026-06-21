@@ -2,3 +2,39 @@
 
 _Append-only timeline._
 - `2026-06-20T17:31:56Z` Wiki initialized
+- `2026-06-21T11:46:54Z` ingest_paper: ingested paper:kale2025_beamclean_language_aware (arxiv:2505.13758)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:morris2023_text_embeddings_reveal (arxiv:2310.06816)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:morris2023_language_model_inversion (arxiv:2311.13647)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:nazir2025_better_language_model (arxiv:2506.17090)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:dong2025_depth_gives_false (arxiv:2507.16372)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:shu2025_model_inversion_split (arxiv:2501.05965)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:qu2025_prompt_inversion_attack (arxiv:2503.09022)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:wan2024_information_leakage_from (arxiv:2405.11916)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:chung2022_diffusion_posterior_sampling (arxiv:2209.14687)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:balle2018_improving_gaussian_mechanism (arxiv:1805.06530)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:dai2019_database_alignment_gaussian (arxiv:1903.01422)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:dai2023_gaussian_database_alignment (arxiv:2307.02459)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:pananjady2017_denoising_linear_models (arxiv:1704.07461)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:ding2021_planted_matching_problem (arxiv:2103.09383)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:fan2019_spectral_graph_matching (arxiv:1907.08880)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:ding2018_efficient_random_graph (arxiv:1811.07821)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:cuturi2013_sinkhorn_distances_lightspeed (arxiv:1306.0895)
+- `2026-06-21T11:47:15Z` ingest_paper: ingested paper:lin2026_towards_privacypreserving_llm (arxiv:2603.01499)
+- `2026-06-21T11:47:48Z` ingest_paper: ingested paper:guo2004_mutual_information_minimum (arxiv:cs/0412108)
+- `2026-06-21T11:47:48Z` ingest_paper: ingested paper:cherisey2019_best_information_most (arxiv:)
+- `2026-06-21T11:47:48Z` ingest_paper: ingested paper:cover2006_elements_information_theory (arxiv:)
+- `2026-06-21T11:47:48Z` ingest_paper: ingested paper:blackwell1953_equivalent_comparisons_experiments (arxiv:)
+- `2026-06-21T11:48:34Z` add_claim: added claim:bayes-gap-diagnosis [status=drafted]
+- `2026-06-21T11:48:34Z` add_claim: added claim:weak-domination [status=drafted]
+- `2026-06-21T11:48:34Z` add_claim: added claim:strict-improvement [status=drafted]
+- `2026-06-21T11:48:34Z` add_claim: added claim:mi-monotone-gaussian [status=drafted]
+- `2026-06-21T11:48:34Z` add_claim: added claim:perm-llr-threshold [status=drafted]
+- `2026-06-21T11:48:34Z` add_claim: added claim:restore-correlation [status=drafted]
+- `2026-06-21T11:48:59Z` upsert_idea: added idea:info-efficient-attacks [stage=active outcome=pending]
+- `2026-06-21T11:49:17Z` info-efficient-attacks thread: 22 papers, 6 claims (drafted), 1 active idea, gap G1. Backbone verified for proof-writer/checker.
+- `2026-06-21T12:08:46Z` add_claim: added claim:thm-t1-info-efficient [status=verified] prov=.aris/traces/proof-checker/2026-06-21_run01/
+- `2026-06-21T12:52:35Z` add_experiment: added exp:b2-l0-bayes-vs-ridge [verdict=yes confidence=high]
+- `2026-06-21T12:52:35Z` B2-L0: exact-Bayes attack vs ridge under input-DP — C1 uplift +0.98 confirmed, C2 re-correlation supported; L0 is the easy case, L>0 next.
+- `2026-06-21T12:58:02Z` add_claim: added claim:threat-model-fairness [status=drafted]
+- `2026-06-21T13:22:57Z` add_experiment: added exp:b2-lpos-decoder-vs-ridge [verdict=no confidence=high]
+- `2026-06-21T13:22:57Z` B2-L>0: MLP decoder LOSES to ridge at depth (uplift-sel negative); L0 uplift is observation-layer-specific. At-layer noise: ridge already tracks MI (rho=1). Decorrelation is input-DP-propagation-specific — stronger depth decoder still needed there.
