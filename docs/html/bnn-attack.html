@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — BNN @ L0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=JetBrains+Mono:ital,wght@0,400..700;1,400..600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ffffff; --paper-2:#f4f4f4; --paper-3:#e3e3e3;
+    --ink:#14181c; --ink-2:#3c434b; --ink-3:#6a7280; --rule:#14181c;
+    --true:#b85a32; --true-soft:#ecd1c0;     /* true token — terracotta */
+    --rival:#5a6573; --rival-soft:#dde0e5;    /* rival codeword — slate */
+    --noise:#5e4a7a; --noise-soft:#d6cce2;    /* DP noise — plum */
+    --ok:#2e6a5e; --ok-soft:#c6dbd4;          /* correct — teal */
+    --bad:#a3460a; --bad-soft:#f0d9c4;        /* error — amber */
+    --client:#2a5092;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
+  body{
+    font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    font-size:13.5px;line-height:1.6;
+    background-image:radial-gradient(rgba(20,24,28,.03) 1px,transparent 1px);
+    background-size:4px 4px;
+  }
+  ::selection{background:var(--ink);color:var(--paper)}
+  a{color:var(--ink)}
+  .sheet{max-width:1100px;margin:0 auto;padding:24px 40px 96px;position:relative}
+  .crosshair{position:absolute;width:14px;height:14px}
+  .crosshair::before,.crosshair::after{content:"";position:absolute;background:var(--ink)}
+  .crosshair::before{left:6px;top:0;bottom:0;width:1px}
+  .crosshair::after{top:6px;left:0;right:0;height:1px}
+  .tl{top:24px;left:24px}.tr{top:24px;right:24px}.bl{bottom:24px;left:24px}.br{bottom:24px;right:24px}
+
+  .topnav{display:flex;align-items:baseline;justify-content:space-between;
+    padding:14px 0 16px;border-bottom:1px solid var(--ink);margin-bottom:30px;
+    font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+  .brand{font-family:"Fraunces",serif;font-weight:560;font-size:18px;letter-spacing:-.01em;
+    text-transform:none;color:var(--ink)}
+  .brand .dot{color:var(--true)}
+
+  .masthead{margin-bottom:40px}
+  .title{font-family:"Fraunces",serif;font-weight:600;font-size:46px;line-height:1.02;
+    letter-spacing:-.02em;margin:0 0 14px}
+  .title em{font-style:italic;color:var(--true);font-weight:400}
+  .subtitle{font-size:14px;color:var(--ink-2);max-width:70ch;margin:0}
+  .colophon{margin-top:18px;font-size:11px;color:var(--ink-3);display:flex;gap:26px;flex-wrap:wrap}
+  .colophon b{color:var(--ink-2)}
+
+  section{margin:48px 0;scroll-margin-top:20px}
+  .section-head{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--paper-3);
+    padding-bottom:8px;margin-bottom:18px}
+  .section-num{font-size:11px;color:var(--true);letter-spacing:.1em}
+  .section-title{font-family:"Fraunces",serif;font-weight:560;font-size:25px;margin:0;letter-spacing:-.01em}
+  .section-meta{margin-left:auto;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.12em}
+  .lede{font-size:15px;color:var(--ink);max-width:74ch}
+  p{max-width:74ch}
+  code{background:var(--paper-2);padding:1px 5px;border:1px solid var(--paper-3);font-size:12.5px}
+  .accent{color:var(--true)}
+  em.k{font-style:normal;font-weight:600}
+
+  .steps{counter-reset:s;margin:18px 0;padding:0;list-style:none}
+  .steps>li{counter-increment:s;position:relative;padding:8px 0 8px 42px;border-bottom:1px dotted var(--paper-3)}
+  .steps>li::before{content:counter(s);position:absolute;left:0;top:8px;width:26px;height:26px;
+    border:1px solid var(--ink);border-radius:50%;display:grid;place-items:center;font-size:12px;color:var(--true)}
+
+  .fig{border:1px solid var(--ink);background:var(--paper);margin:24px 0;padding:0}
+  .fig-head{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;
+    border-bottom:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:11px;
+    letter-spacing:.14em;text-transform:uppercase}
+  .fig-head .tag{color:var(--true-soft)}
+  .fig-body{padding:18px}
+  canvas{display:block;width:100%;height:auto;image-rendering:auto}
+  .controls{display:flex;flex-wrap:wrap;gap:22px;align-items:center;margin:4px 0 16px;
+    padding:12px 14px;background:var(--paper-2);border:1px solid var(--paper-3)}
+  .ctl{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--ink-2);min-width:150px}
+  .ctl label{text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--ink-3)}
+  .ctl input[type=range]{width:170px;accent-color:var(--noise)}
+  .ctl .val{font-weight:600;color:var(--ink)}
+  .seg{display:inline-flex;border:1px solid var(--ink)}
+  .seg button{font-family:inherit;font-size:11px;padding:5px 10px;background:var(--paper);border:0;
+    border-right:1px solid var(--ink);cursor:pointer;color:var(--ink-2)}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--ink);color:var(--paper)}
+  .readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-top:14px}
+  .ro{border:1px solid var(--paper-3);padding:8px 10px;background:var(--paper)}
+  .ro .lab{font-size:9.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3)}
+  .ro .num{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+  .ro.hl{border-color:var(--true)}
+  .ro.hl .num{color:var(--true)}
+  .twocanvas{display:grid;grid-template-columns:1.45fr 1fr;gap:16px}
+  @media(max-width:760px){.twocanvas{grid-template-columns:1fr}.title{font-size:34px}.sheet{padding:20px 18px 70px}}
+  .cap{font-size:11.5px;color:var(--ink-3);margin-top:8px;max-width:80ch}
+
+  table.spec{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px}
+  table.spec th,table.spec td{border:1px solid var(--paper-3);padding:6px 9px;text-align:left;vertical-align:top}
+  table.spec th{background:var(--ink);color:var(--paper);font-weight:500;text-transform:uppercase;
+    letter-spacing:.08em;font-size:10px}
+  table.spec td.n{font-variant-numeric:tabular-nums;text-align:right}
+  table.spec tr.inside td.flag{color:var(--ok);font-weight:600}
+
+  .callout{border-left:3px solid var(--noise);background:var(--noise-soft);padding:12px 16px;margin:16px 0;
+    font-size:13px}
+  .callout.aha{border-left-color:var(--true);background:var(--true-soft)}
+  .key{font-family:"Fraunces",serif;font-style:italic;font-size:16px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--ink-2);margin:2px 0 12px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dotmark{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .foot{margin-top:60px;border-top:1px solid var(--ink);padding-top:14px;font-size:11px;color:var(--ink-3)}
+  .mono-num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span><span class="crosshair tr"></span>
+  <span class="crosshair bl"></span><span class="crosshair br"></span>
+
+  <div class="topnav">
+    <span class="brand">transformer-attacks<span class="dot">·</span>lens</span>
+    <span>prototype / attack illustration · BNN @ L0</span>
+  </div>
+
+  <header class="masthead">
+    <h1 class="title">The Bayes&#8209;NN attack<br><em>— why huge noise doesn't save you</em></h1>
+    <p class="subtitle">A token is turned into an embedding, then differentially-private Gaussian noise is
+      added before it leaves the trusted boundary. An adversary who knows the embedding table matches the
+      noisy vector back to its nearest table entry. Despite noise <em>larger than the embedding itself</em>,
+      this recovers the token almost perfectly. This page shows, interactively, why.</p>
+    <div class="colophon">
+      <div><b>attack</b>&nbsp; nearest-neighbour / MAP decode (BNN)</div>
+      <div><b>surface</b>&nbsp; L0 embedding, input-DP</div>
+      <div><b>model</b>&nbsp; gemma-2-2b · d=2304 · K=2048</div>
+      <div><b>claim</b>&nbsp; bnn-error-bounds-bhattacharyya-fano</div>
+    </div>
+  </header>
+
+  <!-- §01 SETUP -->
+  <section id="setup">
+    <div class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">What the attack is</h2>
+      <div class="section-meta">setup · one token</div>
+    </div>
+    <p class="lede">Everything happens at the very first layer — the <em class="k">embedding lookup</em> — before
+      any transformer block. The secret is a single token <code>v</code>.</p>
+    <ol class="steps">
+      <li><b>Embed.</b> The model maps token <code>v</code> to a fixed vector <code>e_v &isin; &#8477;<sup>d</sup></code>
+        (d=2304) by table lookup. The table <code>{e_u}</code> of all tokens is <em>public</em> (open weights).</li>
+      <li><b>Clip + add DP noise.</b> The vector is clipped to norm <code>C&#8776;4.15</code> and Gaussian noise is
+        added: <code>Y = clip(e_v) + &#949;</code>, &nbsp;<code>&#949; &sim; &#119977;(0, &#963;&sup2; I_d)</code>.
+        Smaller privacy budget <code>&#949;<sub>dp</sub></code> &rarr; larger &#963;.</li>
+      <li><b>Leak.</b> Only the noisy <code>Y</code> crosses the boundary to the untrusted side.</li>
+      <li><b>Attack (BNN).</b> The adversary returns the table entry closest to <code>Y</code>:
+        <code>v&#770; = argmin<sub>u</sub> &#8741;Y &minus; e_u&#8741;</code>. No training, no model — just nearest neighbour
+        against the known table. This is the <em>Bayes-optimal</em> (MAP) decoder under Gaussian noise.</li>
+    </ol>
+    <p>The puzzle: at the privacy level <code>&#949;<sub>dp</sub>=64</code> the noise vector has length
+      <code>&#8741;&#949;&#8741;&#8776;15</code> — about <b>3.6&times; the embedding's own length</b> (&#8776;4.15). Intuitively the
+      signal is buried. Yet BNN recovers the token ~94% of the time. The next section shows why that intuition is wrong.</p>
+  </section>
+
+  <!-- §02 THE PARADOX -->
+  <section id="paradox">
+    <div class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Why huge noise doesn't break it</h2>
+      <div class="section-meta">interactive · the key idea</div>
+    </div>
+    <p class="lede">BNN does not need <code>Y</code> to land <em>near</em> <code>e_v</code>. It only needs <code>e_v</code> to
+      be the <em class="k">closest</em> of all candidates. That is a question about <b>one direction</b> — the axis
+      between two codewords — not about the whole noise vector.</p>
+
+    <p>Compare the true token <code>e_v</code> to one rival <code>e_u</code>. Split the noise <code>&#949;</code> into two parts:
+      its component <b>along</b> the axis <code>&#916; = e_v &minus; e_u</code> (this is all that decides v&nbsp;vs&nbsp;u), and
+      everything <b>perpendicular</b> to it (the other d&minus;1 directions). The perpendicular part moves <code>Y</code> far away —
+      but it is the <em>same distance</em> to <code>e_v</code> and to <code>e_u</code>, so it <b>cancels</b> in the comparison.
+      The decision sees only the along-axis noise, whose size is just <code>&#963;</code> — one coordinate's worth.</p>
+
+    <div class="fig">
+      <div class="fig-head"><span>Figure A — the decision plane</span><span class="tag">drag &#949;<sub>dp</sub>, d</span></div>
+      <div class="fig-body">
+        <div class="controls">
+          <div class="ctl" style="min-width:210px">
+            <label>privacy budget &#949;<sub>dp</sub> &nbsp;<span class="val" id="aEpsV"></span></label>
+            <input type="range" id="aEps" min="-1" max="2.408" step="0.01" value="1.806">
+            <span style="font-size:10px;color:var(--ink-3)">0.1 &#9664; strong DP &nbsp;·&nbsp; weak DP &#9654; 256 &nbsp;(log)</span>
+          </div>
+          <div class="ctl">
+            <label>dimension d &nbsp;<span class="val" id="aDimV"></span></label>
+            <input type="range" id="aDim" min="2" max="4096" step="2" value="2304">
+            <span style="font-size:10px;color:var(--ink-3)">inflates only the perpendicular junk</span>
+          </div>
+          <div class="ctl">
+            <label>rival codeword</label>
+            <div class="seg" id="aRival">
+              <button data-d="5.86" class="on">typical&nbsp;(&#8741;&#916;&#8741;=5.86)</button>
+              <button data-d="0.70">morph. twin&nbsp;(0.70)</button>
+            </div>
+            <span style="font-size:10px;color:var(--ink-3)">e.g. 'Hardware' vs ' Hardware'</span>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i class="dotmark" style="background:var(--true)"></i> e_v (true)</span>
+          <span><i class="dotmark" style="background:var(--rival)"></i> e_u (rival)</span>
+          <span><i class="dotmark" style="background:var(--ok)"></i> noisy Y &rarr; decoded correctly</span>
+          <span><i class="dotmark" style="background:var(--bad)"></i> noisy Y &rarr; decoded wrong</span>
+          <span>&#8212;&#8212; decision boundary (perpendicular bisector)</span>
+        </div>
+
+        <div class="twocanvas">
+          <canvas id="cDecide" width="1180" height="560"></canvas>
+          <canvas id="cSide" width="800" height="560"></canvas>
+        </div>
+        <p class="cap"><b>Left:</b> the decision axis (e_v &harr; e_u). Each grey-region dot is one noisy sample, placed
+          by its <em>along-axis</em> position; vertical scatter is only for visibility. Almost all stay on e_v's side of the
+          dashed boundary. <b>Right:</b> the same decision as two probability bumps on that axis — where <code>Y</code> lands if the
+          word was <code>e_v</code> (terracotta) vs <code>e_u</code> (slate), each spread by the <em>along-axis</em> noise
+          <code>&#963;</code> (the &#8869; junk <code>&#963;&#8730;d</code> cancels and isn't shown). Their <em>overlap past the boundary</em>
+          (amber) is the error. Drag <code>&#949;<sub>dp</sub></code>: at high <code>&#949;<sub>dp</sub></code> the bumps are sharp and far
+          apart (no overlap &mdash; BNN wins); as it falls they widen and slide together, and for a morphological twin (tiny
+          <code>&#8741;&#916;&#8741;</code>) they merge into one blob &mdash; a coin flip. That merging <em>is</em> "similar words become
+          indistinguishable."</p>
+
+        <div class="readout">
+          <div class="ro"><div class="lab">&#963; (noise / coord)</div><div class="num mono-num" id="roSigma"></div></div>
+          <div class="ro"><div class="lab">&#8741;&#949;&#8741; total noise</div><div class="num mono-num" id="roEnorm"></div></div>
+          <div class="ro"><div class="lab">gap &#8741;&#916;&#8741;</div><div class="num mono-num" id="roGap"></div></div>
+          <div class="ro hl"><div class="lab">decision SNR = &#8741;&#916;&#8741;/2&#963;</div><div class="num mono-num" id="roSnr"></div></div>
+          <div class="ro"><div class="lab">predicted err &#934;(&minus;SNR)</div><div class="num mono-num" id="roPhi"></div></div>
+          <div class="ro"><div class="lab">empirical err (samples)</div><div class="num mono-num" id="roEmp"></div></div>
+        </div>
+
+        <div class="callout aha" id="ahaBox"></div>
+      </div>
+    </div>
+
+    <p>Slide <b>d</b> up: the total noise <code>&#8741;&#949;&#8741;&#8776;&#963;&#8730;d</code> balloons (watch the
+      <em>total noise</em> readout and the &#8869;-junk note), but the bumps, the decision SNR, and the error <em>do not move
+      at all</em>. That is the whole resolution: <span class="key">extra dimensions only add perpendicular junk that
+      cancels.</span> Slide <b>&#949;<sub>dp</sub></b> down (more noise): the along-axis spread &#963; grows relative to the gap,
+      the two bumps widen and overlap, the SNR falls, and dots begin crossing the boundary. Switch to a <b>morphological
+      twin</b> (tiny gap): the bumps sit almost on top of each other and merge into a coin flip even at modest noise —
+      those rare close pairs are the only place BNN fails (§04).</p>
+  </section>
+
+  <!-- §03 QUANTIFIED -->
+  <section id="snr">
+    <div class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">The decision, in one number</h2>
+      <div class="section-meta">SNR &rarr; error</div>
+    </div>
+    <p class="lede">Formally, the margin "is e_v closer than e_u?" is
+      <code>&#8741;Y&minus;e_u&#8741;&sup2; &minus; &#8741;Y&minus;e_v&#8741;&sup2; = &#8741;&#916;&#8741;&sup2; + 2&#10216;&#949;,&#916;&#10217;</code>.
+      The random part <code>2&#10216;&#949;,&#916;&#10217;</code> has standard deviation <code>2&#963;&#8741;&#916;&#8741;</code>, so the
+      probability BNN picks the wrong one is exactly <code>&#934;(&minus;&#8741;&#916;&#8741;/2&#963;)</code> — set entirely by the
+      <em class="k">decision SNR</em> <code>&#8741;&#916;&#8741;/2&#963;</code>. The full noise norm <code>&#8741;&#949;&#8741;</code> never appears.</p>
+    <p>That single formula also says <em class="k">how to actually defeat the attack</em>: shrink the SNR by pushing
+      <code>&#949;<sub>dp</sub></code> down into the real DP regime (<code>&#949;<sub>dp</sub>&#8776;0.1&ndash;10</code>). Slide the budget
+      left (in Fig A or below) and watch what happens — and <em>which</em> pairs blur first.</p>
+
+    <div class="fig">
+      <div class="fig-head"><span>Figure B — per-pair error vs privacy budget (log &#949;)</span><span class="tag">synced to Fig A &#949;<sub>dp</sub></span></div>
+      <div class="fig-body">
+        <canvas id="cCurve" width="1180" height="470"></canvas>
+        <p class="cap">Per-rival error as <code>&#949;<sub>dp</sub></code> sweeps from <b>256 (no privacy)</b> down to
+          <b>0.1 (strong DP)</b>, log scale. <code>0.5</code> = a coin flip = the two words are <em>indistinguishable</em>.
+          Note the order: the <b>morphological twin</b> (gap 0.70) reaches the coin flip first — DP erases the distinction
+          between <em>similar</em> words while still leaving typical words recoverable (the <span class="key">deniability</span>
+          band). Only at <code>&#949;<sub>dp</sub>&#8806;1</code> does even the <b>typical</b> rival (gap 5.86) blur — by then every
+          word is gone. The marker tracks Fig A.</p>
+      </div>
+    </div>
+    <div class="callout"><span class="key">The catch (the utility&ndash;privacy cliff).</span> DP <em>does</em> stop BNN — but
+      look at the cost. The same noise that lifts the curve also corrupts the embedding the downstream model needs. The
+      leaked signal <code>I(V;Y) = log&#8322;K &minus; H(V|Y)</code> is <em>simultaneously</em> what the attacker reads and what the
+      model receives — the same bits. To send the twin-error to a coin flip you must reach <code>&#949;<sub>dp</sub>&#8776;10</code>;
+      to blur typical words you need <code>&#949;<sub>dp</sub>&#8806;1</code>, where the vector is pure noise and accuracy collapses.
+      So "noise it and ship it" buys confidentiality only by destroying utility. (For genuine token confidentiality against
+      an untrusted cloud, the fix is not bigger noise but a different mechanism — TEE / masking / crypto.)</div>
+  </section>
+
+  <!-- §04 POOL / FLOOR -->
+  <section id="pool">
+    <div class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">From one rival to 2048 — where errors actually come from</h2>
+      <div class="section-meta">the union bound · the floor</div>
+    </div>
+    <p class="lede">A token has 2047 rivals, not one. BNN errs if <em>any</em> rival wins, so the total error is at most
+      the sum of the per-rival errors (the <em class="k">union bound</em>). But that sum is dominated by the very few
+      <b>close</b> rivals — almost every pair is near-orthogonal (gap ≈5.86, error ≈0). So a token's fate is decided by
+      its single nearest neighbour.</p>
+    <p>These nearest neighbours are not random: they are <b>morphological / case / number twins</b> that the embedding
+      places almost on top of each other. Below are the real closest pairs found in the gemma-2-2b pool, with the
+      per-pair error each contributes at <code>&#949;<sub>dp</sub>=16</code> (highest noise tested). The geometry alone — no
+      attack run — already names exactly which tokens will be confused.</p>
+
+    <div class="fig">
+      <div class="fig-head"><span>Figure C — the confusable pairs (real gemma-2-2b)</span><span class="tag">geometry-only</span></div>
+      <div class="fig-body" id="pairsFig"></div>
+    </div>
+    <p>The overall measured BNN error at <code>&#949;<sub>dp</sub>=64</code> is ~6%: that is roughly the fraction of test
+      tokens that <em>have</em> such a close twin. Everything else is recovered exactly.</p>
+  </section>
+
+  <!-- §05 PROBES -->
+  <section id="probes">
+    <div class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">What our probes measure — and why they explain this</h2>
+      <div class="section-meta">bits &amp; bounds</div>
+    </div>
+    <p class="lede">Two information-theoretic quantities, both computed from the table geometry + &#963; <em>without ever
+      running the attack</em>, sandwich the BNN error:</p>
+    <table class="spec">
+      <tr><th style="width:21%">quantity</th><th>units</th><th>what it says</th></tr>
+      <tr><td><b>equivocation H(V|Y)</b><br>= log&#8322;K &minus; I(V;Y)</td><td>bits</td>
+        <td>how many bits of the token stay hidden after seeing Y — i.e. the <em>matching ambiguity</em>. Fano turns it into
+          a <em>lower</em> bound on any attacker's error: <code>P&#8341;&#7497; &ge; (H(V|Y)&minus;1)/log&#8322;(K&minus;1)</code>.</td></tr>
+      <tr><td><b>union&ndash;Bhattacharyya</b></td><td>probability</td>
+        <td>sum of per-pair errors from the codeword distances — an <em>upper</em> bound. Dominated by the close pairs,
+          so it also <em>names where</em> the leakage is (§04).</td></tr>
+    </table>
+    <p>On real gemma-2-2b the measured BNN error stays inside <code>[lower, upper]</code> at every noise level
+      (10/10), and the bounds track it — the upper bound is tight at low noise, the Fano bound tracks at high noise:</p>
+
+    <div class="fig">
+      <div class="fig-head"><span>Figure D — bounds vs measured BNN error (dense &#949; sweep)</span><span class="tag">results</span></div>
+      <div class="fig-body">
+        <canvas id="cBounds" width="1180" height="460"></canvas>
+        <p class="cap">Shaded band = <code>[P&#8341;&#7497;<sup>lower</sup>, P&#8341;&#7497;<sup>upper</sup>]</code> from geometry alone;
+          line = measured BNN error. The band contains the measurement at all 10 points. x-axis is the noise ratio
+          <code>r = &#963;&#8730;d / C</code>.</p>
+      </div>
+    </div>
+
+    <table class="spec">
+      <tr><th>&#949;<sub>dp</sub></th><th>r</th><th class="n">BNN err</th><th class="n">lower</th><th class="n">upper</th><th class="n">H(V|Y) bits</th><th>in band?</th></tr>
+      <tbody id="resTable"></tbody>
+    </table>
+    <p class="callout"><span class="key">The takeaway.</span> At L0 the leakage <em>is</em> the embedding table's distance
+      geometry. High dimension makes the codewords well-separated and the DP noise mostly perpendicular junk, so
+      nearest-neighbour matching survives noise far larger than the signal. <code>H(V|Y)</code> measures the residual
+      matching ambiguity in bits; the union bound names the few confusable pairs. Together they predict the attack from
+      geometry alone — which is exactly what a faithful leakage probe should do.</p>
+  </section>
+
+  <div class="foot">
+    transformer-attacks-lens · prototype doc · generated 2026-06-22 ·
+    proof: <code>refine-logs/PROOF_PACKAGE.md</code> ·
+    code: <code>src/talens/measures/channel_error_bounds.py</code> ·
+    results: <code>refine-logs/EXPERIMENT_RESULTS.md</code>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- math helpers ---------- */
+const C = 4.147, ZDP = 4.845;
+function sigmaOf(eps){ return C*ZDP/eps; }
+function erf(x){ // Abramowitz-Stegun 7.1.26
+  const s = x<0?-1:1; x=Math.abs(x);
+  const t = 1/(1+0.3275911*x);
+  const y = 1 - (((((1.061405429*t -1.453152027)*t)+1.421413741)*t -0.284496736)*t +0.254829592)*t*Math.exp(-x*x);
+  return s*y;
+}
+const Phi = z => 0.5*(1+erf(z/Math.SQRT2));
+let _spare=null;
+function randn(){ if(_spare!==null){const v=_spare;_spare=null;return v;}
+  let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+  const r=Math.sqrt(-2*Math.log(u)), a=2*Math.PI*v; _spare=r*Math.sin(a); return r*Math.cos(a); }
+const fmt=(x,n=3)=>{ if(!isFinite(x))return"∞"; const a=Math.abs(x);
+  if(a!==0&&a<1e-3)return x.toExponential(1); return x.toFixed(n); };
+const fmtEps=e=> e>=10? Math.round(e).toString() : e>=1? e.toFixed(1) : e.toFixed(2);
+function regimeOf(e){ if(e>=40)return["exact recovery","no privacy"];
+  if(e>=1)return["similar words blur","deniability band"]; return["all words blur","utility destroyed"]; }
+
+/* crisp canvas: set backing store to 2x logical, draw in logical px */
+function ctx2d(cv){ const c=cv.getContext('2d'); c.setTransform(1,0,0,1,0,0); return c; }
+function L(cv){ return {w:cv.width/2, h:cv.height/2}; } // logical size (backing is 2x via width attr; we scale)
+// We authored width/height attrs at 2x logical; scale once.
+function prep(cv){ const c=cv.getContext('2d'); c.setTransform(2,0,0,2,0,0); return c; }
+
+/* shared state */
+const state = { eps:64, dim:2304, gap:5.86, N:320 };
+
+/* ---------- Figure A: decision plane + side view ---------- */
+const cDecide=document.getElementById('cDecide'), cSide=document.getElementById('cSide');
+let samples=[];
+function resample(){ samples=[]; for(let i=0;i<state.N;i++) samples.push(randn()); } // along-axis unit noise
+resample();
+
+function drawDecide(){
+  const c=prep(cDecide), W=cDecide.width/2, H=cDecide.height/2;
+  c.clearRect(0,0,W,H);
+  const sigma=sigmaOf(state.eps), gap=state.gap, bound=gap/2;
+  // world x range — stay zoomed on the codewords so e_v,e_u remain separable even
+  // when σ is enormous; samples then spill off-frame (overwhelming noise).
+  const viewHalf=Math.min(4*sigma, gap*3+1.5);
+  const cx=gap/2, xmin=cx-viewHalf-0.8, xmax=cx+viewHalf+0.8;
+  const padL=46,padR=20,padT=18,padB=30;
+  const X=x=> padL + (x-xmin)/(xmax-xmin)*(W-padL-padR);
+  const axisY=H-78;
+  // baseline axis
+  c.strokeStyle='#c9ccd1'; c.lineWidth=1; c.beginPath(); c.moveTo(padL,axisY); c.lineTo(W-padR,axisY); c.stroke();
+  // sample band (dots) above axis
+  const bandTop=padT+10, bandBot=axisY-14;
+  let nbad=0;
+  for(let i=0;i<samples.length;i++){
+    const xn=samples[i]*sigma;            // along-axis offset from e_v (at 0)
+    const wrong = xn>bound; if(wrong)nbad++;
+    const px=X(xn);
+    const py=bandTop + (i*97%1000)/1000*(bandBot-bandTop); // deterministic jitter
+    c.fillStyle = wrong? '#a3460a':'#2e6a5e'; c.globalAlpha=.62;
+    c.beginPath(); c.arc(px,py,2.4,0,7); c.fill();
+  }
+  c.globalAlpha=1;
+  // decision boundary
+  c.strokeStyle='#14181c'; c.setLineDash([6,5]); c.lineWidth=1.4;
+  c.beginPath(); c.moveTo(X(bound),padT); c.lineTo(X(bound),axisY+8); c.stroke(); c.setLineDash([]);
+  c.fillStyle='#14181c'; c.font='10px JetBrains Mono'; c.textAlign='center';
+  c.fillText('boundary', X(bound), padT-4);
+  // codewords
+  function cw(x,col,lab){ const px=X(x); c.fillStyle=col; c.beginPath(); c.arc(px,axisY,6,0,7); c.fill();
+    c.fillStyle='#14181c'; c.font='12px JetBrains Mono'; c.textAlign='center'; c.fillText(lab,px,axisY+22); }
+  cw(0,'#b85a32','e_v'); cw(gap,'#5a6573','e_u');
+  // axis label
+  c.fillStyle='#6a7280'; c.font='10px JetBrains Mono'; c.textAlign='left';
+  c.fillText('along-axis position  ⟨ε,Δ̂⟩  (vertical = visibility only)', padL, H-8);
+  return {nbad, sigma, gap};
+}
+
+function drawSide(){
+  // "Where does Y land along the e_v→e_u axis?" — two likelihood bumps that
+  // visibly MERGE as ε falls. Lives on the decision axis (spread = along-axis
+  // noise σ), so it never collapses and changes strongly with ε.
+  const c=prep(cSide), W=cSide.width/2, H=cSide.height/2;
+  c.clearRect(0,0,W,H);
+  const sigma=sigmaOf(state.eps), gap=state.gap, bound=gap/2;
+  const snr=gap/(2*sigma), err=Phi(-snr);
+  const junk=sigma*Math.sqrt(Math.max(1,state.dim-1));
+  const padL=42,padR=16,padT=30,padB=58;
+  const xHalf=Math.max(gap/2+3*sigma, gap*1.15);
+  const xmin=bound-xHalf, xmax=bound+xHalf;
+  const X=x=> padL+(x-xmin)/(xmax-xmin)*(W-padL-padR);
+  const invX=px=> xmin+(px-padL)/(W-padL-padR)*(xmax-xmin);
+  const baseY=H-padB, topY=padT+4;
+  const Yf=f=> baseY - f*(baseY-topY);
+  const bump=(x,mu)=> Math.exp(-((x-mu)*(x-mu))/(2*sigma*sigma));  // normalised, peak 1
+  // baseline
+  c.strokeStyle='#c9ccd1'; c.lineWidth=1; c.beginPath(); c.moveTo(padL,baseY); c.lineTo(W-padR,baseY); c.stroke();
+  // error region: e_v bump tail past the boundary (true=e_v but decoded e_u)
+  c.fillStyle='rgba(163,70,10,.28)'; c.beginPath(); c.moveTo(X(bound),baseY);
+  for(let px=X(bound);px<=W-padR;px+=2) c.lineTo(px,Yf(bump(invX(px),0)));
+  c.lineTo(W-padR,baseY); c.closePath(); c.fill();
+  // e_v bump (terracotta) and e_u bump (slate)
+  function curve(mu,col){ c.strokeStyle=col; c.lineWidth=2; c.beginPath();
+    for(let px=padL;px<=W-padR;px++){ const y=Yf(bump(invX(px),mu)); if(px===padL)c.moveTo(px,y);else c.lineTo(px,y);} c.stroke(); }
+  curve(0,'#b85a32'); curve(gap,'#5a6573');
+  // boundary
+  c.strokeStyle='#14181c'; c.setLineDash([5,4]); c.lineWidth=1.3; c.beginPath();
+  c.moveTo(X(bound),topY-2); c.lineTo(X(bound),baseY); c.stroke(); c.setLineDash([]);
+  // codeword dots
+  c.fillStyle='#b85a32'; c.beginPath(); c.arc(X(0),baseY,5,0,7); c.fill();
+  c.fillStyle='#5a6573'; c.beginPath(); c.arc(X(gap),baseY,5,0,7); c.fill();
+  // labels
+  c.font='11px JetBrains Mono'; c.textAlign='center';
+  c.fillStyle='#b85a32'; c.fillText('Y if word = e_v', X(0), baseY+17);
+  c.fillStyle='#5a6573'; c.fillText('e_u', X(gap), baseY+17);
+  c.fillStyle='#14181c'; c.font='10px JetBrains Mono'; c.fillText('boundary', X(bound), topY-6);
+  // title + readouts
+  c.fillStyle='#14181c'; c.font='11px JetBrains Mono'; c.textAlign='center';
+  c.fillText('where does noisy Y land on the e_v → e_u axis?', W/2, 16);
+  c.textAlign='left';
+  c.fillStyle='#a3460a'; c.font='11px JetBrains Mono';
+  c.fillText('overlap past boundary = P(decode e_u | e_v) = '+(err<1e-3?err.toExponential(1):err.toFixed(3)), padL, baseY+34);
+  c.fillStyle='#6a7280'; c.font='10px JetBrains Mono';
+  c.fillText('separation ‖Δ‖='+gap.toFixed(2)+'  ·  spread σ='+sigma.toFixed(2)
+    +'  ·  ⊥ junk σ√d≈'+(junk>=100?junk.toFixed(0):junk.toFixed(1))+' cancels (not shown)', padL, baseY+47);
+}
+
+function updateA(){
+  const r=drawDecide(); drawSide();
+  const sigma=r.sigma, gap=r.gap, snr=gap/(2*sigma);
+  const junk=sigma*Math.sqrt(Math.max(1,state.dim-1));
+  document.getElementById('roSigma').textContent=fmt(sigma,3);
+  document.getElementById('roEnorm').textContent=fmt(junk,2);
+  document.getElementById('roGap').textContent=fmt(gap,2);
+  document.getElementById('roSnr').textContent=fmt(snr,2);
+  document.getElementById('roPhi').textContent=fmt(Phi(-snr),4);
+  document.getElementById('roEmp').textContent=(100*r.nbad/state.N).toFixed(1)+'%';
+  const reg=regimeOf(state.eps);
+  document.getElementById('aEpsV').textContent='= '+fmtEps(state.eps)+'  ('+reg[1]+')';
+  document.getElementById('aDimV').textContent='= '+state.dim;
+  const aha=document.getElementById('ahaBox');
+  const errStr=(Phi(-snr)<1e-3?'≈ '+Phi(-snr).toExponential(1):'= '+Phi(-snr).toFixed(3));
+  if(snr>=2){
+    aha.classList.add('aha');
+    aha.innerHTML='<b>Read it:</b> the noise pushes Y about <b>'+junk.toFixed(1)+'</b> units away from e_v '
+      +'(mostly perpendicular junk), yet the match is decided only by the along-axis noise σ='+sigma.toFixed(2)
+      +' against a gap of '+gap.toFixed(2)+'. Decision SNR = <b>'+snr.toFixed(2)+'</b> → per-rival error '+errStr
+      +'. <b>BNN wins.</b>';
+  } else {
+    aha.classList.remove('aha');
+    aha.innerHTML='<b>Now the noise wins.</b> At ε<sub>dp</sub>='+fmtEps(state.eps)+' the along-axis noise σ='
+      +sigma.toFixed(2)+' is comparable to (or bigger than) the gap '+gap.toFixed(2)+': decision SNR = <b>'
+      +snr.toFixed(2)+'</b> → per-rival error '+errStr+'. The two words have become '
+      +(Phi(-snr)>0.4?'<b>indistinguishable (a coin flip)</b>':'hard to tell apart')
+      +' — this is DP doing its job. But at this ε every embedding is mostly noise, so the model that needs it is blind too.';
+  }
+  drawCurve();
+}
+
+document.getElementById('aEps').addEventListener('input',e=>{state.eps=Math.pow(10,+e.target.value);updateA();});
+document.getElementById('aDim').addEventListener('input',e=>{state.dim=+e.target.value;updateA();});
+document.querySelectorAll('#aRival button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#aRival button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); state.gap=+b.dataset.d; resample(); updateA();
+}));
+
+/* ---------- Figure B: error curve ---------- */
+const cCurve=document.getElementById('cCurve');
+function drawCurve(){
+  const c=prep(cCurve), W=cCurve.width/2, H=cCurve.height/2;
+  c.clearRect(0,0,W,H);
+  const padL=54,padR=18,padT=16,padB=34;
+  const le0=Math.log10(0.1), le1=Math.log10(256);
+  const X=e=> padL + (Math.log10(e)-le0)/(le1-le0)*(W-padL-padR);
+  const Yv=p=> (H-padB) - p*(H-padB-padT);
+  // regime bands (right→left: no privacy / deniability / destroyed)
+  function band(elo,ehi,col,lab){ const x0=X(ehi),x1=X(elo); c.fillStyle=col;
+    c.fillRect(Math.min(x0,x1),padT,Math.abs(x1-x0),H-padB-padT);
+    c.fillStyle='#6a7280'; c.font='9.5px JetBrains Mono'; c.textAlign='center';
+    c.fillText(lab,(x0+x1)/2,padT+12); }
+  band(40,256,'rgba(184,90,50,.06)','exact recovery');
+  band(1,40,'rgba(94,74,122,.09)','similar words blur · deniability');
+  band(0.1,1,'rgba(163,70,10,.10)','all words blur · utility gone');
+  // grid + y labels
+  c.strokeStyle='#eceef0'; c.lineWidth=1;
+  for(let p=0;p<=1.0001;p+=0.25){ c.beginPath(); c.moveTo(padL,Yv(p)); c.lineTo(W-padR,Yv(p)); c.stroke();
+    c.fillStyle='#6a7280'; c.font='10px JetBrains Mono'; c.textAlign='right'; c.fillText(p.toFixed(2),padL-6,Yv(p)+3); }
+  // coin-flip line at 0.5
+  c.strokeStyle='#a3460a'; c.setLineDash([5,4]); c.lineWidth=1.2; c.beginPath();
+  c.moveTo(padL,Yv(0.5)); c.lineTo(W-padR,Yv(0.5)); c.stroke(); c.setLineDash([]);
+  c.fillStyle='#a3460a'; c.font='10px JetBrains Mono'; c.textAlign='left';
+  c.fillText('0.50  coin flip = indistinguishable', padL+4, Yv(0.5)-4);
+  // x ticks (log)
+  c.fillStyle='#6a7280'; c.textAlign='center'; c.font='10px JetBrains Mono';
+  [0.1,0.3,1,3,10,30,100,256].forEach(e=>{ c.fillText('ε='+(e<1?e:Math.round(e)),X(e),H-12); });
+  c.save(); c.translate(14,H/2); c.rotate(-Math.PI/2); c.textAlign='center';
+  c.fillText('P(wrong) for one rival',0,0); c.restore();
+  function curve(gap,col){ c.strokeStyle=col; c.lineWidth=2; c.beginPath();
+    for(let px=padL;px<=W-padR;px++){ const le=le0+(px-padL)/(W-padL-padR)*(le1-le0);
+      const e=Math.pow(10,le); const s=sigmaOf(e); const p=Phi(-gap/(2*s)); const y=Yv(p);
+      if(px===padL)c.moveTo(px,y); else c.lineTo(px,y); } c.stroke(); }
+  curve(5.86,'#2e6a5e'); curve(0.70,'#a3460a');
+  c.fillStyle='#2e6a5e'; c.font='11px JetBrains Mono'; c.textAlign='left'; c.fillText('typical rival (gap 5.86)',X(60),Yv(0.10));
+  c.fillStyle='#a3460a'; c.fillText('morphological twin (gap 0.70)',X(9),Yv(0.30));
+  // marker at current eps (current gap)
+  const s=sigmaOf(state.eps), p=Phi(-state.gap/(2*s)), mx=X(state.eps), my=Yv(p);
+  c.strokeStyle='#14181c'; c.setLineDash([4,4]); c.beginPath(); c.moveTo(mx,padT); c.lineTo(mx,H-padB); c.stroke(); c.setLineDash([]);
+  c.fillStyle='#14181c'; c.beginPath(); c.arc(mx,my,4,0,7); c.fill();
+  c.textAlign='center'; c.fillText('ε='+fmtEps(state.eps), mx, padT+10);
+}
+
+/* ---------- Figure C: real confusable pairs ---------- */
+const PAIRS=[ // from results/bnn_error_bounds_validation_dense.json (ε=16, σ=1.2557)
+  ["'Hardware'","' Hardware'",0.741],["' pasta'","' Pasta'",0.996],["' six'","' seven'",0.997],
+  ["' differential'","'Differential'",1.015],["' states'","'states'",1.019],["'3'","'5'",1.023],
+  ["' global'","' Global'",1.035]];
+(function pairsFig(){
+  const sig=sigmaOf(16);
+  const rows=PAIRS.map(p=>{ const err=Phi(-p[2]/(2*sig)); return {a:p[0],b:p[1],d:p[2],err}; });
+  const maxErr=Math.max(...rows.map(r=>r.err));
+  let html='<table class="spec"><tr><th>pair (token ↔ near-twin)</th><th class="n">gap ‖Δ‖</th><th class="n">per-pair err @ε=16</th><th style="width:34%">&nbsp;</th></tr>';
+  rows.forEach(r=>{ const w=(r.err/maxErr*100).toFixed(0);
+    html+='<tr><td><code>'+r.a+'</code> ↔ <code>'+r.b+'</code></td><td class="n">'+r.d.toFixed(3)+'</td>'
+      +'<td class="n">'+r.err.toFixed(3)+'</td><td><div style="height:11px;background:var(--bad);width:'+w+'%"></div></td></tr>'; });
+  html+='</table><p class="cap">A typical rival (gap 5.86) at the same noise contributes error '
+    +Phi(-5.86/(2*sig)).toExponential(1)+' — i.e. nothing. Only these near-twins matter.</p>';
+  document.getElementById('pairsFig').innerHTML=html;
+})();
+
+/* ---------- Figure D + table: real bounds vs BNN ---------- */
+const RES=[ // eps, r, bnn_err, lower, upper, H(V|Y) bits  — dense sweep
+  [128,1.82,0.0001,0,0.0001,0.00],[96,2.42,0.0006,0,0.0007,0.00],[80,2.91,0.0058,0,0.0125,0.03],
+  [64,3.63,0.0628,0,0.3460,0.35],[56,4.15,0.1638,0,1.0,0.96],[48,4.84,0.3409,0.1052,1.0,2.16],
+  [40,5.81,0.5676,0.2717,1.0,3.99],[32,7.27,0.7781,0.4689,1.0,6.16],[24,9.69,0.9142,0.6531,1.0,8.18],
+  [16,14.53,0.9765,0.7939,1.0,9.73]];
+(function bounds(){
+  const cv=document.getElementById('cBounds'), c=prep(cv), W=cv.width/2, H=cv.height/2;
+  const padL=50,padR=18,padT=16,padB=36;
+  const r0=1.5,r1=15;
+  const X=r=> padL+(r-r0)/(r1-r0)*(W-padL-padR);
+  const Yv=p=> (H-padB)-p*(H-padB-padT);
+  c.strokeStyle='#eceef0'; for(let p=0;p<=1.0001;p+=0.25){c.beginPath();c.moveTo(padL,Yv(p));c.lineTo(W-padR,Yv(p));c.stroke();
+    c.fillStyle='#6a7280';c.font='10px JetBrains Mono';c.textAlign='right';c.fillText(p.toFixed(2),padL-6,Yv(p)+3);}
+  c.fillStyle='#6a7280';c.textAlign='center';[2,4,6,8,10,12,14].forEach(r=>c.fillText('r='+r,X(r),H-12));
+  c.save();c.translate(14,H/2);c.rotate(-Math.PI/2);c.textAlign='center';c.fillText('error probability',0,0);c.restore();
+  // band
+  c.fillStyle='rgba(94,74,122,.18)'; c.beginPath();
+  RES.forEach((d,i)=>{const x=X(d[1]),y=Yv(Math.min(1,d[4])); if(i===0)c.moveTo(x,y);else c.lineTo(x,y);});
+  for(let i=RES.length-1;i>=0;i--){const d=RES[i];c.lineTo(X(d[1]),Yv(d[3]));} c.closePath(); c.fill();
+  // upper & lower edges
+  function edge(idx,col,dash){ c.strokeStyle=col;c.lineWidth=1.5;if(dash)c.setLineDash(dash);c.beginPath();
+    RES.forEach((d,i)=>{const x=X(d[1]),y=Yv(Math.min(1,d[idx]));if(i===0)c.moveTo(x,y);else c.lineTo(x,y);});c.stroke();c.setLineDash([]); }
+  edge(4,'#5e4a7a',[5,4]); edge(3,'#2a5092',[5,4]);
+  // measured BNN
+  c.strokeStyle='#b85a32'; c.lineWidth=2.4; c.beginPath();
+  RES.forEach((d,i)=>{const x=X(d[1]),y=Yv(d[2]);if(i===0)c.moveTo(x,y);else c.lineTo(x,y);}); c.stroke();
+  RES.forEach(d=>{c.fillStyle='#b85a32';c.beginPath();c.arc(X(d[1]),Yv(d[2]),3.2,0,7);c.fill();});
+  // legend
+  c.font='11px JetBrains Mono';c.textAlign='left';
+  c.fillStyle='#b85a32';c.fillText('— measured BNN error',X(8.4),Yv(0.30));
+  c.fillStyle='#5e4a7a';c.fillText('-- union-Bhattacharyya (upper)',X(8.4),Yv(0.22));
+  c.fillStyle='#2a5092';c.fillText('-- Fano equivocation (lower)',X(8.4),Yv(0.14));
+  // table
+  let html='';
+  RES.forEach(d=>{ html+='<tr class="inside"><td class="n">'+d[0]+'</td><td class="n">'+d[1].toFixed(2)
+    +'</td><td class="n">'+d[2].toFixed(4)+'</td><td class="n">'+d[3].toFixed(4)+'</td><td class="n">'
+    +d[4].toFixed(2)+'</td><td class="n">'+d[5].toFixed(2)+'</td><td class="flag">✓</td></tr>'; });
+  document.getElementById('resTable').innerHTML=html;
+})();
+
+updateA();
+</script>
+</body>
+</html>

@@ -1,166 +1,113 @@
 ---
 type: plan
 status: current
-created: 2026-06-21
-updated: 2026-06-21
-tags: [experiment-plan, information-efficient-attacks, MMSE, denoise-then-invert, I-MMSE, Fano, proof-gated, calibration]
-companion: [FINAL_PROPOSAL, EXPERIMENT_RESULTS]
-supersedes: [archive-matched-probe/EXPERIMENT_PLAN]
+created: 2026-06-22
+updated: 2026-06-22
+tags: [experiment-plan, bhattacharyya-fano-bounds, union-bhattacharyya, fano, bnn, dp-probe, geometry-only]
+companion: [PROOF_PACKAGE, EXPERIMENT_TRACKER]
+supersedes: []  # NNS-PVI plan rejected; archive dir removed in cleanup
 ---
 
-# Experiment Plan — information-efficient inversion attacks (proof-gated)
+# Experiment Plan — Union-Bhattacharyya & Fano error bounds: a geometry-only probe matched to BNN
 
-**Problem**: IT leakage probes (CLUB, capacity-PVI) **decorrelate from attack recovery
-under small noise** (B3/B4: input-DP barely moves CLUB/PVI but ridge TTRSR collapses
-0.81→0.60; VMA 1.0→0.56 at α_e=0.2). This is the **Bayes-optimality gap** — the deployed
-attacks (linear ridge `X→emb`+cosine; lossy RowSort) sit far below the Fano/I-MMSE recovery
-ceiling, so recovery falls for reasons MI cannot see. Either MI is a poor predictor (rejected)
-**or** the attacks are information-inefficient (the hypothesis we test).
+**Problem**: BNN/NNS is the MAP-optimal attack on the L0 embedding-DP channel; it recovers
+0.969 at r=3.63 while CapPVI=0.048 and CLUB tracks it only at ρ=0.22. No existing probe is
+matched to its decision geometry. The first candidate (NNS-PVI) was rejected: it evaluates the
+MAP posterior on the attack's own observations, sharing the per-point distance matrix — it is
+the attack re-scored (proof review + literature both confirmed).
 
-**Method thesis**: A **noise-aware, nonlinear denoise-then-invert MMSE/MAP** token-recovery
-attack **provably (weakly) dominates** linear ridge (Blackwell/Rao-Blackwell/DPI), strictly
-when `E[token|X]` is non-affine, and on the Gaussian-DP arm its recovery is **monotone in MI**
-(I-MMSE). So it recovers more **and** re-correlates with the IT probes — the ridge↔strong-attack
-gap *is* the measurable Bayes-optimality gap. (Frontier-LLM-component block: **N/A — skipped**.)
+**Method thesis**: The L0 channel is textbook M-ary Gaussian signaling. The matched, *genuinely
+independent* probe brackets the MAP (=BNN) error from a route that never touches the attack's
+test decode: **union-Bhattacharyya upper bound** + **Fano-equivocation lower bound** (fresh-noise
+MC), both computed from the codebook `{e_v}` + σ alone. Validated proof package (PROOF_PACKAGE.md,
+3 Codex rounds, PASS): T1 two-sided bound validity, T2 BNN achieves the bracketed error, T3 independence
+by construction, T4 estimator consistency, T5 σ-monotonicity.
+
+**Date**: 2026-06-22
 
 ## Claim Map
 
 | Claim | Why it matters | Minimum convincing evidence | Blocks |
 |-------|----------------|-----------------------------|--------|
-| **T1 (theory, proof-gated FIRST)** — Bayes-optimal denoise-then-invert weakly dominates ridge; strict under non-affine `E[token｜X]`; recovery monotone in MI on the Gaussian arm. | This is the *theoretic guarantee* the user requires before any empirical claim. | A `/proof-writer`→`/proof-checker` PASS (status ≥ sound-modulo-imports) on the theorem, with the verified caveats (I-MMSE Gaussian-only; finite variance; strict-MI-loss framing, not single-metric converse). | B0 |
-| **C1 (primary)** — the denoise-MMSE attack recovers strictly more than ridge under input-DP, uplift **growing** with noise. | The headline: a stronger attack that the defence does not stop. | TTRSR(strong) − TTRSR(ridge) > 0 at every ε, with the gap increasing as ε falls (more noise), across L0/5/12/20, 3 seeds. | B2 |
-| **C2 (primary)** — the strong attack **re-correlates with the IT probes** where ridge decorrelates. | Resolves the user's critique: makes the probes predictive by fixing the attack, not the probe. | Spearman(recovery, CLUB) and Spearman(recovery, capacity-PVI) over the ε-sweep are substantially higher for the strong attack than for ridge (target: ridge≈flat/неmonotone → strong ≥ 0.8). | B3 |
-| **C3 (supporting)** — the gain is **channel-awareness**, not capacity. | Anti-claim defence: rules out "just a bigger model." | A *noise-naive* nonlinear decoder (same capacity, no σ) does NOT achieve the channel-aware uplift; a *linear* denoiser with σ does NOT match the nonlinear one (unless ~Gaussian). | B4 |
-| **C4 (transfer)** — uplift + re-correlation hold under **Laplace/Shredder** noise. | Generality beyond the Gaussian arm where I-MMSE applies. | Repeat B2/B3 under Shredder static-Laplace; degradation-DPI guarantee (not I-MMSE); uplift + Spearman improvement persist. | B5 |
+| **C1 (primary)** — measured BNN error `1−TTRSR` falls inside `[P_e^lb, P_e^ub]` at every ε | The two-sided bound is a valid, attack-independent predictor of the MAP attack. | At each of 5 ε, `P_e^lb ≤ (1−TTRSR_n) ≤ P_e^ub` (with Hoeffding CI on TTRSR, CLT CI on P_e^lb). | B2 |
+| **C2 (primary)** — the geometry-only upper bound predicts BNN-not-1.0 | The probe reproduces the ≈0.6% morphological-confusion floor from the *real* distance histogram, not an idealization. | `P_e^ub(ε=∞ clip-only)` ≈ measured `1−TTRSR` ≈ 0.03; the dominant union terms are small-‖Δ‖ (morphological) pairs. | B2, B3 |
+| **C3 (independence)** — the probe value is unchanged when computed without any test observation | Demonstrates the property NNS-PVI lacked. | Probe computed from `{e_v}`+σ+fresh-noise RNG only; bit-identical regardless of which test split / which `Y_i` (by construction; B1 asserts via code path, B2 confirms numerically). | B1, B2 |
+| **C4 (comparison)** — the error bounds track BNN across ε better than CLUB/CapPVI, at a fraction of the cost | Establishes it as the matched probe for this channel. | ρ(P_e^ub-implied-TTRSR, BNN-TTRSR) and bound-gap vs CLUB/CapPVI ρ; wall-clock ⊥ n. | B2, B4 |
 
 **Anti-claims to rule out**
-- **A1 "just more capacity/params."** → B4 capacity-matched noise-naive decoder gets no channel-aware gain.
-- **A2 "row-split memorisation."** → strong attack evaluated **vocab-disjoint** (same honest regime as ridge); report row-split only as an upper anchor.
-- **A3 "it secretly is the probe."** → the attack outputs a *token*, scored by TTRSR vs ground truth; the probe (CLUB/PVI) is a separate bits/accuracy quantity. Independence by construction.
-- **A4 "the reader↔ridge comparison is unfair"** (different task/pool). → fix the comparison protocol: every attack predicts token-id on the **same split + same candidate pool**.
+- **A1 "it's the attack again."** → T3 (proven) + B1 code path: probe never computes `‖Y_i−e_v‖²`. Only the codebook self-distance Gram and fresh synthetic noise.
+- **A2 "bounds are vacuous so it predicts nothing."** → report the bound gap; at the SNRs where BNN is interesting (r ≤ 3.63, near-orthogonal) the upper bound is tight (B2). Flag the vacuous low-SNR regime honestly.
+- **A3 "uniform-prior mismatch."** → compare BNN TTRSR macro-averaged uniformly over the pool (matched to the uniform-prior bounds); report empirical-prior variant via Remark-N formulas as a secondary.
 
 ## Paper storyline
-- **Main paper proves**: T1 (B0) + C1 (B2) + C2 (B3) — a proof-backed stronger attack that restores MI↔recovery calibration. + C3 (B4) novelty isolation.
-- **Appendix**: C4 (B5) Laplace transfer; the attack ladder (reader-as-attack → denoise+ridge → denoise+decoder → +LM-prior MAP).
-- **Cut**: full BeamClean reproduction (cite as external empirical PoC; we add the *theory* + the MI-tracking demonstration). MoE/attention surfaces.
+- **Main**: C1 (bounds bracket BNN) + C3 (independence) — a proof-backed, attack-independent, geometry-only predictor of the optimal L0 attack.
+- **Appendix**: C2 (morphological floor from geometry), C4 (cost + tracking vs CLUB/CapPVI), Remark-N empirical-prior variant.
+- **Cut**: α-information (Arimoto) tighter Fano (note as future tightening); full-vocab (V=256K) bounds (the pool=2048 bounds already matches BNN's hypothesis space); L>0 (channel is not Gaussian-in-embedding-space at depth — BNN doesn't apply).
 
-## Experiment blocks
+## Experiment Blocks
 
-### B0 — Proof gate (theoretic guarantee) — MUST-RUN, FIRST
-- **Claim**: T1. **Gate**: no empirical claim (C1–C4) may be *asserted as supported* until this passes.
-- **Deliverable**: a theorem doc + `/proof-writer`→`/proof-checker` loop until status ≥ `sound-modulo-imports`. Theorem (from the verified backbone, wiki claims `weak-domination`/`strict-improvement`/`mi-monotone-gaussian`):
-  > Let token S and observation X have fixed joint law; Y = X through the DP channel. Let A* = Bayes-optimal estimator on Y (MAP for top-1), A_ridge = best affine `X→emb`+cosine. (a) **risk(A*) ≤ risk(A_ridge)** for every noise level (Blackwell post-processing / Rao-Blackwell). (b) If `I(S; φ_ridge(Y)) < I(S;Y)` then **strict** on a positive-measure set (orthogonality; linear-MMSE suboptimal unless jointly Gaussian). (c) **Gaussian arm**: along the DP SNR path, I(S;Y) and −MMSE are both monotone (I-MMSE `dI/dsnr=½·mmse`), so A*'s recovery is monotone in MI.
-- **Caveats to encode (proof-checker will flag)**: I-MMSE is Gaussian-only (Laplace→degradation-DPI, part (c) restated as monotone-under-degradation); finite second moment required (heavy-tailed embedding → conditional-median variant); do NOT claim the single-metric converse of sufficiency (use strict-MI-loss).
-- **Success**: proof-checker PASS. **Failure**: weaken C1–C4 to empirical-only + document the unprovable step.
-- **Priority**: MUST-RUN, FIRST.
+### B1 — Implement the error-bounds probe — MUST-RUN FIRST (CPU)
+**Builds**: `src/talens/measures/channel_error_bounds.py` with:
+- `union_bhattacharyya(table, pool, sigma, clip_norm, exact=True)` → `P_e^ub` (exact-Q union) and `P_e^ub_B` (Bhattacharyya). Computes the pool self-distance Gram once; re-exponentiates per σ.
+- `fano_equivocation(table, pool, sigma, clip_norm, M=64, seed)` → `Ĥ_M` (bits), stratified `se`, and `P_e^lb` = `(Ĥ_M − z·se − 1)/log2(K−1)`. Draws fresh `ε_vj ~ N(0,σ²I)`; **never takes Y observations as input** (enforced by signature — no `X`/`Y` arg).
+**Sanity / unit tests** (`tests/test_channel_error_bounds.py`, CPU, synthetic d=32, K=8):
+- T-a: σ→0 ⟹ `P_e^ub → 0`, `Ĥ_M → 0`, `P_e^lb → ~0`.
+- T-b: orthonormal codebook, known σ ⟹ `P_e^ub` matches the closed-form `(K−1)Q(1/(√2 σ))` within MC error.
+- T-c: `union_bhattacharyya` exact-Q ≤ Bhattacharyya form (T1 inequality).
+- T-d: `Ĥ_M` unbiased — mean over many seeds ≈ brute-force `H(V|Y)` on a fine grid (small K,d).
+- T-e: **independence smoke test** — probe output identical for two disjoint synthetic "test sets" (it ignores them by construction; assert the function has no Y parameter and output depends only on (table,pool,σ,seed)).
+- T-f: monotonicity — `P_e^ub(σ)`, `Ĥ_M(σ)` non-decreasing across a σ grid (T5).
+**Success**: T-a..T-f pass. **Cost**: <30 min code + <5 min test. **Priority**: MUST-RUN.
 
-### B1 — Implement + sanity (model-free + clean) — MUST-RUN
-- **Builds**: the denoise-then-invert attack `attacks/denoise_invert.py` (defense-eval-side): (i) **channel-aware denoiser** `g_σ(ỹ)≈clean` — closed-form posterior-mean for the L0/Gaussian case (Balle-Wang shrinkage), a small trained MLP for L>0; (ii) feed to the existing ridge/retrieval inverter. Plus the **reader-as-attack** wrapper (capacity-PVI reader scored as token recovery).
-- **Sanity**: on a toy jointly-Gaussian (S,X) the MMSE denoiser matches the closed-form posterior mean; on clean (σ=0) the attack reduces to ridge (no regression); finite-variance guard.
-- **Success**: toy MMSE matches closed form; clean-case parity with ridge. **Cost**: <15 min CPU.
+### B2 — Error-bounds vs BNN on the ε-sweep — MUST-RUN (GPU)
+**Claim**: C1, C2, C3, C4.
+**Dataset/split**: gemma-2-2b, corpora/release-gate-512.txt, 256 prompts, vocab-disjoint, pool=2048, seed=20260622, ε∈{∞,1024,512,256,64}, C_raw clip. Reuse the unified_dp_sweep harness for BNN TTRSR.
+**Compared quantities** at each ε: measured BNN TTRSR (Hoeffding CI) | `P_e^ub`, `P_e^ub_B` | `Ĥ_M`, `P_e^lb` (CLT CI) | existing CLUB-sel, CapPVI-sel for reference.
+**Metrics**:
+- Primary (C1): indicator `P_e^lb ≤ 1−TTRSR ≤ P_e^ub` at each ε; report the bound gap.
+- C2: at ε=∞ (clip-only, σ=0⁺) does `P_e^ub` reproduce the ≈0.03 floor? Inspect which pool pairs dominate the union sum (expect morphological/subword neighbors).
+- C3: confirm probe values are independent of the test split (recompute on a 2nd disjoint split → identical).
+- C4: ρ(`1−P_e^ub`, BNN-TTRSR) over ε vs ρ(CLUB,BNN)=0.22, ρ(CapPVI,BNN)=0.45; wall-clock per ε.
+**Setup**: add a `--probe error-bounds` path to `unified_dp_sweep.py` calling `channel_error_bounds`; M=64 fresh draws/codeword; z for 95% one-sided.
+**Success (C1)**: bracketing holds at ≥4/5 ε (the low-SNR ε=64 may have vacuous upper bound — report honestly). **Failure**: if BNN error exits the bounds at a high-SNR ε, the bound or clip-norm handling is wrong → debug C_raw and the pairwise term.
+**Table/fig**: main error-bounds plot (BNN error + bands vs ε); union-term histogram at ε=∞.
+**Priority**: MUST-RUN. **Cost**: ~10 min GPU (probe is ~6 s; BNN/TTRSR reuse).
 
-### B2 — Main anchor: strong attack vs ridge under input-DP — MUST-RUN
-- **Claim**: C1. **Data**: `localdp_runner` captures, gemma-2-2b, L0/5/12/20, ε∈{∞,4096,2048,1024,512,256}, 3 seeds, **vocab-disjoint** (A2/A4). Qwen3-4b for width robustness (appendix).
-- **Compared systems**: ridge (baseline) · denoise+ridge (channel-aware) · denoise+decoder · reader-as-attack (row-split anchor) — **all on the same split + candidate pool**.
-- **Metrics**: TTRSR per ε; **uplift = TTRSR(strong)−TTRSR(ridge)**; recovery-vs-ε monotonicity.
-- **Success**: uplift > 0 at every ε, increasing as ε↓ (where ridge collapses); ≥ one ε where ridge is "defended" (<0.1) but strong attack is not.
-- **Failure**: no uplift → either denoiser mis-specified (debug σ/manifold) or MI genuinely destroyed (then defence is sound — a result). **Priority**: MUST-RUN.
+### B3 — Morphological-floor attribution — NICE-TO-HAVE
+**Claim**: C2 sharper. List the top-50 pool pairs by `exp(−‖Δ‖²/8σ²)` at ε=∞; verify they are subword/morphological relatives (shared stems, casing, leading-space variants). Confirms the geometry-only upper bound "knows" where BNN fails. **Cost**: trivial (post-process the Gram). **Priority**: NICE-TO-HAVE.
 
-### B3 — Re-correlation with the IT probes — MUST-RUN
-- **Claim**: C2. Reuse B2 runs; for each attack compute Spearman(recovery, CLUB) and Spearman(recovery, capacity-PVI) across the ε-sweep (within-layer, per B2+ "within-condition" rule — pool ranks, not raw magnitudes).
-- **Success**: Spearman(strong-recovery, probe) ≫ Spearman(ridge-recovery, probe); ideally strong ≥ 0.8 while ridge is flat/non-monotone. This is the figure that *answers the critique*.
-- **Failure**: strong attack recovers more but still doesn't track MI → MI is genuinely a loose predictor in this regime (supports critique (1); pivot to a tighter measure). **Priority**: MUST-RUN.
+### B4 — Cost & tracking comparison table — NICE-TO-HAVE (freeride in B2)
+Wall-clock per ε for error-bounds vs CLUB vs CapPVI vs MDL; ρ-vs-BNN for each; n-independence demonstration (rerun probe at n=300 vs n=3000 → identical). **Priority**: NICE-TO-HAVE.
 
-### B4 — Novelty isolation: channel-awareness vs capacity — MUST-RUN
-- **Claim**: C3 (rules out A1). **Systems**: channel-aware denoiser (known σ) vs **capacity-matched noise-naive** decoder (no σ) vs **linear** denoiser+σ. **Metric**: uplift attributable to σ-awareness and to nonlinearity.
-- **Success**: the channel-aware nonlinear denoiser carries the gain; noise-naive (same capacity) and linear (with σ) do not match it. **Doubles as the simplicity/deletion check**: does the LM-prior MAP add anything over denoise+retrieval? If not, prefer the simpler denoiser. **Priority**: MUST-RUN.
+## Run Order and Milestones
 
-### B5 — Laplace/Shredder transfer — NICE-TO-HAVE
-- **Claim**: C4. Repeat B2/B3 under Shredder static-Laplace. Guarantee via degradation-DPI (NOT I-MMSE). **Success**: uplift + re-correlation persist under non-Gaussian noise. **Priority**: NICE-TO-HAVE.
+| Milestone | Goal | Runs | Decision Gate | Cost | Risk |
+|-----------|------|------|---------------|------|------|
+| M0 | Implement + unit-test probe | B1 + pytest | T-a..T-f pass | <1h CPU | Low (textbook math) |
+| M1 | Error-bounds vs BNN sweep | B2 (+B3,B4 freeride) | C1 bracketing ≥4/5 ε | ~15 min GPU | Med (clip-norm/SNR regime) |
+| M2 | Verify claims + wiki | analysis | C1+C3 ⟹ headline confirmed | 30 min | Low |
 
-## Run order & milestones
+**Must-run**: M0 → M1 → M2. **Nice-to-have**: B3, B4.
 
-| M | Goal | Blocks | Decision gate | Cost |
-|---|------|--------|---------------|------|
-| **M0** | **proof gate** (proof-writer↔checker on T1) | B0 | proof PASS (≥ sound-modulo-imports) → unlock empirical claims | analysis (Codex xhigh) |
-| **M1** | implement + sanity | B1 | toy MMSE = closed form; clean = ridge | <15 min CPU |
-| **M2** | main anchor (DP) | B2 | uplift>0 ∀ε, growing with noise | ~30–60 min ROCm |
-| **M3** | re-correlation | B3 | Spearman(strong,probe) ≫ ridge | reuse M2 (~10 min) |
-| **M4** | novelty isolation | B4 | gain = channel-awareness, not capacity | ~30 min |
-| **M5** | Laplace transfer | B5 | uplift + re-corr persist | ~30 min |
+## Compute and Data Budget
+- M0 <5 min CPU; M1 ~15 min GPU (probe ~6 s, rest is BNN/TTRSR reuse). Total GPU **<20 min**.
+- Data: reuse release-gate-512.txt + pool=2048 from prior sweep. No new data, no human eval.
+- Biggest bottleneck: none of note — this is the cheapest probe in the suite (⊥ n).
 
-**Auto-review**: run `/auto-review-loop` after M3 (the main result) and again after M4 (paste tables inline; Codex can't read files). **Proof loop** (`/proof-writer`+`/proof-checker`) runs at M0 and is re-invoked if a reviewer challenges the guarantee.
+## Risks and Mitigations
+| Risk | Mitigation |
+|------|-----------|
+| Upper bound vacuous at ε=64 (low SNR) | Report `min(1,·)`; the interesting regime r≤3.63 is tight (near-orthogonal); the bound gap is itself the diagnostic |
+| Fano lower bound loose (≤0 when H(V|Y)≤1 bit) | Note as honest scope; α-information tightening deferred |
+| Uniform-prior vs empirical-TTRSR mismatch | Compare BNN macro-uniform over pool; empirical via Remark-N formulas as secondary |
+| clip-norm mismatch (C_raw vs C_runtime) | L0 uses C_raw (table space) — same as BNN; assert in B1 |
 
-## Compute & data budget
-- **~2–4 GPU-hr total.** Denoiser is cheap (posterior-mean closed form at L0; small MLP for L>0). Inverter reuses ridge/retrieval. Captures reuse `localdp_runner`. The **LM-prior MAP (BeamClean-style)** variant is the only heavy piece — gated behind B4 showing denoise+retrieval is insufficient.
-- **Data**: cached captures + existing corpora; paired (clean, noised) captures for training the L>0 denoiser (one extra capture pass per ε).
-
-## Risks & mitigations
-- **R1 — L>0 denoiser hard to train** (noise propagated nonlinearly): start at L0 (closed-form MMSE, cleanest proof), then L5/12/20 with a trained denoiser; if it fails, scope the headline to L0/early layers honestly.
-- **R2 — proof stalls at M0** (a step unprovable): fall back to the weak-domination + strict-MI-loss core (very robust) and present I-MMSE-monotonicity as Gaussian-arm-only; never block the empirical work beyond the robust core.
-- **R3 — fair comparison** (reader vs ridge task mismatch, A4): fix split+pool across all attacks; report row-split reader only as an anchor, vocab-disjoint as the honest bar.
-- **R4 — heavy LM-prior MAP**: gate behind B4; reuse BeamClean's released code rather than reimplementing.
-
-## Final checklist
-- [x] Main tables covered (uplift-vs-ε, re-correlation, channel-awareness isolation)
-- [x] Novelty isolated (B4 channel-awareness vs capacity)
-- [x] Simplicity defended (B4 denoiser-only vs +LM-prior deletion)
-- [x] Frontier contribution **explicitly not claimed** (non-frontier method)
-- [x] Theoretic-guarantee gate FIRST (B0 proof, with verified caveats)
-- [x] Must-run (B0–B4) vs nice-to-have (B5) separated
-
----
-
-# Block B6 — Stronger decoder attacks (Vec2Text-style / forward-model) — appended 2026-06-21
-
-**Problem**: R004c showed a plain MLP decoder beats ridge under propagated input-DP @L20 but only
-*suggestively* (4 ε, 1 seed, uplift ≤+0.14). Is a properly-strong attack (more capacity, iterative
-refinement, or forward-model optimization) **conclusively** stronger AND clearly re-correlating?
-
-**Method thesis**: An information-efficient decoder that (i) has adequate capacity, (ii) iteratively
-refines, and/or (iii) uses the known forward model closes the gap ridge leaves in the propagated-DP
-regime — making uplift-vs-ridge conclusive and re-correlation clearly > ridge.
-
-## Claim map
-| Claim | Min convincing evidence | Block |
-|---|---|---|
-| **C5 (primary)** — a strong decoder beats ridge conclusively under propagated-DP @L20 | uplift-selectivity > 0 across ≥5 ε × ≥2 seeds, CI excludes 0; and > the one-shot MLP | B6a |
-| **C6 (re-correlation)** — its selectivity tracks MI clearly better than ridge | Spearman(strong-sel, capPVI) ≥ ridge+0.2, ≥0.6 absolute | B6a |
-| **C7 (novelty isolation)** — the win is iteration/forward-model, not just capacity | iterative/forward-model > capacity-matched deep one-shot decoder; OR honest null (pure embedding iteration = capacity) | B6b |
-
-**Anti-claims**: "just more parameters" (B6b capacity control); "memorization" (vocab-disjoint + shuffle
-selectivity, established); "unfair info" (WEIGHTS-PUB — corrector trained on attacker-generated triples,
-forward-model uses public weights; all admissible, [[threat-model-fairness]]).
-
-## Blocks
-### B6a — strong decoder vs ridge/MLP under propagated-DP @L20 — MUST-RUN
-- Systems: ridge · one-shot MLP (R004c) · **deep/long-trained decoder** · **iterative corrector**
-  c(Y,ê_t)→ê_{t+1}, T∈{1,2,3} rounds (Vec2Text-style, embedding space, trained on WEIGHTS-PUB triples).
-- Data: propagated input-DP capture @L20 (reuse R004c capture if persisted; else 1 small fresh capture
-  L20 only, ε∈{∞,1024,768,512,384,256}, 160 prompts), vocab-disjoint + shuffle selectivity.
-- Metric: τ-selectivity uplift vs ridge AND vs one-shot MLP; Spearman(sel, capPVI/CLUB) over ε.
-- Success: C5 + C6. Failure: strong decoder no better than MLP → the limit is information, not estimator
-  (would weaken the thesis at depth — honest).
-### B6b — novelty isolation (iteration/forward-model vs capacity) — MUST-RUN
-- Capacity-matched deep one-shot decoder vs the iterative corrector (same params). Simplicity check:
-  does T>1 help over T=1? If pure embedding iteration = capacity, conclude faithful Vec2Text needs the
-  forward model (forward-model optimization = future work if it exceeds budget).
-### B6c — forward-model optimization (ER-style) — NICE-TO-HAVE (budget-permitting)
-- Optimize continuous z to min ‖f_L(z)−Y‖² via backprop through L blocks, snap to token. Strongest but
-  costliest; run only on a small prompt subset if B6a leaves GPU budget.
-
-## Run order / budget
-| M | Goal | Gate | Cost |
-|---|---|---|---|
-| M6a | B6a strong+iterative decoder vs ridge/MLP @L20 | C5+C6 | ≤12 min GPU |
-| M6b | B6b capacity control + T-sweep | C7 | reuse M6a (~+3 min) |
-| M6c | B6c forward-model opt (if budget) | — | ≤5 min, small subset |
-
-**Hard budget: 10–20 min GPU total, ONE GPU process.** Reuse capture; decoders/correctors are small
-MLPs on GPU (cheap). Forward-model opt gated to leftover budget.
-
-## Checklist
-- [x] capacity control (B6b) isolates iteration vs params
-- [x] simplicity (T>1 vs T=1) defended
-- [x] threat-model fairness + selectivity controls carried
-- [x] no frontier-LLM-component claim (non-frontier)
+## Final Checklist
+- [ ] B1: `channel_error_bounds.py` implemented; T-a..T-f pass
+- [ ] B1: probe signature takes NO Y/X observation argument (enforces T3 independence)
+- [ ] B2: `--probe error-bounds` added to unified_dp_sweep; 5-pt ε sweep run
+- [ ] C1: bracketing `P_e^lb ≤ 1−TTRSR ≤ P_e^ub` confirmed (≥4/5 ε)
+- [ ] C2: ε=∞ upper bound reproduces ≈0.03 floor; union dominated by morphological pairs
+- [ ] C3: probe identical across disjoint test splits (independence confirmed numerically)
+- [ ] C4: cost + ρ-vs-BNN table vs CLUB/CapPVI; n-independence shown
+- [ ] Wiki: `claim:bnn-error-bounds-bhattacharyya-fano` (verified), edges, log; new paper nodes (Proakis ref, de Cherisey already present)
