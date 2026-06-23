@@ -1,0 +1,18 @@
+# talens watchdog: ARIS silent-death/hung detection + Telegram alert forwarding (USER service).
+# Install:  ln -s $PWD/scripts/harness/systemd/talens-watchdog.service ~/.config/systemd/user/
+#           systemctl --user daemon-reload && systemctl --user enable --now talens-watchdog
+# Keep this running for the duration of any campaign. DETECT-ONLY: it never restarts work.
+[Unit]
+Description=talens ARIS watchdog (heartbeat liveness -> Telegram)
+
+[Service]
+Type=simple
+WorkingDirectory=/home/timo/repos/transformer-attacks-lens
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=ARIS_REPO=/home/timo/repos/Auto-claude-code-research-in-sleep
+ExecStart=/home/timo/repos/transformer-attacks-lens/scripts/harness/watchdog_poller.sh 300
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

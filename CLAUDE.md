@@ -1,114 +1,130 @@
-# Repository conventions for Claude
+# transformer-attacks-lens
 
-`transformer-attacks-lens` — an information-theoretic, interpretability-
-grounded study of confidential-inference attacks on transformers. See
-`README.md` for the premise and document map.
+Information-theoretic, interpretability-grounded study of confidential-inference attacks on
+transformers: measure how invertible a representation is, run attacks on it, and test whether an
+attack-**independent** IT measure predicts attack success. Map: `README.md` (premise),
+`docs/plans/it-leakage-estimation-set.md` (thesis + attack×measure matrix),
+`docs/plans/component-topology.md` (attack/probe/defense schema).
 
-## Always run heavy workflows in the GPU container
+## GPU — wrap every heavy command
 
-The host `.venv` has a **CPU-only torch wheel** (`torch …+cpu`) — it is for
-fast model-free unit tests (`pytest`) only. **Never** run capture, the
-PVI/MDL probe, CLUB, or the inversion attacks (i.e. `talens.cli`,
-`calibrate_capture`, anything touching real Qwen3 activations) under the
-`.venv`: it silently falls back to CPU and is unusably slow.
-
-The GPU is an AMD Strix Halo iGPU (gfx1151, "Radeon 8060S"); reach it only
-through the ROCm container. Wrap **every** heavy command in
-`scripts/run_in_rocm.sh` (auto-builds `talens-rocm:latest` on first use,
-bind-mounts the repo + HF cache at identical host paths, exposes
-`/dev/kfd`+`/dev/dri`):
+The host `.venv` is **CPU-only torch**; use it for model-free `pytest` only. Anything touching
+real Qwen3 activations (capture, PVI/MDL/CLUB probes, inversion attacks, `talens.cli`,
+`calibrate_capture`) MUST run in the ROCm container — it silently falls back to CPU otherwise:
 
 ```bash
-scripts/run_in_rocm.sh python3 -m talens.cli \
-    --corpus corpora/dev-24.txt --control all --out results/run.json
+scripts/run_in_rocm.sh python3 -m talens.cli --corpus corpora/dev-24.txt --control all --out results/run.json
 # sanity: scripts/run_in_rocm.sh python3 -c 'import torch; print(torch.cuda.is_available())'
 ```
 
-`pytest` (synthetic, model-free) stays on the host `.venv`. See
-`Containerfile` for why the base image is AMD's `rocm/pytorch` (gfx1151
-kernels) rather than a pip torch wheel.
+One AMD Strix Halo iGPU (gfx1151). **One GPU process at a time**: kill stray containers first;
+wait on long runs, never poll-spin. Base image rationale: `Containerfile`.
 
-## What this repo is
+## Scheme-agnostic core
 
-A research repo: surveys, the measurement-method lineage, an experimental
-plan, and (as it grows) the estimation code that fits information-theoretic
-measures to attack-success ground-truth. The headline thesis and the
-decided attack×measure matrix live in `docs/plans/it-leakage-estimation-set.md`.
+The library asserts nothing about any defense — it measures leakage and runs attacks on whatever
+it is handed. A defense is an external `talens.transforms.Transform` (`Tensor→Tensor`); only
+`Identity` ships. Keep covers / noise / threat models in callers, tests, or `scripts/defenses/` —
+never in the core. `WEIGHTS-PUB` (adversary knows weights + embeddings, so norms / Grams /
+`softmax(QKᵀ)` are known functions of the secret) is the default *motivating* threat model, not a
+library invariant. Secrets of interest: activations/hidden states, Q·K·V, attention scores,
+KV-cache, and the tokens behind them.
 
-## Scheme-agnostic by design
+## Research operating model
 
-The library asserts **nothing** about any confidential-inference defense.
-It measures the invertibility/leakage of representations and runs attacks
-on whatever it is handed. A "defense" is an external, pluggable
-`talens.transforms.Transform` (`Tensor → Tensor`); the only built-in is
-`Identity` (the plaintext model). Do not bake a specific cover, noise
-scheme, or threat model into the core — keep covers/defenses in callers,
-tests, or downstream repos.
+- **Probe ≠ attack (integrity-critical).** A probe is an *independent* measure that *correlates
+  with* attack recovery — never the attack reporting its bits instead of its recovery rate. If you
+  could not compute it *without running the attack*, it is the attack in disguise and any
+  correlation is circular. Prefer geometry-only / channel-matched probes.
+- **Metric: bits canonical + per-secret readout.** Store **bits** (MI / V-info / capacity / SDL —
+  one comparable scale; fix "1/100 of a bit" illegibility in the readout, not the stored value).
+  Render beside it: token-id→perplexity+top-k; text→token-F1/ROUGE; permutation→recovery-rate/τ;
+  embedding→token-F1/cosine; membership→AUC. Tables show both axes.
 
-## Threat-model context (motivating example, not an assumption)
+### The measurement loop — per (surface × attack × probe)
 
-The work originated in the **private-rag** / GELO split-TEE ⟷
-untrusted-GPU project, whose conservative `WEIGHTS-PUB` adversary (knows
-weights + embeddings, so rotation-/permutation-*invariant* quantities —
-a norm, a Gram, `softmax(QK^T)` — are known functions of the secret) is
-the *motivating* use case and a good source of test defenses. But the
-library itself makes no such assumption; it is the substrate one would
-use to *evaluate* whether a given scheme leaks. When a doc invokes
-`WEIGHTS-PUB`, it is framing a motivating example, not a library invariant.
+This is the core method. Follow it for every cell:
 
-Representations of interest as the "secret" to recover: activations /
-hidden states, Q·K·V, attention scores, the KV-cache, and the
-prompt/tokens they encode.
+1. **Run the attack** on the surface → graded **recovery** (token-F1 / top-k / BLEU / AUC / cosine).
+2. **Run the probe** (attack-*independent*) on the same surface → **bits** (+ readout).
+3. **Sweep** from plaintext through the defense's privacy parameter(s); collect `(bits, recovery)`
+   pairs across the sweep.
+4. **Do bits and recovery correlate across the sweep?**
+   - **Yes** → the probe predicts the attack. Draft the claim, prove it, render the page
+     (Claim → Theory → Report recipes below).
+   - **No** → that *is* the finding. Identify which:
+     - *attack too weak / ill-equipped* → a stronger attack should re-correlate — queue it;
+     - *probe not channel-matched* → it measures the wrong thing — design/queue a matched probe.
+     Bound or explain the gap in theory, report it, and queue the follow-up.
+5. **Negative results are first-class** — record them; never hide a gap or manufacture a claim.
 
-## Markdown docs (`docs/**/*.md`)
+### Performance gate — before any GPU run
 
-All markdown docs under `docs/` carry YAML frontmatter:
+A run must pass the perf gate before launch:
 
-```yaml
----
-type: <handoff|plan|prototype-note|research|theory|dev-log|reference>
-status: <current|partial|stale>
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-tags: []
-# Optional: superseded_by, supersedes, companion, archive_reason
----
-```
+- **Optimal scope** — the smallest run that answers the question. Fast-iterate on one layer /
+  `--every-n` before a full sweep; no redundant sweep points.
+- **Max GPU utilization** — every component that *can* run on GPU does (capture, probe nets,
+  attack fits); PCA via cov-eigh on GPU, not full SVD; batch sizes saturate the iGPU.
 
-Folder mapping (by `type`):
+Refine the run plan with `/auto-review-loop` against the standardized perf prompt
+(`scripts/harness/perf_gate.md`) until it passes. One GPU process at a time; estimate wall-time,
+and if it exceeds 10 min, confirm saturation first.
 
-- `handoff`        → `docs/handoffs/YYYY-MM-DD-<slug>.md` (filename date = last update)
-- `plan`           → `docs/plans/`
-- `prototype-note` → `docs/dev/prototype/`
-- `research`       → `docs/research/`
-- `theory`         → `docs/research/`
-- `dev-log`        → `docs/dev/logs/`
-- `reference`      → `docs/plans/` (no dedicated folder until critical mass)
+## Skills & cadence
 
-When a handoff is no longer in active reference (more than a few days old
-and not driving current work), move it to `docs/archive/handoffs/`. Plans
-and other docs that go stale stay in place with `status: stale` and
-`archive_reason` set. When one doc supersedes another, set `superseded_by`
-on the older and `supersedes: [<slug>, …]` on the newer; for partial
-overlap use `companion: [<slug>, …]`.
+**Doctrine — the outer loop drives, never acquits** (`.aris/shared-references/external-cadence.md`).
+You decide *when/whether* a phase runs; every *correctness or quality verdict* belongs to an ARIS skill's own
+cross-model jury. **Never self-certify** a result, proof, or claim. Verdict-bearing skills
+(`/auto-review-loop`, `/proof-checker`, `/result-to-claim`, `/experiment-audit`) run **inline**
+inside a phase, hold their own thread memory, and resume from their `*_STATE.json` — do not
+re-spawn them per tick. Skills are invoked by `/name` only (they are not auto-enumerated).
 
-`companion:` lists should reference docs **in this repo**. Cross-repo
-pointers (to private-rag artefacts) go in prose, not frontmatter.
+Run the recipe for the work at hand:
 
-## Design / research docs need a Definitions section
+| Stage | Skill chain |
+|---|---|
+| Literature / discovery | `/research-lit` · `/arxiv` · `/semantic-scholar` · `/openalex` (+ edgequake MCP) → `/research-wiki` (register paper nodes) |
+| Experiment | `/experiment-plan` → `/experiment-bridge` → `/result-to-claim` → `/experiment-audit` → `/auto-review-loop` |
+| Theory | `/formula-derivation` (optional) → `/proof-writer` → `/proof-checker` |
+| Claim | `/result-to-claim` (judge support) → write `research-wiki/claims/<slug>.md` **in full, proof inline** → `/research-wiki` (register) → `/novelty-check` (if claiming novelty) |
+| Report | build `docs/html/<surface>.html` per `docs/html/STYLE.md` + `/figure-spec` / `/paper-figure` diagrams → `/auto-review-loop` |
+| Paper (later) | `/paper-plan` → `/paper-write` → `/paper-figure` → `/citation-audit` + `/paper-claim-audit` → `/kill-argument` (pre-submission hardening) → `/paper-compile` |
 
-Every `docs/research/` document includes an acronym/term glossary
-(Definitions table) near the top — the information-theory vocabulary (MDL,
-V-info, PVI, PID, IB, DAS/IIA) is dense and ambiguous across communities.
+**Notes.** A research claim is a **research-wiki node** (Claim row), never a patent claim.
+`/experiment-bridge` deploys via `/run-experiment` — keep it in **local** mode (it wraps
+`scripts/run_in_rocm.sh`); on the single iGPU run sweep points **serially** (`max_parallel=1`,
+no `/experiment-queue` fan-out). Off-domain skills (patent, remote-GPU, Feishu) were pruned from
+this project's install.
+
+Campaign + harness design: `scripts/harness/README.md`.
+
+## Deliverable locations
+
+| Artifact | Path |
+|---|---|
+| Claims **with full proofs** | `research-wiki/claims/<slug>.md` |
+| Experiment logs | `research-wiki/experiments/` |
+| Working notes / runs | `refine-logs/<surface>/` (archive old `EXPERIMENT_*` into named subdirs first) |
+| HTML report | `docs/html/<surface>.html` (reuse `css/site.css`; template `vec2text.html`; serve via `scripts/harness/serve_docs.sh`) |
+
+## Docs (`docs/**/*.md`)
+
+Frontmatter required: `type` (handoff·plan·prototype-note·research·theory·dev-log·reference),
+`status` (current·partial·stale), `created`, `updated`, `tags`; optional `superseded_by`,
+`supersedes`, `companion`, `archive_reason`. Folder by `type`: handoff→`docs/handoffs/YYYY-MM-DD-<slug>.md`,
+plan|reference→`docs/plans/`, research|theory→`docs/research/`, prototype-note→`docs/dev/prototype/`,
+dev-log→`docs/dev/logs/`. Archive inactive handoffs to `docs/archive/handoffs/`; stale plans stay
+put with `status: stale` + `archive_reason`. `companion:` references repo-local docs only.
+`docs/research/` docs need a Definitions glossary (the IT vocabulary is dense and cross-community).
 
 ## Voice
 
-Research docs describe *what is known / measured / decided* and *why*, with
-comparative tables over prose-lists. Cite a paper's arXiv/DOI inline.
-Citation counts are point-in-time snapshots — note that they drift.
+State what is known / measured / decided and *why*. Comparative tables over prose lists. Cite
+arXiv/DOI inline; note that citation counts drift.
 <!-- ARIS:BEGIN -->
 ## ARIS Skill Scope
-ARIS skills installed in this project: 80 entries.
+ARIS skills installed in this project: 55 entries.
 Manifest: `.aris/installed-skills.txt` (lists every skill ARIS installed and its upstream target).
 For ARIS workflows, prefer the project-local skills under `.claude/skills/` over global skills.
 Do not modify or delete files inside any skill that is a symlink (symlinks point into `/home/timo/repos/Auto-claude-code-research-in-sleep`).

@@ -27,3 +27,9 @@ wandb/
 
 .claude
 .aris
+
+.env
+
+# never commit filled secrets (token); .example stays tracked
+scripts/harness/telegram.env
+scripts/harness/campaign.env

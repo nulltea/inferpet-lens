@@ -1,0 +1,36 @@
+# talens autonomous-research harness — ralphex config (tracked, version-controlled).
+# Used via:  ralphex <plan> --config-dir scripts/harness/ralphex-config --tasks-only
+# Precedence: CLI flags > local .ralphex/ > this --config-dir > embedded defaults.
+# NOTE: no inline comments; full-line # comments only.
+
+# --- executor: default Claude Code, autonomous ---
+# (defaults to: claude --dangerously-skip-permissions --output-format stream-json --verbose)
+# task_model left empty -> Claude CLI default model.
+
+# --- reviews OFF: ARIS does code/research/integrity review per phase (experiment-bridge
+#     Phase 2.5, auto-review-loop, experiment-audit). ralphex's own review is redundant. ---
+external_review_tool = none
+codex_enabled = false
+finalize_enabled = false
+
+# --- retry / timing (Q8 transient retry = 1; hung-process guards) ---
+task_retry_count = 1
+session_timeout = 6h
+idle_timeout = 45m
+iteration_delay_ms = 2000
+
+# --- no worktrees (Q7 fully serial; gitignored skills would vanish in a worktree anyway) ---
+use_worktree = false
+
+# --- plan lifecycle: leave the plan in place (we manage it; do not move to completed/) ---
+move_plan_on_completion = false
+
+# --- commits carry the repo's attribution trailer ---
+commit_trailer = Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+# --- notifications: single custom path -> our Telegram curl (out-of-band, works even
+#     when a task session has died). Covers ralphex-level crash/complete. ---
+notify_channels = custom
+notify_on_error = true
+notify_on_complete = true
+notify_custom_script = scripts/harness/ralphex_notify.sh

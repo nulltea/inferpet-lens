@@ -1,0 +1,26 @@
+# talens autonomous-research campaign (systemd USER service).
+# Install:  ln -s $PWD/scripts/harness/systemd/talens-research.service ~/.config/systemd/user/
+#           systemctl --user daemon-reload
+#           systemctl --user start talens-research
+# Set the campaign plan in ~/.config/talens-harness/campaign.env :  PLAN=docs/plans/<campaign>.md
+#
+# Restart=on-failure ONLY: run_campaign.sh exits 0 on clean completion AND on a deliberate
+# circuit-breaker halt, so neither relaunches; a genuine crash (non-zero) does relaunch and
+# ralphex resumes from the first incomplete phase.
+[Unit]
+Description=talens autonomous research campaign (ralphex + ARIS)
+After=talens-watchdog.service
+Wants=talens-watchdog.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/timo/repos/transformer-attacks-lens
+EnvironmentFile=%h/.config/talens-harness/campaign.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=ARIS_REPO=/home/timo/repos/Auto-claude-code-research-in-sleep
+ExecStart=/home/timo/repos/transformer-attacks-lens/scripts/harness/run_campaign.sh ${PLAN}
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target
