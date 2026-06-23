@@ -52,7 +52,7 @@ surface: embed-vec2text
 run_id: a3-vec2text
 gate: review refine-logs/embed-vec2text/REVIEW_STATE.json
 objective: consolidate Vec2Text (forward-model + corrector) and the spectral-channel-MI probe into claim+proof+log+HTML; record the per-position-fails / pooled-succeeds result and I_G(σ) as the matched converse probe under DP.
-- [ ] run-phase: a3-vec2text
+- [x] run-phase: a3-vec2text
 
 ### Task 5: pooled-embedding — BNN error bounds
 recipe: consolidate

@@ -177,7 +177,7 @@
       <div class="section-meta">capPVI · CLUB · spectral channel-MI (matched)</div>
     </header>
     <p class="lede">
-      A <em>probe</em> estimates how much the released embedding leaks about the text, from data geometry + channel parameters alone — never running an inverter (the "not a disguised attack" invariant). Two incumbents are inadequate; the matched one is <code>I_G</code>.
+      A <em>probe</em> computes a closed-form Gaussianized leakage <em>ceiling</em> for the released embedding from data geometry + channel parameters alone — and empirically rank-predicts recovery — never running an inverter (the "not a disguised attack" invariant). Two incumbents are inadequate; the matched one is <code>I_G</code>.
     </p>
     <div class="cgrid">
       <article class="card">
@@ -201,11 +201,11 @@
       <article class="card">
         <span class="tag crypto">matched · adopted</span>
         <h3>Spectral channel-MI<span class="alias">measures :: spectral_channel_mi</span></h3>
-        <p class="one"><strong>I_G(σ) = ½ Σᵢ log₂(1+λᵢ/σ²)</strong> from <code>Σ=Cov(e₀)</code> + σ. Closed-form Gaussian-channel ceiling; geometry-only; <em>decomposable</em> — the per-mode profile <code>tᵢ</code> and <code>d_eff</code> localize <em>where</em> leakage lives (water-filling).</p>
+        <p class="one"><strong>I_G(σ) = ½ Σᵢ log₂(1+λᵢ/σ²)</strong> from <code>Σ=Cov(e₀)</code> + σ. Closed-form Gaussian-channel ceiling; geometry-only; <em>decomposable</em> — the per-mode profile <code>tᵢ</code> and <code>d_eff</code> <em>theoretically</em> localize (T4) <em>where</em> leakage lives (water-filling); empirical eigen-ablation deferred (rank-deficient Σ).</p>
         <dl>
           <dt>tracks recovery</dt><dd><span class="overhead good">ρ = +1.00</span> (= CLUB)</dd>
           <dt>cost</dt><dd>one eigendecomposition · <span class="overhead good">~60 ms</span> (≈28× cheaper)</dd>
-          <dt>extra</dt><dd>quantifies bits + localizes + ceilings recovery (Fano)</dd>
+          <dt>extra</dt><dd>quantifies bits + ceilings recovery (Fano); theoretically localizes (T4)</dd>
         </dl>
       </article>
     </div>
@@ -222,9 +222,9 @@
       <thead><tr><th style="width:30%">Claim</th><th>Statement</th><th style="width:14%">Status</th></tr></thead>
       <tbody>
         <tr><td><strong>Surface dependence</strong></td><td>Vec2Text is the correct attack only on a pooled bottleneck embedding; on per-position resid its feedback is moot.</td><td class="accent">supported (B7/B8)</td></tr>
-        <tr><td><strong>Leakage (C1)</strong></td><td>Faithful pretrained Vec2Text recovers substantial text from clean pooled GTR embeddings (Morris ballpark).</td><td class="accent">validated (B8)</td></tr>
-        <tr><td><strong>DP calibration (C2)</strong></td><td>DP on the released embedding degrades recovery monotonically; a small budget kills exact reconstruction.</td><td class="accent">validated (B8/B9)</td></tr>
-        <tr><td><strong>Matched probe (C3)</strong></td><td><code>I_G</code> rank-predicts SOTA recovery ≥ CLUB and ≫ capPVI, geometry-only, at a fraction of the cost; ceilings recovery; localizes it.</td><td class="accent">verified + validated</td></tr>
+        <tr><td><strong>Leakage (C1)</strong></td><td>Faithful pretrained Vec2Text recovers substantial text from clean pooled GTR embeddings (Morris ballpark).</td><td class="accent">supported, in-sweep (B8)</td></tr>
+        <tr><td><strong>DP calibration (C2)</strong></td><td>DP on the released embedding degrades recovery monotonically; a small budget kills exact reconstruction.</td><td class="accent">supported, in-sweep (B8/B9)</td></tr>
+        <tr><td><strong>Matched probe (C3)</strong></td><td><code>I_G</code> rank-predicts SOTA recovery ≥ CLUB and ≫ capPVI, geometry-only, at a fraction of the cost; <em>theoretically</em> ceilings + decomposes recovery (T3/T4); empirical localization deferred (rank-deficient Σ).</td><td class="accent">proof verified; empirical support partial / in-sweep</td></tr>
         <tr><td><strong>Privacy–utility</strong></td><td>Retrieval utility degrades far more gracefully than leakage — an operating window kills inversion at near-zero retrieval cost.</td><td class="accent">measured (B10)</td></tr>
         <tr><td><strong>Threat-model fairness</strong></td><td>All attack comparisons under one fixed <code>WEIGHTS-PUB</code>-analog model; the probe uses strictly less (only Σ,σ).</td><td>framed</td></tr>
       </tbody>
@@ -265,7 +265,7 @@
     </header>
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:8px 0 8px;">B7 — per-position residual stream · the negative</h4>
-    <div class="prose"><p>The faithful iterative corrector (re-embed + residual feedback + acceptance gate) was implemented on the per-position resid surface. <strong>Feedback did not help</strong> (feedback ≤ no-feedback at every ε) — the bottleneck the loop needs does not exist there. Confirmed against the reference (<code>vec2text/vec2text</code> = pooled embeddings only) and Rep2Text (single last-token rep). Verdict: <em>wrong surface</em> → pivot to pooled.</p></div>
+    <div class="prose"><p>A Vec2Text-<em>style</em> per-position corrector (re-embed + residual feedback + acceptance gate; a per-position MLP proxy, not the pretrained T5 seq2seq) was implemented on the per-position resid surface. <strong>Feedback did not help</strong> — the direct, robust finding is feedback ≤ no-feedback at every ε (Δ −0.034/−0.040/−0.025). The causal "no bottleneck" explanation is supported by the surface geometry and the reference (<code>vec2text/vec2text</code> = pooled only; Rep2Text = single last-token rep) but is <em>not</em> ablation-proven here. Verdict: <em>wrong surface</em> → pivot to pooled.</p></div>
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B8 — pooled GTR embedding under DP · leakage calibration</h4>
     <table class="spec">
@@ -279,18 +279,20 @@
         <tr><td>128</td><td class="num">.038</td><td class="num">0.09</td><td class="num">0</td><td class="num">0.24</td><td class="num">68</td></tr>
       </tbody>
     </table>
-    <div class="prose"><p>Clean Vec2Text recovers token-F1 <strong>0.80</strong> / exact <strong>0.18</strong> (≫ base 0.48/0 — the iterative-corrector gain). DP gives a clean monotone leakage curve; even ε=1024 (σ/C ≈ 0.5%) kills exact reconstruction while semantic leakage persists to ε≈128.</p></div>
+    <div class="prose"><p>Clean Vec2Text recovers token-F1 <strong>0.80</strong> / exact <strong>0.18</strong> (≫ base 0.48/0 — the iterative-corrector gain). DP gives a clean monotone leakage curve; even ε=1024 (σ/C ≈ 0.5%) kills exact reconstruction while semantic leakage persists to ε≈128.</p>
+    <p class="src-note" style="font-size:13px;opacity:.7;">Source: <code>results/spectral_mi_probe_eval.json</code> (recovery + <code>I_G</code> columns), N=96 texts, 20-step beam-1 corrector; the <em>base</em> 0-step row is the pooled Vec2Text sweep (no probe). The <code>I_G</code> column shows the <strong>raw</strong> Gaussian ceiling bits (e.g. 1597 at ε=∞); the certified <em>accessible</em> cap is <code>min{H(e₀)=479, I_G}</code>, so at ε=∞ the binding cap is 479 (T2: low-noise cap is the discrete entropy).</p></div>
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B9 — matched-probe validation</h4>
     <table class="spec">
       <thead><tr><th>Probe</th><th class="num">Spearman(probe, recovery)</th><th class="num">cost</th><th>geometry-only?</th><th>localizes?</th></tr></thead>
       <tbody>
-        <tr><td><strong>I_G</strong> (ours)</td><td class="num accent">+1.00</td><td class="num accent">60 ms</td><td>yes (Σ,σ)</td><td>yes (per-mode / d_eff)</td></tr>
+        <tr><td><strong>I_G</strong> (ours)</td><td class="num accent">+1.00</td><td class="num accent">60 ms</td><td>yes (Σ,σ)</td><td>theory only*</td></tr>
         <tr><td>CLUB</td><td class="num">+1.00</td><td class="num">1.7 s</td><td>no (trains net)</td><td>no (scalar)</td></tr>
         <tr><td>capPVI</td><td class="num warn">+0.62</td><td class="num">0.5 s</td><td>no (trains reader)</td><td>no</td></tr>
       </tbody>
     </table>
-    <div class="prose"><p><code>I_G</code> matches CLUB's predictiveness (ρ=+1.00 on token-F1/cos) and ≫ capPVI, at <strong>~28× lower cost</strong>, geometry-only and decomposable. C2 ceilings held with <strong>0 violations</strong>. Caveat: at N=96 &lt; d=768 the covariance is rank-deficient, so <code>d_eff</code>/localization is undersampled — needs n≫d.</p></div>
+    <div class="prose"><p><code>I_G</code> matches CLUB's predictiveness (ρ=+1.00 on token-F1/cos/positional-token-acc; <strong>+0.71 on the harder exact-match readout</strong>, floored at 0 for every ε&lt;∞ — = CLUB, ≫ capPVI +0.54) and ≫ capPVI, at <strong>~28× lower cost</strong>, geometry-only and decomposable. C2 ceilings held with <strong>0 observed violations</strong> (consistent with the converse). Caveat: at N=96 &lt; d=768 the covariance is rank-deficient, so <code>d_eff</code>/localization is undersampled — needs n≫d.</p>
+    <p class="src-note" style="font-size:13px;opacity:.7;">Source: <code>results/spectral_mi_probe_eval.json</code> (N=96). <strong>*localizes</strong>: T4 gives the localization bound in <em>theory</em>; empirical eigen-ablation is deferred under the rank-deficient Σ. Spearman is on token-F1/cos/positional-token-acc; exact-match (floored) is +0.71.</p></div>
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B10 — privacy–utility tradeoff</h4>
     <table class="spec">
@@ -303,7 +305,8 @@
         <tr><td>64</td><td class="num warn">0.749</td><td class="num">0.29</td><td class="num">13.3</td><td class="num">—</td><td class="num">—</td></tr>
       </tbody>
     </table>
-    <div class="prose"><p>Utility (retrieval ranking fidelity — the standard CAPRISE/RemoteRAG metric) degrades far more gracefully than leakage. <strong>Operating window ε≈256–512</strong>: retrieval near-lossless (nDCG@10 ≥0.97) while exact text reconstruction is already dead and <code>I_G</code> cut 5–7×. Utility only bites at ε≤128 (top-k′ expansion blows up 6×→13×).</p></div>
+    <div class="prose"><p>Utility (retrieval ranking fidelity — the standard CAPRISE/RemoteRAG metric) degrades far more gracefully than leakage. <strong>Operating window ε≈256–512</strong>: retrieval near-lossless (nDCG@10 ≥0.97) while exact text reconstruction is already dead and <code>I_G</code> cut 5–7×. Utility only bites at ε≤128 (top-k′ expansion blows up 6×→13×).</p>
+    <p class="src-note" style="font-size:13px;opacity:.7;">Provenance: utility columns from the retrieval eval (N=256, clean-ranking ground-truth proxy — BEIR/MTEB qrels would upgrade it); leakage columns (exact, tF1) reproduced from the B9 sweep (N=96). The two halves of this table have different N and different source files — read it as a privacy↔utility juxtaposition, not a single joint run.</p></div>
   </section>
 
   <!-- ═════ § 8 CONCLUSIONS ═════ -->
@@ -316,8 +319,8 @@
     <div class="prose">
       <p><strong>1 · Surface decides the attack.</strong> Vec2Text is a bottleneck-inversion attack — correct on a pooled sentence embedding, wrong on the per-position residual stream (where logit-lens/probing is the matched tool). The feedback loop is only useful where a whole sequence is compressed into one vector.</p>
       <p><strong>2 · The pooled embedding leaks, DP defends it cheaply.</strong> Faithful Vec2Text recovers real text from clean GTR embeddings; the Gaussian mechanism on the released vector defeats exact reconstruction at a small budget, and — crucially — retrieval utility survives that budget (favorable privacy–utility curve).</p>
-      <p><strong>3 · The matched probe is geometry, not an attack.</strong> The spectral channel-MI <code>I_G(σ)</code> predicts SOTA recovery as well as CLUB at ~28× lower cost, is a verified converse ceiling on <em>any</em> attack, and uniquely localizes leakage to the top embedding eigendirections — replacing the flat capPVI and the loose, non-localizing CLUB.</p>
-      <p><strong>Open.</strong> Localization (T4) achievability via eigen-ablation needs Σ estimated at n≫d; real BEIR/MTEB qrels would upgrade the utility ground truth from the clean-ranking proxy; the per-token-F1 vs positional-error gap stays an empirical hook.</p>
+      <p><strong>3 · The matched probe is geometry, not an attack.</strong> The spectral channel-MI <code>I_G(σ)</code> rank-predicts SOTA recovery as well as CLUB on this ε-sweep at ~28× lower cost, is a verified converse ceiling on <em>any</em> attack, and <em>theoretically</em> decomposes leakage onto the top embedding eigendirections (T4) — replacing the flat capPVI and the loose, non-localizing CLUB. Empirical localization (eigen-ablation) is deferred: at N=96&lt;d=768 the covariance is rank-deficient.</p>
+      <p><strong>Open.</strong> Localization (T4) achievability via eigen-ablation needs Σ estimated at n≫d; real BEIR/MTEB qrels would upgrade the utility ground truth from the clean-ranking proxy; the per-token-F1 vs positional-error gap stays an empirical hook. <strong>Anti-confound (reviewer-critical):</strong> the +1.0 rank-correlation is measured across a <em>monotone</em> σ-sweep, so it must be distinguished from "everything falls with σ" — the discriminating test compares <code>I_G</code> against raw σ / trace-SNR / effective-rank and a non-monotone mechanism (Laplace / partial-dim DP). Queued, not run here. Novelty is the <em>framing</em> (known AWGN MI operationalized as an attack-free converse for DP embedding inversion), complementing learned MI estimators (CLUB, Eguard arXiv:2411.05034), not a new theorem.</p>
     </div>
   </section>
 

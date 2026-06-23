@@ -80,6 +80,28 @@ Use these exact section **titles** (academic noun phrases), in order. NEVER coll
 
 Each section: `<header class="section-head"><div class="section-num">NN</div><h2 class="section-title">TITLE</h2><div class="section-meta">short label</div></header>` then body. Keep the order; omit a section only if genuinely empty.
 
+## Stating claims (Findings & Analysis)
+
+State each claim in **Toulmin form** and tag its strength with one **epistemic-status label** — this
+is how you "state confidence scientifically," and it *replaces* any review verdict (never write
+`PARTIAL`, "medium confidence", or a jury/process artifact).
+
+Epistemic-status labels (pick one per claim):
+
+| label | meaning | maps from internal verdict |
+|---|---|---|
+| **Established** | replicated, externally corroborated, consensus | a verified theorem / cross-checked result |
+| **Supported** | evidence exists, not yet replicated | accepted single-setting result |
+| **Preliminary** | single run / small sample / one seed | single-seed sweep |
+| **Speculative** | from reasoning, not direct evidence | conjecture / next-step |
+| **Contested** | conflicting evidence | mixed results across conditions |
+
+Write each finding as: **claim · grounds (the number/result) · qualifier (label + scope) · rebuttal
+(limitation)**. Example: "Information-efficient attacks restore the bits–recovery correlation
+(**Supported**): a trained decoder tracks the leakage measures at depth 20 where the linear baseline
+does not; single-seed, so not yet robust to seed variation." Cite the claim node by name in the
+footer, not its internal id or verdict in prose.
+
 ## Components
 
 - **`.spec` table** — the workhorse. Put tables **directly in the section** (a bare `<table class="spec">`),
