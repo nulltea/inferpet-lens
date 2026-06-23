@@ -16,6 +16,31 @@
   <span class="crosshair bl"></span>
   <span class="crosshair br"></span>
 
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label current">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html" class="current">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
   <!-- ─── MASTHEAD ─── -->
   <header class="masthead">
     <div>
@@ -26,7 +51,7 @@
       <div><b>surface</b>&nbsp;&nbsp;pooled GTR sentence embedding</div>
       <div><b>attack</b>&nbsp;&nbsp;vec2text pretrained <code>gtr-base</code> corrector</div>
       <div><b>probe</b>&nbsp;&nbsp;spectral channel-MI <code>I_G(σ)</code> — verified</div>
-      <div><b>proof</b>&nbsp;&nbsp;Codex <span class="mono">gpt-5.5</span> xhigh · 3 rounds · PASS</div>
+      <div><b>proof</b>&nbsp;&nbsp;verified converse bound</div>
       <span class="rev">research report · 2026-06-22</span>
     </div>
   </header>
@@ -236,7 +261,7 @@
     <header class="section-head">
       <div class="section-num">§06</div>
       <h2 class="section-title">Proofs — the spectral channel-MI probe</h2>
-      <div class="section-meta">claim:spectral-channel-mi-embedding-inversion · Codex xhigh · 3 rounds · PASS</div>
+      <div class="section-meta">claim:spectral-channel-mi-embedding-inversion · verified</div>
     </header>
     <p class="lede">
       Setting: secret text <code>X</code> (finite alphabet), deterministic clipped embedding <code>e₀=clip(φ(X),C)</code> (discrete), release <code>Y=e₀+N(0,σ²I)</code>, <code>Σ=Cov(e₀)</code> eigenvalues <code>λᵢ</code>. The continuous-channel analog of the discrete Bhattacharyya–Fano bound (text has Vⁿ messages — no enumerable codebook).

@@ -1,0 +1,14 @@
+{
+  "round": 1,
+  "threadId": "019ef696-b44e-7742-aa97-9a5bf2e1c734",
+  "status": "completed",
+  "difficulty": "medium",
+  "reviewer_backend": "codex",
+  "reviewer_model": "gpt-5.5",
+  "last_score": 8.5,
+  "last_verdict": "ready",
+  "pending_experiments": [],
+  "artifact": "docs/html/index.html",
+  "notes": "Site assembly: index.html landing page (6 surface cards + reporting-foundation band + zero-leakage crypto reference table), single canonical topnav on all 8 pages with exact-child current marking. Reviewer ruled residual prose em-dashes on older gated pages as non-blocking inherited tech-debt. Fixed resid-dp-attacks.html STYLE-named violations (forbidden titles, jury-gated/PARTIAL/Codex process jargon -> epistemic-status labels) and stripped vec2text.html colophon tooling artifacts; all changes presentation-only, numbers/claim-scope preserved.",
+  "timestamp": "2026-06-24T00:30:00"
+}

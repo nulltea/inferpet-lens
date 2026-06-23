@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — confidential-inference leakage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html" class="current">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Confidential-inference leakage<br><em>— a measurement map</em></h1>
+      <p class="subtitle">An information-theoretic, interpretability-grounded study of attacks on transformer inference. The method is one loop: measure how invertible a released representation is with an <strong>attack-independent</strong> probe (in bits), run a recovery attack on the same representation, then test whether the bits predict the recovery across a sweep from plaintext through a defense parameter. Where bits and recovery correlate, the probe predicts the attack; where they diverge, that divergence is the finding. Each surface below carries one such loop.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 INTRODUCTION -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">premise, threat model, how to read</div>
+    </header>
+    <p class="lede">A confidential-inference deployment releases some function of a private input: an activation crossing a trust boundary, a sentence embedding in a vector store, an obfuscated embedding table. The question for each released object is how much of the secret it leaks, and whether an attack-independent measure predicts how much an attacker recovers.</p>
+    <div class="prose">
+      <p><strong>Threat model (public weights).</strong> The default anchor is <code>WEIGHTS-PUB</code>: the adversary knows the model weights and the embedding table, so norms, Gram matrices, and attention scores are known functions of the secret, and the adversary can synthesize unlimited training pairs at any defense parameter. Comparisons between admissible attacks are therefore fair. Per-page deviations are stated in that page.</p>
+      <p><strong>Probe is not the attack.</strong> A probe is an independent measure that correlates with attack recovery, never the attack reporting its own bits. A measure that could not be computed without running the attack is the attack in disguise, and any correlation it shows is circular. The probes here are geometry-only or channel-matched: a capacity-matched token-identity reader, a spectral channel mutual-information ceiling, geometry-only error bounds.</p>
+      <p><strong>One metric, two axes.</strong> Every measure reports on one comparable scale, <strong>bits</strong>, beside a per-secret human readout: token-identity perplexity and top-k, text token-F1 and ROUGE, permutation recovery-rate and rank correlation, embedding token-F1 and cosine, membership AUC. The reporting layer that enforces this convention is documented under <a href="metric-std.html">the metric convention</a>.</p>
+      <p><strong>How to read this site.</strong> The cards below group by released surface: the residual stream, the pooled or per-position embedding, and the permuted embedding table. Each links a page that runs the loop end to end. Two cross-cutting pages follow: the reporting foundation every page shares, and a cryptographic zero-leakage reference that bounds the leakage scale from below.</p>
+    </div>
+  </section>
+
+  <!-- §02 SURFACES -->
+  <section id="surfaces">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Surfaces</h2>
+      <div class="section-meta">one attack × matched probe × defense per page</div>
+    </header>
+    <div class="cgrid">
+
+      <div class="card">
+        <span class="tag gpu">residual</span>
+        <h3>Capacity-matched leakage</h3>
+        <p class="one">An attack-independent reader predicts the token behind a hidden state without ever reading the embedding table.</p>
+        <dl>
+          <dt>secret</dt><dd>token identity behind a residual hidden state</dd>
+          <dt>probe</dt><dd>capacity-matched class predictive V-information (PVI), feature dimension below the validation count</dd>
+          <dt>attack</dt><dd>embedding-inversion classifier</dd>
+          <dt>finding</dt><dd>reader accuracy tracks the attack at rank correlation 0.80 to 1.00 under representation-space defenses; under input-layer differential privacy the two diverge with depth, and the divergence localizes what the defense protects</dd>
+          <dt>read</dt><dd><a href="resid-capacity-pvi.html">capacity-matched leakage →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag crypto">residual · DP</span>
+        <h3>Residual stream under DP</h3>
+        <p class="one">When does the mutual information a probe sees get realized as recovery by an attack, and when does the attack fall short?</p>
+        <dl>
+          <dt>secret</dt><dd>token behind a noised residual representation</dd>
+          <dt>probe</dt><dd>mutual-information family (PVI, contrastive upper bound, description length)</dd>
+          <dt>attack</dt><dd>ridge baseline against an information-efficient decoder</dd>
+          <dt>finding</dt><dd>under propagated input-layer differential privacy a ridge attack decorrelates from the probe; an information-efficient attack re-correlates, exact nearest-neighbour at the input layer and a channel-aware decoder at depth; the gap is attack efficiency, not probe failure, and is absent under at-layer noise</dd>
+          <dt>read</dt><dd><a href="resid-dp-attacks.html">residual under differential privacy →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag tee">embedding</span>
+        <h3>Vec2Text inversion</h3>
+        <p class="one">Recover source text from a released sentence embedding with a faithful pretrained corrector.</p>
+        <dl>
+          <dt>secret</dt><dd>source text behind a released embedding</dd>
+          <dt>probe</dt><dd>spectral channel mutual information <code>I_G(σ)</code>, a geometry-only converse ceiling</dd>
+          <dt>attack</dt><dd>pretrained Vec2Text corrector (Morris et al., 2023)</dd>
+          <dt>finding</dt><dd>the attack fails on the per-position residual stream, which has no pooled bottleneck, and succeeds on a pooled retrieval embedding; the spectral channel-MI ceiling is the matched probe and bounds recovery under differential privacy</dd>
+          <dt>read</dt><dd><a href="vec2text.html">Vec2Text inversion →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag tee">embedding</span>
+        <h3>Bayes-NN error bounds</h3>
+        <p class="one">A token is embedded, then heavily noised before release; nearest-neighbour decoding recovers it almost perfectly.</p>
+        <dl>
+          <dt>secret</dt><dd>token identity behind a differentially-private embedding (layer 0)</dd>
+          <dt>probe</dt><dd>geometry-only union-Bhattacharyya and Fano two-sided error bounds</dd>
+          <dt>attack</dt><dd>nearest-neighbour maximum-a-posteriori decode</dd>
+          <dt>finding</dt><dd>recovery stays near perfect under noise larger than the embedding itself; the bounds are attack-independent and bracket the achievable error from both sides</dd>
+          <dt>read</dt><dd><a href="bnn-attack.html">Bayes-NN error bounds →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag storage">permutation</span>
+        <h3>Permutation cover</h3>
+        <p class="one">An embedding table is hidden by permuting feature columns and adding noise; the adversary must re-identify each obfuscated row.</p>
+        <dl>
+          <dt>secret</dt><dd>the row-to-token correspondence of an obfuscated embedding table</dd>
+          <dt>probe</dt><dd>attack-independent mutual information on the permutation-invariant signature</dd>
+          <dt>attack</dt><dd>full sorted-row matcher against a 64-bin quantile baseline</dd>
+          <dt>finding</dt><dd>the baseline collapses under small noise while the probe shows leakage persists; the full sorted row, the maximal invariant of the column permutation, recovers it, adding 0.60 recovery where the baseline has lost three quarters of its accuracy; the probe tracks the strong matcher across the sweep</dd>
+          <dt>read</dt><dd><a href="perm-cover.html">permutation cover →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag client">defenses</span>
+        <h3>Implemented defenses</h3>
+        <p class="one">Two deployed defenses swept from plaintext through their privacy parameter, graded for leakage against recovery.</p>
+        <dl>
+          <dt>defenses</dt><dd>learned additive noise at a split activation; static invertible obfuscation of the embedding table</dd>
+          <dt>probe</dt><dd>mutual-information probe per channel</dd>
+          <dt>attack</dt><dd>permutation matcher and token-identity reader</dd>
+          <dt>finding</dt><dd>additive noise is channel-selective, driving permutation recovery from 1.00 to 0.04 while token identity stays at or above 0.45 at every depth; the probe tracks recovery within a defense family, but the bits-to-recovery calibration does not transfer across families</dd>
+          <dt>read</dt><dd><a href="defenses-existing.html">implemented defenses →</a></dd>
+        </dl>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- §03 REPORTING FOUNDATION -->
+  <section id="foundation">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Reporting foundation</h2>
+      <div class="section-meta">the shared metric layer</div>
+    </header>
+    <div class="prose">
+      <p>Every surface page renders its sweep on one convention: a canonical bits column beside a per-secret human readout. The reporting layer supplies a single canonical-bits extractor across the eight measure families, a formatter that keeps small bit values legible, and one standardized leakage row that carries both axes. It is cross-surface infrastructure rather than a surface, so it is documented separately rather than as a card above.</p>
+      <p><a href="metric-std.html">The metric convention and reporting layer →</a></p>
+    </div>
+  </section>
+
+  <!-- §04 ZERO-LEAKAGE REFERENCE -->
+  <section id="zero-leakage">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Zero-leakage reference</h2>
+      <div class="section-meta">cryptographic anchor, documented not swept</div>
+    </header>
+    <p class="lede">The sweeps above measure leakage that varies with a privacy parameter. Cryptographic confidential-inference schemes anchor the opposite end of the scale: they leak essentially nothing about the protected surface by construction, at the cost of homomorphic-encryption, secure-multiparty-computation, or trusted-execution overhead. They have no privacy parameter to sweep, so they are documented here as a reference floor rather than measured as a tunable defense.</p>
+    <table class="spec">
+      <thead>
+        <tr><th style="width:20%">Scheme</th><th>Mechanism class</th><th>Protected surface</th><th style="width:16%">Leakage</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Euston</td>
+          <td>cryptographic confidential inference (encrypted computation)</td>
+          <td>private input and intermediate activations</td>
+          <td>~0 by construction</td>
+        </tr>
+        <tr>
+          <td>Fision</td>
+          <td>cryptographic confidential inference (encrypted computation)</td>
+          <td>private input and intermediate activations</td>
+          <td>~0 by construction</td>
+        </tr>
+        <tr>
+          <td>TwinShield (full)</td>
+          <td>trusted-execution and accelerator co-design with dual data-and-model protection; attention and softmax computed inside the trusted boundary</td>
+          <td>input, activations, and model weights</td>
+          <td>~0 by construction</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>Read as a converse: any practical defense that releases a representation in the clear and tunes a privacy parameter sits above this floor, and the question this study answers for each is how far above, in bits, and whether that distance predicts what an attacker recovers. These schemes are reference-only because their cost moves the engineering question from how much leaks to whether the encryption or trusted-execution budget is affordable.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      <h5>Map</h5>
+      <ul>
+        <li><code>README.md</code> · premise</li>
+        <li><code>docs/plans/it-leakage-estimation-set.md</code> · thesis and attack × measure matrix</li>
+        <li><code>docs/plans/component-topology.md</code> · attack / probe / defense schema</li>
+        <li><code>docs/html/STYLE.md</code> · report house style</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Surfaces</h5>
+      <ul>
+        <li><a href="resid-capacity-pvi.html">capacity-matched leakage</a></li>
+        <li><a href="resid-dp-attacks.html">residual under differential privacy</a></li>
+        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
+        <li><a href="perm-cover.html">permutation cover</a> · <a href="defenses-existing.html">implemented defenses</a></li>
+        <li><a href="metric-std.html">the metric convention</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>Vec2Text · <a href="https://arxiv.org/abs/2310.06816">arXiv 2310.06816</a></li>
+        <li>Text embeddings reveal · <a href="https://arxiv.org/abs/2310.06816">Morris et al., 2023</a></li>
+        <li>Improving the Gaussian mechanism · <a href="https://arxiv.org/abs/1805.06530">arXiv 1805.06530</a></li>
+      </ul>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

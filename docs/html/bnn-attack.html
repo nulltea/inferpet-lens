@@ -118,9 +118,30 @@
   <span class="crosshair tl"></span><span class="crosshair tr"></span>
   <span class="crosshair bl"></span><span class="crosshair br"></span>
 
+
+  <!-- ─── TOPNAV ─── -->
   <div class="topnav">
-    <span class="brand">transformer-attacks<span class="dot">·</span>lens</span>
-    <span>prototype / attack illustration · BNN @ L0</span>
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label current">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html" class="current">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
   </div>
 
   <header class="masthead">

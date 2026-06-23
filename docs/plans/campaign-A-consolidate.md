@@ -88,4 +88,4 @@ surface: site-assembly
 run_id: a7-site
 gate: review refine-logs/site-assembly/REVIEW_STATE.json
 objective: assemble docs/html/index.html (one card/row per surface page from Tasks 1–7, shared topnav) per docs/html/STYLE.md, including the cryptographic zero-leakage reference box (Euston/Fision/TwinShield-full, documented not swept); verify serve_docs.sh renders the full site.
-- [ ] run-phase: a7-site
+- [x] run-phase: a7-site

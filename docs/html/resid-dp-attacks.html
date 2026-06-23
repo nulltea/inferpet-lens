@@ -16,6 +16,31 @@
   <span class="crosshair bl"></span>
   <span class="crosshair br"></span>
 
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label current">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html" class="current">under differential privacy</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
   <!-- ─── MASTHEAD ─── -->
   <header class="masthead">
     <div>
@@ -28,7 +53,7 @@
   <section id="overview">
     <header class="section-head">
       <div class="section-num">§01</div>
-      <h2 class="section-title">What this is</h2>
+      <h2 class="section-title">Introduction</h2>
       <div class="section-meta">the thesis on one surface</div>
     </header>
     <p class="lede">
@@ -68,7 +93,7 @@
   <section id="how">
     <header class="section-head">
       <div class="section-num">§03</div>
-      <h2 class="section-title">How it works</h2>
+      <h2 class="section-title">Method</h2>
       <div class="section-meta">the measurement loop, two noise geometries</div>
     </header>
     <div class="prose">
@@ -166,12 +191,12 @@
     <header class="section-head">
       <div class="section-num">§06</div>
       <h2 class="section-title">Claims</h2>
-      <div class="section-meta">jury-gated · PARTIAL</div>
+      <div class="section-meta">claims and their support</div>
     </header>
     <div class="prose">
-      <p><strong><code>claim:restore-correlation</code></strong> — <em>info-efficient attacks restore the MI↔recovery correlation where the weak attack decorrelates</em>. Verdict: <strong>PARTIAL</strong> (Codex xhigh, medium confidence). L0 supports the attack-efficiency premise via <em>uplift / ceiling-realization</em> (Bayes-NN +0.98); propagated depth supplies the literal <em>re-correlation</em> evidence (deep decoder +0.83 vs ridge −0.09); explicitly <em>not</em> under at-layer noise (no gap); a full-noise-range depth ceiling attack is open. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
-      <p><strong><code>claim:bayes-gap-diagnosis</code></strong> — <em>the MI-recovery gap is a Bayes-optimality (attack-efficiency) gap, not poor MI prediction</em>. Verdict: <strong>PARTIAL</strong>. Directly shown at L0 (probe high while ridge collapses, Bayes recovers ~1.0); at depth the gap is inferred, not measured to the ceiling. <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
-      <p>Both rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (Bayes-optimal weakly dominates lossy/linear; recovery monotone in MI on the Gaussian arm) — these are its empirical instantiation on the residual stream.</p>
+      <p><strong><code>claim:restore-correlation</code></strong>: <em>info-efficient attacks restore the MI↔recovery correlation where the weak attack decorrelates</em>. Status: <strong>Supported</strong> at the input layer, <strong>Preliminary</strong> at propagated depth (single setting). The input layer supports the attack-efficiency premise via uplift and ceiling-realization (Bayes-NN +0.98); propagated depth supplies the literal re-correlation evidence (deep decoder +0.83 against ridge −0.09); the effect is explicitly absent under at-layer noise (no gap); a full-noise-range depth ceiling attack is open. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
+      <p><strong><code>claim:bayes-gap-diagnosis</code></strong>: <em>the MI-recovery gap is a Bayes-optimality (attack-efficiency) gap, not poor MI prediction</em>. Status: <strong>Supported</strong> at the input layer, <strong>Preliminary</strong> at depth. Shown directly at the input layer (the probe is high while ridge collapses and Bayes recovers near 1.0); at depth the gap is inferred, not measured to the ceiling. <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
+      <p>Both rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (Bayes-optimal weakly dominates lossy/linear; recovery monotone in MI on the Gaussian arm): they are its empirical instantiation on the residual stream.</p>
     </div>
   </section>
 
@@ -179,12 +204,12 @@
   <section id="proofs">
     <header class="section-head">
       <div class="section-num">§07</div>
-      <h2 class="section-title">Proof backbone</h2>
+      <h2 class="section-title">Analysis</h2>
       <div class="section-meta">the verified theorem under the empirics</div>
     </header>
     <div class="prose">
-      <p><strong>T1</strong> (verified, Codex xhigh proof-checker): under the S–X–Y Markov chain with finite second moment / finite alphabet, (a) the Bayes-optimal attack on <code>Y</code> weakly dominates any lossy/linear attack for every prior and stated loss (Blackwell post-processing / Rao–Blackwell); (b) strict for squared loss unless <code>E[S|Y]</code> is affine (MMSE orthogonality); (c) on the Gaussian/DP arm the optimal attack's recovery is monotone in MI (I-MMSE: <code>dI/dsnr = ½·mmse</code>; degradation-order DPI for the token target).</p>
-      <p>This is exactly why the empirics read as an <em>attack-efficiency</em> story: the optimal attack <em>must</em> track MI by T1(c); a weak attack carries an additional approximation-gap term and need not. The full proof lives in <span class="mono">research-wiki/claims/thm-t1-info-efficient.md</span>.</p>
+      <p><strong>Theorem 1</strong> (verified): under the S–X–Y Markov chain with finite second moment / finite alphabet, (a) the Bayes-optimal attack on <code>Y</code> weakly dominates any lossy/linear attack for every prior and stated loss (Blackwell post-processing / Rao–Blackwell); (b) strict for squared loss unless <code>E[S|Y]</code> is affine (MMSE orthogonality); (c) on the Gaussian/DP arm the optimal attack's recovery is monotone in MI (I-MMSE: <code>dI/dsnr = ½·mmse</code>; degradation-order DPI for the token target).</p>
+      <p>This is why the empirical result reads as attack efficiency: the optimal attack must track MI by Theorem 1(c), while a weak attack carries an additional approximation-gap term and need not. The full proof is in <span class="mono">research-wiki/claims/thm-t1-info-efficient.md</span>.</p>
     </div>
   </section>
 
