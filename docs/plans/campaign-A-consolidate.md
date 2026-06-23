@@ -43,7 +43,7 @@ surface: resid-dp-attacks
 run_id: a2-dp-attacks
 gate: review refine-logs/resid-dp-attacks/REVIEW_STATE.json
 objective: consolidate the b2 family (L0 Bayes-NN, lpos decoder, propagated-DP) + info-efficient-attacks findings into claims+proofs+log+HTML; standardize metrics; document the MI-decorrelation-is-propagated-DP-specific result and the open stronger-depth-decoder gap.
-- [ ] run-phase: a2-dp-attacks
+- [x] run-phase: a2-dp-attacks
 
 ### Task 4: pooled-embedding — Vec2Text + spectral channel-MI probe
 recipe: consolidate

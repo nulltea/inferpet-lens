@@ -17,7 +17,7 @@ ridge/NN (77% vs 17%) but proves nothing; database-alignment thresholds (Dai-Cul
 Targeted by: idea:info-efficient-attacks; claims weak-domination, strict-improvement,
 mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
 
-## Key Papers (22 total)
+## Key Papers (24 total)
 - [paper:balle2018_improving_gaussian_mechanism] Improving the Gaussian Mechanism for Differential Privacy: Analytical Calibration and Optimal Denoising
 - [paper:blackwell1953_equivalent_comparisons_experiments] Equivalent Comparisons of Experiments (Blackwell ordering; Bayes-risk monotonicity under coarsening)
 - [paper:cherisey2019_best_information_most] Best Information is Most Successful: Mutual Information and Success Rate in Side-Channel Analysis
@@ -30,17 +30,16 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
 - [paper:ding2021_planted_matching_problem] The planted matching problem: Sharp threshold and infinite-order phase transition
 - [paper:dong2025_depth_gives_false] Depth Gives a False Sense of Privacy: LLM Internal States Inversion
 - [paper:fan2019_spectral_graph_matching] Spectral Graph Matching and Regularized Quadratic Relaxations I: The Gaussian Model
-## Recent Relationships (39 total)
-  idea:info-efficient-attacks --addresses_gap--> gap:G1
-  paper:kale2025_beamclean_language_aware --addresses_gap--> gap:G1
-  paper:dai2023_gaussian_database_alignment --supersedes--> paper:dai2019_database_alignment_gaussian
-  claim:thm-t1-info-efficient --addresses_gap--> gap:G1
-  claim:thm-t1-info-efficient --uses--> paper:blackwell1953_equivalent_comparisons_experiments
-  claim:thm-t1-info-efficient --uses--> paper:guo2004_mutual_information_minimum
-  claim:thm-t1-info-efficient --uses--> paper:cover2006_elements_information_theory
-  idea:info-efficient-attacks --tested_by--> exp:b2-l0-bayes-vs-ridge
-  exp:b2-l0-bayes-vs-ridge --supports--> claim:strict-improvement
-  exp:b2-l0-bayes-vs-ridge --supports--> claim:restore-correlation
-  idea:info-efficient-attacks --tested_by--> exp:b2-lpos-decoder-vs-ridge
-  exp:b2-lpos-decoder-vs-ridge --supports--> claim:restore-correlation
-  idea:inf
+## Recent Relationships (59 total)
+  exp:b6c-forward-model-vec2text --supports--> claim:restore-correlation
+  claim:bnn-nns-high-d-geometry --uses--> paper:feyisetan2020_privacy_utility_textual
+  claim:bnn-nns-high-d-geometry --uses--> paper:mattern2022_limits_dp_nlp
+  claim:bnn-nns-high-d-geometry --uses--> claim:thm-t1-info-efficient
+  claim:bnn-nns-high-d-geometry --uses--> claim:bayes-gap-diagnosis
+  exp:unified-dp-sweep --supports--> claim:bnn-nns-high-d-geometry
+  exp:unified-dp-sweep --supports--> claim:restore-correlation
+  exp:unified-dp-sweep --extends--> exp:b2-l0-bayes-vs-ridge
+  exp:unified-dp-sweep --extends--> exp:b6c-forward-model-vec2text
+  claim:bnn-error-bounds-bhattacharyya-fano --uses--> paper:cherisey2019_best_information_most
+  claim:bnn-error-bounds-bhattacharyya-fano --uses--> paper:cover2006_elements_information_theory
+  claim:bnn-error-bounds-bhattacharyya-fano --uses--> claim:thm-t1-info-effici

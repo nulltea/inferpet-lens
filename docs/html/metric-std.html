@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — metric convention &amp; reporting layer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span><span class="crosshair tr"></span>
+  <span class="crosshair bl"></span><span class="crosshair br"></span>
+
+  <div class="topnav">
+    <span class="brand">transformer-attacks<span class="dot">·</span>lens</span>
+    <span class="links">
+      <a href="index.html">index</a> ·
+      <a href="metric-std.html">metric</a> ·
+      <a href="vec2text.html">vec2text</a> ·
+      <a href="bnn-attack.html">bnn</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">The metric convention<br><em>— bits canonical + per-secret readout</em></h1>
+      <p class="subtitle">Every leakage measure in this study reports on <strong>one comparable scale</strong> — <strong>bits</strong> — beside a <strong>per-secret human readout</strong> (perplexity / token-F1 / recovery-rate / cosine / AUC). This page documents the convention and the <code>talens.report</code> layer that enforces it: a single canonical-bits extractor across all seven measure families, a legibility-preserving bits formatter, and one standardized <code>LeakageReport</code> row carrying both axes. It is the substrate every surface page (vec2text, bnn, resid, permutation, defenses) renders its sweep tables on.</p>
+    </div>
+    <div class="colophon">
+      <div><b>surface</b>&nbsp;&nbsp;reporting layer (cross-surface infrastructure)</div>
+      <div><b>module</b>&nbsp;&nbsp;<code>src/talens/report.py</code></div>
+      <div><b>probe</b>&nbsp;&nbsp;all 7 measure families — bits extractor</div>
+      <div><b>validation</b>&nbsp;&nbsp;25 unit tests · 121 suite · model-free</div>
+      <span class="rev">research report · 2026-06-23</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 OVERVIEW ═════ -->
+  <section id="overview">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Why a shared metric</h2>
+      <div class="section-meta">two axes, one scale</div>
+    </header>
+    <p class="lede">
+      The measurement loop pairs an <em>attack-independent</em> probe (in <strong>bits</strong>) with a graded <em>attack recovery</em> on the same surface, then asks whether the two correlate across a privacy sweep. For that comparison to be legible across surfaces, every probe must speak the same canonical unit, and every recovery number must be rendered in the units a reader of that secret can interpret.
+    </p>
+    <div class="prose">
+      <p><strong>Bits canonical.</strong> MI upper bounds (CLUB), V-usable information (PVI), capacity-matched PVI, surplus description length (MDL), PID total MI, and the spectral channel-MI ceiling are all stored in bits — but they are <em>not</em> the same quantity. Each <code>LeakageReport</code> carries a <code>bits_kind</code> tag so a mixed table never silently conflates an MI upper bound with an SDL.</p>
+      <p><strong>Per-secret readout.</strong> Bits alone are illegible to a reader who wants to know "how recoverable is the secret?" Beside the bits, the report renders the secret's native recovery: a token-id by top-1/top-k recovery and perplexity; text by token-F1; a permutation by recovery-rate and Kendall-τ; an embedding by cosine; membership by AUC.</p>
+      <p><strong>The "1/100 of a bit" fix.</strong> A genuine 0.01-bit leak rounded to two decimals reads <code>0.00 bits</code> — indistinguishable from no leak. The fix lives in <em>rendering</em>, never in the stored value: below 0.1 bit the formatter switches to millibits, so 0.01 bit reads <code>10.0 mbit</code>.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 DEFINITIONS ═════ -->
+  <section id="defs">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Definitions &amp; glossary</h2>
+      <div class="section-meta">terms used on this page</div>
+    </header>
+    <table class="spec">
+      <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>canonical bits</strong></td><td>The single comparable scalar each measure contributes to the bits axis, extracted by <code>canonical_bits(measure, result)</code> from the measure's output dict.</td></tr>
+        <tr><td><strong>bits_kind</strong></td><td>A tag on the bits value naming <em>which</em> quantity it is: <code>v_info</code>, <code>capacity_v_info</code>, <code>mi_upper_bound</code>, <code>sdl</code>, <code>pid_total_mi</code>, <code>channel_mi_upper_bound</code>. Prevents conflating distinct bit-valued quantities.</td></tr>
+        <tr><td><strong>per-secret readout</strong></td><td>The recovery axis rendered in the secret's native units. The <em>primary</em> field is the single graded scalar a sweep correlates bits against; the rest are human context.</td></tr>
+        <tr><td><strong>millibit (mbit)</strong></td><td>1/1000 bit. The display unit below 0.1 bit so small-but-nonzero leakage stays legible.</td></tr>
+        <tr><td><strong>token-F1</strong></td><td>Multiset (order-free) F1 between predicted and ground-truth token ids: harmonic mean of multiplicity-counted precision and recall. The text-recovery readout.</td></tr>
+        <tr><td><strong>perplexity</strong></td><td><code>2^H</code> of a per-token conditional entropy in bits — the token-id readout's "effective branching factor".</td></tr>
+        <tr><td><strong>LeakageReport</strong></td><td>One standardized row: <code>bits</code> (verbatim) + <code>bits_kind</code> + a paired <code>Readout</code> + sweep context (<code>surface</code>, <code>layer</code>, <code>transform</code>, <code>sigma</code>).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 3 HOW IT WORKS ═════ -->
+  <section id="how">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">How the layer works</h2>
+      <div class="section-meta">measure dict → canonical bits → paired readout → LeakageReport</div>
+    </header>
+    <div class="prose">
+      <p>Each measure returns its own dict. <code>canonical_bits</code> pulls the headline bits scalar and tags it; the attack side computes its recovery readout separately; <code>LeakageReport.from_measure</code> pairs them. Because bits come from the probe dict and recovery from the attack, the layer is <em>rendering only</em> — it cannot manufacture a correlation between the two axes (probe ≠ attack).</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>measure (registry name)</th><th>dict key pulled</th><th><code>bits_kind</code></th></tr></thead>
+      <tbody>
+        <tr><td><code>v_information</code></td><td><code>v_information_bits</code></td><td>v_info</td></tr>
+        <tr><td><code>v_information_retrieval</code></td><td><code>v_information_bits</code></td><td>v_info</td></tr>
+        <tr><td><code>v_information_capacity</code></td><td><code>v_information_bits</code></td><td>capacity_v_info</td></tr>
+        <tr><td><code>club</code></td><td><code>club_mi_bits</code></td><td>mi_upper_bound</td></tr>
+        <tr><td><code>mdl</code></td><td><code>surplus_description_length_bits</code></td><td>sdl</td></tr>
+        <tr><td><code>pid</code></td><td><code>i_joint_bits</code></td><td>pid_total_mi</td></tr>
+        <tr><td><code>spectral_channel_mi</code></td><td><code>i_g_bits</code></td><td>channel_mi_upper_bound</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 4 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Worked rows — both axes</h2>
+      <div class="section-meta">live measure output through the layer</div>
+    </header>
+    <p class="prose">Real measure dicts (synthetic inputs, no GPU) rendered through <code>LeakageReport.render()</code>. Note the small negative PVI rendered in millibits rather than collapsing to <code>0.00</code>:</p>
+    <table class="spec">
+      <thead><tr><th>measure</th><th>bits (canonical, legible)</th><th>per-secret readout</th></tr></thead>
+      <tbody>
+        <tr><td><code>v_information</code> [v_info]</td><td><code>-22 mbit</code></td><td>token_top1_recovery_rate=0.55 (top10=0.8, perplexity=4.05)</td></tr>
+        <tr><td><code>spectral_channel_mi</code> [channel_mi_upper_bound]</td><td><code>48.5 bits</code></td><td>cosine=0.91 (token_f1=0.42)</td></tr>
+        <tr><td><code>club</code> [mi_upper_bound]</td><td><code>1.25 bits</code></td><td>auc=0.66</td></tr>
+      </tbody>
+    </table>
+    <p class="prose"><strong>Legibility contract (tested).</strong> A stored <code>0.01</code> renders <code>10.0 mbit</code>, never <code>0.00 bits</code>; the stored float is byte-for-byte unchanged. A declined measure (<code>None</code>) renders <code>n/a</code>, distinct from a measured zero.</p>
+  </section>
+
+  <!-- ═════ § 5 CONCLUSIONS ═════ -->
+  <section id="conclusions">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Conclusions</h2>
+      <div class="section-meta">what this enables</div>
+    </header>
+    <div class="prose">
+      <p>This is infrastructure, not a leakage finding — there is no claim node here. Every downstream surface page (Tasks 2–7) renders its <code>(bits, recovery)</code> sweep on this layer, so the whole site reports one comparable bits axis beside a secret-appropriate recovery axis, with sub-0.1-bit leakage staying legible. Validated by 25 unit tests against the real output schema of all seven measures, with no regression across the 121-test model-free suite.</p>
+    </div>
+    <div class="prose">
+      <h5>Provenance</h5>
+      <ul>
+        <li><code>src/talens/report.py</code> · <code>tests/test_report.py</code></li>
+        <li><code>research-wiki/experiments/metric-std-reporting-layer.md</code></li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

@@ -16,6 +16,7 @@ from .channel_error_bounds import fano_equivocation, union_bhattacharyya
 from .club import club_mi_upper_bound
 from .mdl import online_code_length, online_code_length_retrieval
 from .pid import pid_mmi
+from .spectral_channel_mi import spectral_channel_mi
 from .vinfo import v_information, v_information_retrieval
 from .vinfo_capacity import v_information_capacity
 
@@ -29,4 +30,5 @@ __all__ = [
     "pid_mmi",                    # MMI-PID of the QK/OV attention channel
     "union_bhattacharyya",        # geometry-only upper bound on BNN/MAP error
     "fano_equivocation",          # Fano lower bound via fresh-noise equivocation
+    "spectral_channel_mi",        # geometry-only channel-MI ceiling (embedding inversion)
 ]

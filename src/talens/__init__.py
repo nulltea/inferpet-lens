@@ -18,6 +18,19 @@ from __future__ import annotations
 __version__ = "0.1.0"
 
 from .metrics import AttackResult, classify_risk_level, topk_recovery, ttrsr
+from .report import (
+    LeakageReport,
+    Readout,
+    canonical_bits,
+    embedding_readout,
+    format_bits,
+    membership_readout,
+    permutation_readout,
+    perplexity_from_bits,
+    text_readout,
+    token_f1,
+    token_id_readout,
+)
 from .transforms import Identity, Transform
 
 __all__ = [
@@ -27,4 +40,16 @@ __all__ = [
     "ttrsr",
     "Identity",
     "Transform",
+    # unified reporting layer (bits canonical + per-secret readout)
+    "LeakageReport",
+    "Readout",
+    "canonical_bits",
+    "format_bits",
+    "perplexity_from_bits",
+    "token_f1",
+    "token_id_readout",
+    "text_readout",
+    "permutation_readout",
+    "embedding_readout",
+    "membership_readout",
 ]

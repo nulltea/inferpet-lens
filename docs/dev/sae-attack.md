@@ -2,8 +2,8 @@
 type: dev-log
 status: current
 created: 2026-06-17
-updated: 2026-06-18
-tags: [SAE, gemma-scope, gemma-2-2b, token-recovery, manifold-denoising, ridge, spike]
+updated: 2026-06-22
+tags: [SAE, gemma-scope, gemma-2-2b, token-recovery, manifold-denoising, ridge, spike, vec2text, gtr]
 companion: [sae-private-inference-attack-design-space, sae-as-confidential-inference-attack]
 ---
 
@@ -360,3 +360,59 @@ layer 12, X 9722×2304).
   Prevention: switch the main PVI to the retrieval family for high-d operands,
   or warn/auto-regularise when `d ≫ rows/class`. (Calibration decision — left to
   the user; not changed here.)
+
+---
+
+## Sibling clean attack — Vec2Text embedding inversion (pooled-embedding surface)
+
+Promoted from spike to a **clean attack handler + eval** (2026-06-22). Same threat
+family as the SAE work above (token/text recovery under a `WEIGHTS-PUB`-analog
+adversary) but a **different released object and a different attack**, so it lives
+beside — not inside — the SAE attack.
+
+**What it is.** Faithful **Vec2Text** (Morris et al. 2023, NAACL) used as a
+*dependency* via its **pretrained `gtr-base` corrector** (no training): given a
+released **pooled sentence embedding** `e = φ(text)` (φ = `sentence-transformers/
+gtr-t5-base`, mean-pooled 768-d — a real RAG/retrieval embedder), iteratively
+re-embed + sequence-beam-correct to reconstruct the source text. The secret is the
+**text**; the released object is the **RAG embedding** (the private-rag motivating
+surface).
+
+**Why a separate surface (not the SAE/resid path).** Vec2Text inverts a *single
+pooled bottleneck vector* — that compression is the under-determination its
+iterative `e−ê` feedback exists to resolve. On the **per-position residual stream**
+(the SAE attack's surface) each token has its own observation (per-position
+invertible, logit-lens-readable; arXiv 2510.15511), so there is no bottleneck and
+the feedback is moot — directly tested and **disproved** (`refine-logs/
+dp-stronger-attacks/EXPERIMENT_RESULTS.md` B7 + B7-analysis). Vec2Text is the right
+tool **only** on the pooled/single-vector surface.
+
+**Clean implementation** (kept OUT of the core `talens` library — heavy external
+dep, non-`CaptureSet` surface; per the two-part library/eval-scripts convention):
+- `scripts/eval/vec2text_attack.py` — `Vec2TextAttack` handler: `embed`,
+  `canonicalize` (32-tok Morris regime), `invert(num_steps, beam)`, `score`
+  (BLEU/token-F1/exact/cos), plus `dp_noise` / `gaussian_sigma` (the **external** DP
+  defense on the released embedding — clip to C, add `N(0,σ²)`, `σ=C·z/ε`).
+- `scripts/eval/vec2text_dp_eval.py` — leakage-vs-ε eval + matched-probe test:
+  ```
+  scripts/run_in_rocm.sh python3 scripts/eval/vec2text_dp_eval.py \
+      --n 128 --num-steps 20 --beam 1 --epsilons inf,1024,512,256,128 --base
+  ```
+
+**Dependency note.** `vec2text` (2023) is incompatible with the container's
+transformers 5.x (rejects its nested `from_pretrained` under meta-device init) →
+the handler bootstraps a `transformers==4.44` shadow from the bind-mounted `.deps/`
+and points apex's RMSNorm JIT cache at a writable `/tmp` dir. Full recipe + the M0
+gate: memory `vec2text-rocm-dependency-recipe`.
+
+**Headline result** (`results/vec2text_dp_eval.json`; dp-stronger-attacks B8):
+- **C1** — clean Vec2Text recovers **token-F1 0.80 / exact 0.18** vs the base
+  0-step model **0.48 / 0.0** (the iterative-corrector information-efficiency gap).
+  Below Morris's in-domain greedy (0.96/0.40) — out-of-domain corpus caveat.
+- **C2** — DP on the released embedding gives a clean **monotone** leakage curve:
+  even ε=1024 (σ/C≈0.5%) kills exact-match while semantic leakage (cos 0.82,
+  tF1 0.43) persists down to ε≈128.
+- **C3** — the cheap **CLUB `I(e';e0)` probe tracks the SOTA attack's recovery,
+  Spearman = +1.00** (token-F1/cos/BLEU). The matched IT probe forecasts what the
+  strongest faithful inversion achieves at each privacy budget. (capacity-PVI with a
+  kmeans-cluster reader is weak/not-matched here — CLUB is the embedding-channel probe.)

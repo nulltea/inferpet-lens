@@ -1,0 +1,19 @@
+{
+  "date": "2026-06-23",
+  "auditor": "codex-gpt-5.5-xhigh",
+  "overall_verdict": "warn",
+  "integrity_status": "warn",
+  "checks": {
+    "gt_provenance": {"status": "warn", "details": "R1 L0 stored run = synthetic Zipf token-ids over real embeddings (relabeled synthetic_proxy); vocab-disjoint splits real; shuffle floor reused across noise (disclosed)"},
+    "score_normalization": {"status": "pass", "details": "raw exact-match recovery, raw selectivity=recovery-floor, no self-normalization"},
+    "probe_attack_circularity": {"status": "pass", "details": "CLUB/capPVI/MDL computed independently; do not call attack recovery"},
+    "result_existence": {"status": "pass", "details": "all files exist; R5/R6/R3/R1 numbers match source"},
+    "l0_provenance_split": {"status": "pass", "details": "recovery from l0_fast.txt post-fix, bits from b2_l0_bayes.json; bug affected attack pool only, probe bits valid; disclosed"},
+    "scope": {"status": "warn", "details": "R5 single-seed (caveat added); R4 4eps/1seed; R6 3eps; robustness language removed"},
+    "eval_type": "mixed (R1 synthetic_proxy, R2/R4/R5 real_gt, R6 real_gt+oracle-prefix)"
+  },
+  "claims": [
+    {"id": "restore-correlation", "impact": "supported_partial"},
+    {"id": "bayes-gap-diagnosis", "impact": "supported_partial"}
+  ]
+}

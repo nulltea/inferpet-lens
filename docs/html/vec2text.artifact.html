@@ -1,0 +1,1536 @@
+<title>Vec2Text — embedding inversion</title>
+<style>
+/* private-rag · shared styles
+ * Engineering-blueprint aesthetic: parchment paper, Fraunces display
+ * serif paired with JetBrains Mono for body/code. Sharp corners,
+ * generous rules, distinct trust-zone color palette.
+ */
+
+:root {
+  --paper: #ffffff; /* pure white base */
+  --paper-2: #f4f4f4;
+  --paper-3: #e3e3e3;
+  --ink: #14181c; /* cool near-black */
+  --ink-2: #3c434b;
+  --ink-3: #6a7280;
+  --rule: #14181c;
+  --tee: #b85a32; /* trusted / TEE — terracotta · warm primary */
+  --tee-soft: #ecd1c0;
+  --gpu: #5a6573; /* untrusted GPU — slate */
+  --gpu-soft: #dde0e5;
+  --storage: #2e6a5e; /* untrusted storage — teal */
+  --storage-soft: #c6dbd4;
+  --client: #2a5092; /* client — navy */
+  --client-soft: #c8d4e6;
+  --crypto: #5e4a7a; /* crypto / DP — muted plum */
+  --crypto-soft: #d6cce2;
+  --warn: #a3460a; /* hazard — deep amber */
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+body {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  font-feature-settings:
+    "ss01" 1,
+    "ss02" 1,
+    "calt" 1;
+  background-image: radial-gradient(
+    rgba(20, 24, 28, 0.03) 1px,
+    transparent 1px
+  );
+  background-size: 4px 4px;
+}
+::selection {
+  background: var(--ink);
+  color: var(--paper);
+}
+a {
+  color: var(--ink);
+}
+
+/* ────── LAYOUT ────── */
+.sheet {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 48px 96px;
+  position: relative;
+}
+.crosshair {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+}
+.crosshair::before,
+.crosshair::after {
+  content: "";
+  position: absolute;
+  background: var(--ink);
+}
+.crosshair::before {
+  left: 6px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.crosshair::after {
+  top: 6px;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.tl {
+  top: 24px;
+  left: 24px;
+}
+.tr {
+  top: 24px;
+  right: 24px;
+}
+.bl {
+  bottom: 24px;
+  left: 24px;
+}
+.br {
+  bottom: 24px;
+  right: 24px;
+}
+
+/* ────── TOP NAV ────── */
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 18px;
+  border-bottom: 1px solid var(--ink);
+  margin-bottom: 28px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.topnav .brand {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 18,
+    "wght" 540,
+    "SOFT" 30;
+  font-size: 18px;
+  letter-spacing: -0.005em;
+  text-transform: none;
+  text-decoration: none;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-right: 24px;
+}
+.topnav .brand .dot {
+  color: var(--tee);
+}
+.topnav .brand .rev {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  font-variation-settings: normal;
+}
+.topnav .links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.topnav a {
+  text-decoration: none;
+  color: var(--ink-2);
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  white-space: nowrap;
+  transition:
+    border-color 120ms,
+    color 120ms;
+}
+.topnav a:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.topnav a.current {
+  color: var(--tee);
+  border-color: var(--tee);
+}
+.topnav a.current::before {
+  content: "▸ ";
+  color: var(--tee);
+}
+
+/* nav dropdown group (Generation: GELO LLM / AloePri LLM) */
+.topnav .navgroup {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.topnav .navgroup-label {
+  text-decoration: none;
+  color: var(--ink-2);
+  border-bottom: 1px solid transparent;
+  padding: 2px 0 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 120ms,
+    color 120ms;
+}
+.topnav .navgroup-label:hover,
+.topnav .navgroup:hover .navgroup-label,
+.topnav .navgroup.open .navgroup-label {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.topnav .navgroup-label.current {
+  color: var(--tee);
+  border-color: var(--tee);
+}
+.topnav .navgroup-label.current::before {
+  content: "▸ ";
+  color: var(--tee);
+}
+.topnav .navgroup-menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  left: 0;
+  background: var(--paper, #fff);
+  border: 1px solid var(--ink);
+  padding: 10px 16px;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 12em;
+  z-index: 50;
+}
+.topnav .navgroup:hover .navgroup-menu,
+.topnav .navgroup.open .navgroup-menu {
+  display: flex;
+  flex-direction: column;
+}
+.topnav .navgroup-menu > a {
+  display: block;
+  white-space: nowrap;
+}
+
+/* ────── MASTHEAD ────── */
+.masthead {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  padding-bottom: 28px;
+  border-bottom: 2px solid var(--ink);
+  margin-bottom: 44px;
+}
+.title {
+  font-family: "Fraunces", "Iowan Old Style", "Charter", serif;
+  font-variation-settings:
+    "opsz" 144,
+    "wght" 500,
+    "SOFT" 30,
+    "WONK" 1;
+  font-size: clamp(56px, 8vw, 96px);
+  line-height: 0.92;
+  letter-spacing: -0.025em;
+  margin: 0;
+  color: var(--ink);
+}
+.title em {
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 144,
+    "wght" 400,
+    "SOFT" 80,
+    "WONK" 1;
+  color: var(--tee);
+}
+.subtitle {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 48,
+    "wght" 400,
+    "SOFT" 50;
+  font-style: italic;
+  font-size: 22px;
+  color: var(--ink-2);
+  margin: 14px 0 0;
+  max-width: 56ch;
+}
+.colophon {
+  font-size: 11px;
+  text-align: right;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  align-self: end;
+  white-space: nowrap;
+}
+.colophon b {
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+}
+.colophon .rev {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 18,
+    "wght" 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 16px;
+  color: var(--tee);
+  display: block;
+  margin-top: 8px;
+}
+
+/* ────── SECTION CHROME ────── */
+section {
+  margin-bottom: 64px;
+  scroll-margin-top: 40px;
+}
+.section-head {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ink);
+}
+.section-num {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 24,
+    "wght" 400,
+    "SOFT" 60;
+  font-size: 28px;
+  color: var(--tee);
+  letter-spacing: -0.02em;
+}
+.section-title {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 60,
+    "wght" 460,
+    "SOFT" 30;
+  font-size: 34px;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: var(--ink);
+}
+.section-meta {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+.lede {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 18,
+    "wght" 380,
+    "SOFT" 40;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 24px;
+  max-width: 80ch;
+}
+.lede em {
+  color: var(--tee);
+  font-style: italic;
+}
+
+/* ────── HEADING ANCHORS ────── */
+/* Click target next to a heading that links to that heading's own
+   anchor. Hidden by default; appears on hover of the parent heading
+   or when the heading is the URL target. Used on h2.section-title
+   and the §08 / §09 h3 subsections. */
+.heading-anchor {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--ink-3);
+  text-decoration: none;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.6em;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  vertical-align: middle;
+}
+.section-title:hover .heading-anchor,
+h3:hover .heading-anchor,
+.heading-anchor:focus,
+:target > .heading-anchor {
+  opacity: 1;
+}
+.heading-anchor:hover {
+  color: var(--tee);
+}
+
+/* ────── LEGEND ────── */
+.legend {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  border: 1px solid var(--ink);
+  margin: 8px 0 36px;
+}
+.legend .cell {
+  padding: 14px 16px;
+  border-right: 1px solid var(--ink);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.legend .cell:last-child {
+  border-right: none;
+}
+.legend .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.legend .lbl {
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 4px;
+}
+.legend .desc {
+  color: var(--ink-3);
+}
+
+/* ────── STAT STRIP ────── */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--ink);
+  margin-bottom: 36px;
+}
+.stat {
+  padding: 18px 20px;
+  border-right: 1px solid var(--ink);
+}
+.stat:last-child {
+  border-right: none;
+}
+.stat .k {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+.stat .v {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 36,
+    "wght" 500,
+    "SOFT" 20;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.stat .v em {
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 36,
+    "wght" 400,
+    "SOFT" 80;
+  color: var(--tee);
+}
+.stat .unit {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-left: 4px;
+  letter-spacing: 0;
+}
+.stat .sub {
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+
+/* ────── COMPONENT CARDS ────── */
+.cgrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  border: 1px solid var(--ink);
+  margin-top: 4px;
+}
+.card {
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding: 22px 22px 24px;
+  position: relative;
+  background: var(--paper);
+}
+.card:nth-child(2n) {
+  border-right: none;
+}
+.card:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+.card .tag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  padding: 4px 8px 3px 9px;
+  text-transform: uppercase;
+}
+.card .tag.tee {
+  background: var(--tee);
+}
+.card .tag.gpu {
+  background: var(--gpu);
+}
+.card .tag.storage {
+  background: var(--storage);
+}
+.card .tag.client {
+  background: var(--client);
+}
+.card .tag.crypto {
+  background: var(--crypto);
+}
+.card h3 {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 36,
+    "wght" 480,
+    "SOFT" 30;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+.card h3 .alias {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-style: normal;
+  color: var(--ink-3);
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+.card .one {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 18,
+    "wght" 380,
+    "SOFT" 60;
+  font-size: 14px;
+  color: var(--ink-2);
+  margin: 0 0 14px;
+  line-height: 1.45;
+  max-width: 54ch;
+}
+.card dl {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  column-gap: 14px;
+  row-gap: 7px;
+  margin: 0;
+}
+.card dt {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-top: 2px;
+}
+.card dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.card dd code,
+.card dd .mono {
+  font-family: "JetBrains Mono", monospace;
+  background: var(--paper-2);
+  border: 1px solid var(--paper-3);
+  padding: 0 4px;
+  font-size: 11px;
+}
+.card dd a {
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink-3);
+  text-decoration: none;
+}
+.card dd a:hover {
+  border-color: var(--tee);
+  color: var(--tee);
+}
+.card .overhead {
+  display: inline-block;
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 24,
+    "wght" 480;
+  font-size: 16px;
+  color: var(--ink);
+}
+.card .overhead.good {
+  color: var(--storage);
+}
+.card .overhead.warn {
+  color: var(--gpu);
+}
+.card .overhead.bad {
+  color: var(--tee);
+}
+
+/* ────── DIAGRAM FRAME ────── */
+.diagram-frame {
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  padding: 28px 32px 36px;
+  margin: 8px 0 36px;
+  overflow-x: auto;
+}
+.diagram-cap {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink-3);
+  margin-bottom: 24px;
+}
+.diagram-cap .l {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+svg.flow {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+svg.flow .zone-band-client {
+  fill: var(--client-soft);
+}
+svg.flow .zone-band-tee {
+  fill: var(--tee-soft);
+}
+svg.flow .zone-band-gpu {
+  fill: var(--gpu-soft);
+}
+svg.flow .zone-band-storage {
+  fill: var(--storage-soft);
+}
+svg.flow .zone-band-crypto {
+  fill: var(--crypto-soft);
+}
+svg.flow .zone-band {
+  opacity: 0.4;
+}
+svg.flow .zone-label {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 20,
+    "wght" 460,
+    "SOFT" 60;
+  font-size: 15px;
+  fill: var(--ink);
+}
+svg.flow .zone-sublabel {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  fill: var(--ink-3);
+}
+svg.flow .boundary {
+  stroke: var(--tee);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+svg.flow .boundary-label {
+  fill: var(--tee);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+svg.flow .box {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1.25;
+}
+svg.flow .box-strong {
+  stroke-width: 1.75;
+}
+svg.flow .box-tee {
+  fill: #faeae6;
+}
+svg.flow .box-gpu {
+  fill: #faf0d8;
+}
+svg.flow .box-storage {
+  fill: #d8e8e2;
+}
+svg.flow .box-client {
+  fill: #dde6f1;
+}
+svg.flow .box-crypto {
+  fill: #ecdef0;
+}
+svg.flow .box-label {
+  font-size: 11px;
+  fill: var(--ink);
+  font-weight: 500;
+}
+svg.flow .box-sub {
+  font-size: 9.5px;
+  fill: var(--ink-3);
+  letter-spacing: 0.05em;
+}
+svg.flow .box-mono {
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+svg.flow .arrow {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+}
+svg.flow .arrow-secret {
+  stroke: var(--tee);
+  stroke-width: 1.2;
+}
+svg.flow .arrow-masked {
+  stroke: var(--gpu);
+  stroke-width: 1.4;
+  stroke-dasharray: 6 3;
+}
+svg.flow .arrow-cipher {
+  stroke: var(--storage);
+  stroke-width: 1.2;
+}
+svg.flow .arrow-attest {
+  stroke: var(--client);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+svg.flow .arrow-rrag {
+  stroke: var(--crypto);
+  stroke-width: 1.2;
+}
+svg.flow .arrow-label {
+  font-size: 9.5px;
+  font-weight: 500;
+}
+svg.flow .arrow-label.secret {
+  fill: var(--tee);
+}
+svg.flow .arrow-label.masked {
+  fill: var(--gpu);
+}
+svg.flow .arrow-label.cipher {
+  fill: var(--storage);
+}
+svg.flow .arrow-label.attest {
+  fill: var(--client);
+}
+svg.flow .arrow-label.rrag {
+  fill: var(--crypto);
+}
+svg.flow .step-num {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 24,
+    "wght" 500;
+  font-size: 13px;
+  fill: var(--ink-3);
+}
+svg.flow .pill {
+  fill: var(--ink);
+  rx: 2;
+}
+svg.flow .pill-text {
+  fill: var(--paper);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+svg.flow .branch-diamond {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+/* ────── DATA TABLES ────── */
+table.spec {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--ink);
+  font-size: 12px;
+  margin: 16px 0 28px;
+}
+table.spec th,
+table.spec td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--paper-3);
+  border-right: 1px solid var(--paper-3);
+  vertical-align: top;
+}
+table.spec th {
+  background: var(--paper-2);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--ink);
+}
+table.spec th:last-child,
+table.spec td:last-child {
+  border-right: none;
+}
+table.spec tr:last-child td {
+  border-bottom: none;
+}
+table.spec td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table.spec td.code {
+  font-size: 11px;
+  color: var(--ink-2);
+}
+table.spec .accent {
+  color: var(--tee);
+  font-weight: 600;
+}
+
+/* Widen specific spec tables (e.g. the attack-harness table in §08) up to
+   1640px on large viewports. Uses negative inline margins balanced against
+   the wider width so the table's TOTAL flow-width still equals the parent's
+   content width — keeps siblings (masthead .colophon, .stat-strip, section
+   headers) aligned to the sheet's right edge. Falls back to normal width
+   below the cap. */
+@media (min-width: 1320px) {
+  table.spec--wide {
+    --tw: min(1640px, calc(100vw - 96px));
+    width: var(--tw);
+    margin-left: calc((100% - var(--tw)) / 2);
+    margin-right: calc((100% - var(--tw)) / 2);
+  }
+}
+
+/* ────── HARDWARE + 2-COL GRIDS ────── */
+.hw-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 0;
+  border: 1px solid var(--ink);
+  margin-bottom: 36px;
+}
+.hw-col {
+  padding: 24px 26px;
+  border-right: 1px solid var(--ink);
+}
+.hw-col:last-child {
+  border-right: none;
+}
+.hw-col h4 {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 30,
+    "wght" 460,
+    "SOFT" 40;
+  font-size: 20px;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+.hw-col h4 .role {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-3);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.hw-col .one {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-2);
+  margin-bottom: 14px;
+}
+.hw-col dl {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  column-gap: 14px;
+  row-gap: 7px;
+}
+.hw-col dt {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.hw-col dd {
+  margin: 0;
+  font-size: 12px;
+}
+.hw-col dd .mono {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  background: var(--paper-2);
+  padding: 0 4px;
+  border: 1px solid var(--paper-3);
+}
+
+/* ────── PROSE ────── */
+.prose p {
+  font-size: 13px;
+  line-height: 1.65;
+  margin: 0 0 14px;
+  max-width: 80ch;
+}
+.prose p strong {
+  color: var(--ink);
+}
+.prose code {
+  font-size: 11.5px;
+  background: var(--paper-2);
+  padding: 0 4px;
+  border: 1px solid var(--paper-3);
+}
+
+/* ────── TWO COLUMN ────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--ink);
+}
+.two-col > div {
+  padding: 22px 24px;
+  border-right: 1px solid var(--ink);
+}
+.two-col > div:last-child {
+  border-right: none;
+}
+.two-col h4 {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 26,
+    "wght" 460;
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+.two-col ul {
+  padding-left: 18px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.two-col li {
+  margin-bottom: 6px;
+}
+.two-col code {
+  font-size: 11px;
+  background: var(--paper-2);
+  padding: 0 3px;
+  border: 1px solid var(--paper-3);
+}
+
+/* ────── PATH CARDS (LANDING) ────── */
+.path-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  border: 1px solid var(--ink);
+  margin-bottom: 36px;
+}
+.path-card {
+  padding: 26px 28px 30px;
+  border-right: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  transition: background 120ms;
+  display: block;
+}
+.path-card:nth-child(2n) {
+  border-right: none;
+}
+.path-card:nth-last-child(-n + 2) {
+  border-bottom: none;
+}
+.path-card:hover {
+  background: var(--paper-2);
+}
+
+/* Muted variant — used on the landing for the RemoteRAG card (alternative
+   path that was prototyped but not chosen for production). The card
+   itself still links to the dedicated detail page; its visual weight is
+   just dialed down so the production paths stand out. */
+.path-card.muted h3,
+.path-card.muted .num {
+  color: var(--ink-3);
+}
+.path-card.muted {
+  background: var(--paper-2);
+}
+.path-card.muted:hover {
+  background: var(--paper-3);
+}
+.path-card .alt-badge {
+  display: inline-block;
+  background: var(--warn);
+  color: var(--paper);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 3px 8px 2px;
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+.path-card .num {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 30,
+    "wght" 400,
+    "SOFT" 60;
+  font-size: 22px;
+  color: var(--tee);
+  margin-bottom: 8px;
+}
+.path-card h3 {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 36,
+    "wght" 480,
+    "SOFT" 30;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+.path-card .tagline {
+  font-family: "Fraunces", serif;
+  font-style: italic;
+  font-variation-settings:
+    "opsz" 18,
+    "wght" 400;
+  font-size: 14px;
+  color: var(--ink-2);
+  margin-bottom: 16px;
+  line-height: 1.45;
+}
+.path-card .arrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--ink-3);
+}
+.path-card:hover .arrow {
+  color: var(--tee);
+}
+.path-card .arrow::after {
+  content: " →";
+}
+.path-card ul {
+  padding: 0;
+  list-style: none;
+  margin: 0 0 14px;
+  font-size: 11px;
+}
+.path-card li {
+  border-top: 1px dashed var(--paper-3);
+  padding: 6px 0;
+}
+.path-card li:last-child {
+  padding-bottom: 14px;
+}
+
+/* ────── FOOTER ────── */
+footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 2px solid var(--ink);
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 24px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+footer h5 {
+  font-family: "Fraunces", serif;
+  font-variation-settings:
+    "opsz" 18,
+    "wght" 480,
+    "SOFT" 30;
+  font-size: 13px;
+  margin: 0 0 8px;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+}
+footer ul {
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+footer li {
+  margin-bottom: 4px;
+}
+footer a {
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--ink-3);
+}
+footer a:hover {
+  color: var(--tee);
+  border-color: var(--tee);
+}
+
+/* ────── RESPONSIVE ────── */
+@media (max-width: 900px) {
+  .sheet {
+    padding: 20px 20px;
+  }
+  .title {
+    font-size: 12vw;
+  }
+  .topnav {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .topnav .links {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .topnav .navgroup-menu {
+    position: static;
+    border: none;
+    padding: 4px 0 4px 14px;
+    margin-top: 4px;
+  }
+  .masthead {
+    grid-template-columns: 1fr;
+  }
+  .colophon {
+    text-align: left;
+  }
+  .legend,
+  .stat-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .legend .cell,
+  .stat {
+    border-right: none;
+    border-bottom: 1px solid var(--ink);
+  }
+  .cgrid {
+    grid-template-columns: 1fr;
+  }
+  .card {
+    border-right: none;
+  }
+  .hw-grid {
+    grid-template-columns: 1fr;
+  }
+  .hw-col {
+    border-right: none;
+    border-bottom: 1px solid var(--ink);
+  }
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+  .two-col > div {
+    border-right: none;
+    border-bottom: 1px solid var(--ink);
+  }
+  .path-grid {
+    grid-template-columns: 1fr;
+  }
+  .path-card {
+    border-right: none;
+    border-bottom: 1px solid var(--ink);
+  }
+  footer {
+    grid-template-columns: 1fr;
+  }
+}
+
+</style>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Vec2Text<br><em>— embedding inversion</em></h1>
+      <p class="subtitle">Faithful pretrained <strong>Vec2Text</strong> (Morris et al., EMNLP 2023) as a confidential-inference attack: recover source text from a released sentence embedding. Studied on two surfaces — it <em>fails</em> on the per-position residual stream (no bottleneck) and <em>succeeds</em> on a pooled GTR retrieval embedding. The matched, attack-independent leakage probe is the <strong>spectral channel-MI</strong> <code>I_G(σ)</code>; the privacy–utility tradeoff is charted against retrieval fidelity.</p>
+    </div>
+    <div class="colophon">
+      <div><b>surface</b>&nbsp;&nbsp;pooled GTR sentence embedding</div>
+      <div><b>attack</b>&nbsp;&nbsp;vec2text pretrained <code>gtr-base</code> corrector</div>
+      <div><b>probe</b>&nbsp;&nbsp;spectral channel-MI <code>I_G(σ)</code> — verified</div>
+      <div><b>proof</b>&nbsp;&nbsp;Codex <span class="mono">gpt-5.5</span> xhigh · 3 rounds · PASS</div>
+      <span class="rev">research report · 2026-06-22</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 WHAT THIS IS ═════ -->
+  <section id="overview">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">What the attack is</h2>
+      <div class="section-meta">threat model &amp; the two surfaces</div>
+    </header>
+    <p class="lede">
+      <strong>Vec2Text</strong> inverts a dense text embedding back to its near-exact source text. Given a released embedding <code>e</code> and query access to the encoder <code>φ</code>, it iteratively generates a hypothesis text, re-embeds it, and corrects toward <code>e</code> — recovering ~92% of 32-token inputs exactly in the original paper. It is the inversion attack that motivates protecting released embeddings (RAG vector stores, split-inference activations).
+    </p>
+    <div class="prose">
+      <p><strong>Threat model — <code>WEIGHTS-PUB</code>-analog for embeddings.</strong> The adversary holds the public encoder <code>φ</code> (here GTR-base), the published DP parameters (clip <code>C</code>, noise <code>σ</code>), and the matched pretrained corrector; it observes the DP-protected released embedding <code>e′</code> and must recover the text. The DP defense is an external <code>Transform</code> on the released vector — the library asserts nothing about it (scheme-agnostic).</p>
+      <p><strong>Two surfaces, opposite verdicts.</strong> Vec2Text exists to invert a <em>single pooled bottleneck vector</em>; whether it applies depends entirely on the released object.</p>
+    </div>
+    <table class="spec">
+      <thead>
+        <tr><th style="width:24%">Surface</th><th>Released object</th><th>Vec2Text verdict</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Per-position residual stream</strong></td><td><code>resid_post[L]</code> — one d-dim vector <em>per token</em></td><td class="warn"><strong>WRONG TOOL.</strong> Each token has its own observation (logit-lens-readable; LMs are per-position invertible, arXiv 2510.15511). No bottleneck ⇒ the iterative feedback is moot — empirically disproved (§07, B7).</td></tr>
+        <tr><td><strong>Pooled sentence embedding</strong></td><td>GTR mean-pooled — <em>one</em> 768-d vector for the whole text</td><td class="accent"><strong>CORRECT TOOL.</strong> The whole sequence is compressed into one bottleneck ⇒ the under-determination Vec2Text resolves is real. Recovers text; the surface this report studies.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 2 DEFINITIONS ═════ -->
+  <section id="defs">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Definitions &amp; glossary</h2>
+      <div class="section-meta">terms used on this page</div>
+    </header>
+    <table class="spec">
+      <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Vec2Text</strong></td><td>Morris et al., EMNLP 2023 (<span class="mono">arXiv 2310.06816</span>). Iterative embedding→text inversion: a corrector re-embeds the current hypothesis and edits it toward the target. We use the pretrained <code>gtr-base</code> corrector as a dependency.</td></tr>
+        <tr><td><strong>φ (GTR)</strong></td><td><code>sentence-transformers/gtr-t5-base</code> — a T5 dual-encoder retriever; mean-pooled last hidden state → 768-d sentence embedding. A real RAG retrieval encoder.</td></tr>
+        <tr><td><strong>e₀ / e′</strong></td><td><code>e₀ = clip(φ(X), C)</code> the clean (clipped) embedding of text <code>X</code>; <code>e′ = e₀ + N(0,σ²I)</code> the DP-released embedding the adversary sees.</td></tr>
+        <tr><td><strong>DP defense</strong></td><td>Gaussian mechanism on the released embedding: clip to L2-norm <code>C</code>, add isotropic Gaussian <code>σ = C·z/ε</code>, <code>z=√(2 ln(1.25/δ))</code>. ε is the swept privacy budget.</td></tr>
+        <tr><td><strong>I_G(σ)</strong></td><td>Spectral channel-MI probe <code>½ Σᵢ log₂(1+λᵢ/σ²)</code>, <code>λᵢ</code> = eigenvalues of <code>Σ=Cov(e₀)</code>. Geometry-only (no attack run). The matched leakage probe (§04, §06).</td></tr>
+        <tr><td><strong>CLUB</strong></td><td>Variational upper bound on the mutual information <code>I(e′;e₀)</code>. Targets the right MI but loose &amp; non-localizing (§04).</td></tr>
+        <tr><td><strong>capPVI</strong></td><td>Capacity-controlled predictive V-information of a cluster label of <code>e₀</code> read from <code>e′</code>. A coarse, ≤log₂κ-bit functional — inadequate (§04).</td></tr>
+        <tr><td><strong>token-F1 / exact / nDCG@k</strong></td><td>Recovery: word-multiset F1 and exact-match of reconstruction vs source. Utility: normalized discounted cumulative gain of the noised-query retrieval ranking.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 3 HOW IT WORKS ═════ -->
+  <section id="how">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">How the attack works</h2>
+      <div class="section-meta">pipeline · DP defense · iterative corrector loop</div>
+    </header>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — pipeline · text → pooled embedding → DP release → Vec2Text inversion</span>
+        <span>navy = data owner (trusted) · plum = DP defense · slate = adversary · amber = leak</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 430" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <!-- ZONES -->
+        <rect x="0"    y="40"  width="430" height="370" class="zone-band zone-band-client"/>
+        <rect x="430"  y="40"  width="300" height="370" class="zone-band zone-band-crypto"/>
+        <rect x="730"  y="40"  width="590" height="370" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">holds text X · runs encoder φ</text>
+        <text x="450" y="62" class="zone-label">DP defense (external Transform)</text>
+        <text x="750" y="62" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
+        <text x="750" y="78" class="zone-sublabel">has φ, published (C,σ), matched corrector</text>
+        <line x1="430" y1="40" x2="430" y2="410" class="boundary"/>
+        <line x1="730" y1="40" x2="730" y2="410" class="boundary"/>
+        <text x="434" y="406" class="boundary-label">release</text>
+
+        <!-- OWNER -->
+        <rect x="20" y="150" width="180" height="70" class="box box-strong box-client"/>
+        <text x="34" y="174" class="box-label">secret text X</text>
+        <text x="34" y="192" class="box-sub">32-token passage</text>
+        <rect x="230" y="150" width="180" height="70" class="box box-client"/>
+        <text x="244" y="174" class="box-label">φ — GTR encoder</text>
+        <text x="244" y="192" class="box-sub">mean-pool → e₀ ∈ ℝ⁷⁶⁸</text>
+
+        <!-- DP -->
+        <rect x="455" y="140" width="250" height="92" class="box box-strong box-crypto"/>
+        <text x="469" y="164" class="box-label">Gaussian mechanism</text>
+        <text x="469" y="182" class="box-mono">e₀ ← clip(e₀, C)</text>
+        <text x="469" y="200" class="box-mono">e′ = e₀ + N(0, σ²I)</text>
+        <text x="469" y="220" class="box-sub">σ = C·z/ε · ε = privacy budget</text>
+
+        <!-- ADVERSARY: vec2text loop -->
+        <rect x="760" y="110" width="220" height="62" class="box box-strong box-gpu"/>
+        <text x="774" y="132" class="box-label">① base inversion</text>
+        <text x="774" y="148" class="box-sub">p(x⁽⁰⁾ | e′) → hypothesis h₀</text>
+        <text x="774" y="164" class="box-mono">T5 seq2seq corrector</text>
+
+        <rect x="760" y="220" width="220" height="92" class="box box-gpu"/>
+        <text x="774" y="242" class="box-label">② correct (T rounds)</text>
+        <text x="774" y="260" class="box-mono">ê⁽ᵗ⁾ = φ(h_t)   re-embed</text>
+        <text x="774" y="278" class="box-mono">h_{t+1}=c(e′,ê⁽ᵗ⁾,e′−ê⁽ᵗ⁾,h_t)</text>
+        <text x="774" y="296" class="box-sub">accept iff closer to e′ (cosine)</text>
+
+        <rect x="1050" y="165" width="230" height="70" class="box box-strong box-gpu" style="border-color:var(--warn);"/>
+        <text x="1064" y="189" class="box-label" style="fill:var(--warn);">recovered text x̂</text>
+        <text x="1064" y="207" class="box-sub">token-F1 / exact-match</text>
+        <text x="1064" y="223" class="box-mono">≈ source X (low σ)</text>
+
+        <!-- PROBE annotation -->
+        <rect x="455" y="280" width="250" height="86" class="box box-crypto" style="opacity:.92;"/>
+        <text x="469" y="302" class="box-label">probe I_G(σ) — geometry-only</text>
+        <text x="469" y="320" class="box-mono">½Σ log₂(1+λᵢ/σ²)</text>
+        <text x="469" y="338" class="box-sub">from Σ=Cov(e₀) + σ · no attack</text>
+        <text x="469" y="356" class="box-sub">⇒ ceilings recovery (Fano)</text>
+
+        <!-- ARROWS -->
+        <path d="M200 185 L230 185" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <path d="M410 185 L455 186" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <path d="M705 186 L760 141" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="600" y="120" class="arrow-label masked">e′ released</text>
+        <path d="M870 172 L870 220" class="arrow" marker-end="url(#ah)"/>
+        <path d="M980 266 C1020 266 1020 200 1050 200" class="arrow" marker-end="url(#ah)"/>
+        <text x="992" y="250" class="arrow-label">x̂</text>
+        <path d="M760 280 C720 280 720 200 705 195" class="arrow arrow-masked" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
+        <text x="612" y="266" class="arrow-label masked">φ query</text>
+        <path d="M580 232 L580 280" class="arrow" marker-end="url(#ah)" style="opacity:.6;"/>
+      </svg>
+    </div>
+
+    <div class="prose">
+      <p><strong>The iterative corrector (steps ① ②) is the mechanism.</strong> A base seq2seq model guesses an initial hypothesis <code>h₀</code> from <code>e′</code>. Each round re-embeds the current hypothesis <code>ê⁽ᵗ⁾=φ(h_t)</code> and the corrector — conditioned on the target <code>e′</code>, the hypothesis embedding <code>ê⁽ᵗ⁾</code>, the residual <code>e′−ê⁽ᵗ⁾</code>, and the hypothesis tokens — emits a <em>new</em> sequence <code>h_{t+1}</code>, accepted only if its re-embedding is closer to <code>e′</code>. The residual <code>e′−ê⁽ᵗ⁾</code> is the fresh information injected each round; it is what makes the loop converge (Morris Fig. 1: <code>ê⁽⁰⁾→ê⁽¹⁾→ê⁽²⁾→ê⁽³⁾</code> spiralling onto <code>e</code>).</p>
+      <p><strong>Why the bottleneck matters.</strong> The loop exists to resolve the under-determination of compressing a whole sequence into one vector. On a pooled embedding that compression is real, so iteration pays off. On the per-position residual stream there is one observation per token (no compression), the feedback is moot, and a one-shot per-position decoder already suffices — which is exactly what the per-position experiment found (§07, B7).</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 4 PROBES ═════ -->
+  <section id="probes">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Probes — measuring leakage without running the attack</h2>
+      <div class="section-meta">capPVI · CLUB · spectral channel-MI (matched)</div>
+    </header>
+    <p class="lede">
+      A <em>probe</em> estimates how much the released embedding leaks about the text, from data geometry + channel parameters alone — never running an inverter (the "not a disguised attack" invariant). Two incumbents are inadequate; the matched one is <code>I_G</code>.
+    </p>
+    <div class="cgrid">
+      <article class="card">
+        <span class="tag gpu">inadequate</span>
+        <h3>capPVI<span class="alias">cluster V-information</span></h3>
+        <p class="one"><strong>Flat / orthogonal.</strong> Predicts a κ-means <em>cluster label</em> of <code>e₀</code> from <code>e′</code>. Saturates at ≤log₂κ ≈ 5.3 bits and stays flat while σ ≪ centroid gaps — a coarse, noise-robust quantity on a scale orthogonal to fine token recovery.</p>
+        <dl>
+          <dt>tracks recovery</dt><dd><span class="overhead warn">ρ ≈ +0.62</span> (weak/noisy)</dd>
+          <dt>cost</dt><dd>trains a reader · ~0.5 s</dd>
+        </dl>
+      </article>
+      <article class="card">
+        <span class="tag gpu">right target, loose</span>
+        <h3>CLUB<span class="alias">variational I(e′;e₀)</span></h3>
+        <p class="one"><strong>Targets the right MI but non-localizing.</strong> By the sufficiency identity (T1) <code>I(e′;e₀)=I(X;Y)</code> — the true leakage. But CLUB is a variational <em>upper bound</em> with estimator variance and a single scalar: monotone in σ, yet no per-mode structure.</p>
+        <dl>
+          <dt>tracks recovery</dt><dd><span class="overhead good">ρ = +1.00</span></dd>
+          <dt>cost</dt><dd>trains a variational net · ~1.7 s</dd>
+        </dl>
+      </article>
+      <article class="card">
+        <span class="tag crypto">matched · adopted</span>
+        <h3>Spectral channel-MI<span class="alias">measures :: spectral_channel_mi</span></h3>
+        <p class="one"><strong>I_G(σ) = ½ Σᵢ log₂(1+λᵢ/σ²)</strong> from <code>Σ=Cov(e₀)</code> + σ. Closed-form Gaussian-channel ceiling; geometry-only; <em>decomposable</em> — the per-mode profile <code>tᵢ</code> and <code>d_eff</code> localize <em>where</em> leakage lives (water-filling).</p>
+        <dl>
+          <dt>tracks recovery</dt><dd><span class="overhead good">ρ = +1.00</span> (= CLUB)</dd>
+          <dt>cost</dt><dd>one eigendecomposition · <span class="overhead good">~60 ms</span> (≈28× cheaper)</dd>
+          <dt>extra</dt><dd>quantifies bits + localizes + ceilings recovery (Fano)</dd>
+        </dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════ § 5 CLAIMS ═════ -->
+  <section id="claims">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Claims</h2>
+      <div class="section-meta">what is asserted &amp; its status</div>
+    </header>
+    <table class="spec">
+      <thead><tr><th style="width:30%">Claim</th><th>Statement</th><th style="width:14%">Status</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Surface dependence</strong></td><td>Vec2Text is the correct attack only on a pooled bottleneck embedding; on per-position resid its feedback is moot.</td><td class="accent">supported (B7/B8)</td></tr>
+        <tr><td><strong>Leakage (C1)</strong></td><td>Faithful pretrained Vec2Text recovers substantial text from clean pooled GTR embeddings (Morris ballpark).</td><td class="accent">validated (B8)</td></tr>
+        <tr><td><strong>DP calibration (C2)</strong></td><td>DP on the released embedding degrades recovery monotonically; a small budget kills exact reconstruction.</td><td class="accent">validated (B8/B9)</td></tr>
+        <tr><td><strong>Matched probe (C3)</strong></td><td><code>I_G</code> rank-predicts SOTA recovery ≥ CLUB and ≫ capPVI, geometry-only, at a fraction of the cost; ceilings recovery; localizes it.</td><td class="accent">verified + validated</td></tr>
+        <tr><td><strong>Privacy–utility</strong></td><td>Retrieval utility degrades far more gracefully than leakage — an operating window kills inversion at near-zero retrieval cost.</td><td class="accent">measured (B10)</td></tr>
+        <tr><td><strong>Threat-model fairness</strong></td><td>All attack comparisons under one fixed <code>WEIGHTS-PUB</code>-analog model; the probe uses strictly less (only Σ,σ).</td><td>framed</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 6 PROOFS ═════ -->
+  <section id="proofs">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Proofs — the spectral channel-MI probe</h2>
+      <div class="section-meta">claim:spectral-channel-mi-embedding-inversion · Codex xhigh · 3 rounds · PASS</div>
+    </header>
+    <p class="lede">
+      Setting: secret text <code>X</code> (finite alphabet), deterministic clipped embedding <code>e₀=clip(φ(X),C)</code> (discrete), release <code>Y=e₀+N(0,σ²I)</code>, <code>Σ=Cov(e₀)</code> eigenvalues <code>λᵢ</code>. The continuous-channel analog of the discrete Bhattacharyya–Fano bound (text has Vⁿ messages — no enumerable codebook).
+    </p>
+    <table class="spec">
+      <thead><tr><th style="width:8%">Thm</th><th>Statement</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td><strong>T1</strong></td><td><code>I(X;Y) = I(e₀;Y)</code> — deterministic sufficiency identity.</td><td>measuring MI on embeddings <em>is</em> text leakage (and is CLUB's target).</td></tr>
+        <tr><td><strong>T2</strong></td><td><code>I(X;Y) ≤ min{H(e₀), I_G(σ)}</code>, strict unless <code>e₀</code> Gaussian (max-entropy). Per-mode <code>tᵢ=½log₂(1+λᵢ/σ²)</code>, <code>d_eff=#{λᵢ≥σ²}</code>.</td><td>closed-form bit ceiling + localization (water-filling).</td></tr>
+        <tr><td><strong>T3</strong></td><td>Fano: uniform-prior <code>P(x̂=X) ≤ (min{H(e₀),I_G}+1)/H(X)</code> for <em>every</em> attack; rate–distortion floor on the per-token error.</td><td>attack-independent recovery ceiling (converse), monotone in σ.</td></tr>
+        <tr><td><strong>T4</strong></td><td>For top-k principal projector <code>P_k</code> (arbitrary e₀): <code>I(X;Y) − I(X;P_kY) ≤ ½Σ_{i&gt;k} log₂(1+λᵢ/σ²)</code>.</td><td>leakage is confined to the top eigendirections up to the spectral tail — "where".</td></tr>
+        <tr><td><strong>Contrast</strong></td><td>capPVI ≤ min{I(X;Y), log₂κ} (saturates); CLUB is a loose, non-localizing variational bound on the same target.</td><td>proves why the incumbents fail.</td></tr>
+      </tbody>
+    </table>
+    <p class="lede" style="margin-top:20px;">
+      <strong>Honest scope.</strong> <code>I_G</code> is a <em>converse ceiling</em>, not exact leakage nor achieved recovery — the empirical probe↔recovery correlation (§07) is validation, not implied. The low-noise cap is the discrete <code>H(e₀)</code>; token-F1 (vs positional error) and T4 achievability are flagged as empirical hooks. Imported textbook steps: Gaussian max-entropy, Fano, the Shannon rate–distortion lower bound. Full proof: <code>refine-logs/dp-stronger-attacks/vec2text-pooled/PROOF_PACKAGE.md</code>.
+    </p>
+  </section>
+
+  <!-- ═════ § 7 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">gemma-2-2b (per-position) · GTR-base (pooled) · AMD ROCm iGPU</div>
+    </header>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:8px 0 8px;">B7 — per-position residual stream · the negative</h4>
+    <div class="prose"><p>The faithful iterative corrector (re-embed + residual feedback + acceptance gate) was implemented on the per-position resid surface. <strong>Feedback did not help</strong> (feedback ≤ no-feedback at every ε) — the bottleneck the loop needs does not exist there. Confirmed against the reference (<code>vec2text/vec2text</code> = pooled embeddings only) and Rep2Text (single last-token rep). Verdict: <em>wrong surface</em> → pivot to pooled.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B8 — pooled GTR embedding under DP · leakage calibration</h4>
+    <table class="spec">
+      <thead><tr><th>ε</th><th class="num">σ/C</th><th class="num">token-F1</th><th class="num">exact</th><th class="num">cos</th><th class="num">I_G (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>base (0-step)</td><td class="num">—</td><td class="num">0.48</td><td class="num">0.00</td><td class="num">0.85</td><td class="num">—</td></tr>
+        <tr><td><b>∞</b> (Vec2Text)</td><td class="num">0</td><td class="num accent">0.80</td><td class="num accent">0.18</td><td class="num">0.96</td><td class="num">1597</td></tr>
+        <tr><td>1024</td><td class="num">.005</td><td class="num">0.45</td><td class="num">0</td><td class="num">0.83</td><td class="num">312</td></tr>
+        <tr><td>512</td><td class="num">.010</td><td class="num">0.30</td><td class="num">0</td><td class="num">0.69</td><td class="num">220</td></tr>
+        <tr><td>256</td><td class="num">.019</td><td class="num">0.16</td><td class="num">0</td><td class="num">0.44</td><td class="num">135</td></tr>
+        <tr><td>128</td><td class="num">.038</td><td class="num">0.09</td><td class="num">0</td><td class="num">0.24</td><td class="num">68</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>Clean Vec2Text recovers token-F1 <strong>0.80</strong> / exact <strong>0.18</strong> (≫ base 0.48/0 — the iterative-corrector gain). DP gives a clean monotone leakage curve; even ε=1024 (σ/C ≈ 0.5%) kills exact reconstruction while semantic leakage persists to ε≈128.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B9 — matched-probe validation</h4>
+    <table class="spec">
+      <thead><tr><th>Probe</th><th class="num">Spearman(probe, recovery)</th><th class="num">cost</th><th>geometry-only?</th><th>localizes?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>I_G</strong> (ours)</td><td class="num accent">+1.00</td><td class="num accent">60 ms</td><td>yes (Σ,σ)</td><td>yes (per-mode / d_eff)</td></tr>
+        <tr><td>CLUB</td><td class="num">+1.00</td><td class="num">1.7 s</td><td>no (trains net)</td><td>no (scalar)</td></tr>
+        <tr><td>capPVI</td><td class="num warn">+0.62</td><td class="num">0.5 s</td><td>no (trains reader)</td><td>no</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p><code>I_G</code> matches CLUB's predictiveness (ρ=+1.00 on token-F1/cos) and ≫ capPVI, at <strong>~28× lower cost</strong>, geometry-only and decomposable. C2 ceilings held with <strong>0 violations</strong>. Caveat: at N=96 &lt; d=768 the covariance is rank-deficient, so <code>d_eff</code>/localization is undersampled — needs n≫d.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B10 — privacy–utility tradeoff</h4>
+    <table class="spec">
+      <thead><tr><th>ε</th><th class="num">Utility nDCG@10</th><th class="num">R@10</th><th class="num">k′/k</th><th class="num">‖ Leak exact</th><th class="num">tF1</th></tr></thead>
+      <tbody>
+        <tr><td>∞</td><td class="num">1.000</td><td class="num">1.00</td><td class="num">1.0</td><td class="num">0.198</td><td class="num">0.79</td></tr>
+        <tr><td><b>512</b></td><td class="num accent">0.992</td><td class="num">0.85</td><td class="num">1.5</td><td class="num accent">0</td><td class="num">0.30</td></tr>
+        <tr><td><b>256</b></td><td class="num accent">0.970</td><td class="num">0.73</td><td class="num">2.5</td><td class="num">0</td><td class="num">0.16</td></tr>
+        <tr><td>128</td><td class="num">0.897</td><td class="num">0.52</td><td class="num">6.4</td><td class="num">0</td><td class="num">0.09</td></tr>
+        <tr><td>64</td><td class="num warn">0.749</td><td class="num">0.29</td><td class="num">13.3</td><td class="num">—</td><td class="num">—</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>Utility (retrieval ranking fidelity — the standard CAPRISE/RemoteRAG metric) degrades far more gracefully than leakage. <strong>Operating window ε≈256–512</strong>: retrieval near-lossless (nDCG@10 ≥0.97) while exact text reconstruction is already dead and <code>I_G</code> cut 5–7×. Utility only bites at ε≤128 (top-k′ expansion blows up 6×→13×).</p></div>
+  </section>
+
+  <!-- ═════ § 8 CONCLUSIONS ═════ -->
+  <section id="conclusions">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Conclusions</h2>
+      <div class="section-meta">what is established</div>
+    </header>
+    <div class="prose">
+      <p><strong>1 · Surface decides the attack.</strong> Vec2Text is a bottleneck-inversion attack — correct on a pooled sentence embedding, wrong on the per-position residual stream (where logit-lens/probing is the matched tool). The feedback loop is only useful where a whole sequence is compressed into one vector.</p>
+      <p><strong>2 · The pooled embedding leaks, DP defends it cheaply.</strong> Faithful Vec2Text recovers real text from clean GTR embeddings; the Gaussian mechanism on the released vector defeats exact reconstruction at a small budget, and — crucially — retrieval utility survives that budget (favorable privacy–utility curve).</p>
+      <p><strong>3 · The matched probe is geometry, not an attack.</strong> The spectral channel-MI <code>I_G(σ)</code> predicts SOTA recovery as well as CLUB at ~28× lower cost, is a verified converse ceiling on <em>any</em> attack, and uniquely localizes leakage to the top embedding eigendirections — replacing the flat capPVI and the loose, non-localizing CLUB.</p>
+      <p><strong>Open.</strong> Localization (T4) achievability via eigen-ablation needs Σ estimated at n≫d; real BEIR/MTEB qrels would upgrade the utility ground truth from the clean-ranking proxy; the per-token-F1 vs positional-error gap stays an empirical hook.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Artifacts (this repo)</h5>
+      <ul>
+        <li><code>scripts/eval/vec2text_attack.py</code> · attack handler</li>
+        <li><code>scripts/eval/vec2text_dp_eval.py</code> · leakage sweep</li>
+        <li><code>scripts/eval/spectral_mi_probe_eval.py</code> · probe validation</li>
+        <li><code>scripts/eval/utility_retrieval_eval.py</code> · utility</li>
+        <li><code>src/talens/measures/spectral_channel_mi.py</code> · the probe</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Proofs &amp; claims</h5>
+      <ul>
+        <li><code>refine-logs/dp-stronger-attacks/vec2text-pooled/PROOF_PACKAGE.md</code></li>
+        <li><code>research-wiki/claims/spectral-channel-mi-embedding-inversion.md</code></li>
+        <li><code>refine-logs/dp-stronger-attacks/EXPERIMENT_RESULTS.md</code> · B7–B10</li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>Vec2Text · <a href="https://arxiv.org/abs/2310.06816">arXiv 2310.06816</a> · <a href="https://github.com/vec2text/vec2text">github</a></li>
+        <li>Rep2Text · <a href="https://arxiv.org/abs/2511.06571">arXiv 2511.06571</a></li>
+        <li>LMs are Injective · <a href="https://arxiv.org/abs/2510.15511">arXiv 2510.15511</a></li>
+        <li>CAPRISE / ppRAG · distance-preserving RAG (Ye et al.)</li>
+      </ul>
+    </div>
+  </footer>
+</div>

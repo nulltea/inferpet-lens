@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — residual stream under DP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Residual stream<br><em>— under differential privacy</em></h1>
+      <p class="subtitle">When a defense adds noise to a token's representation, does the leakage the MI probes <em>see</em> actually get <em>recovered</em> by an attack? The gap between the two is an <strong>attack-efficiency</strong> gap, not a probe failure. It appears in <strong>input-DP</strong> settings — and at <em>depth</em> specifically requires noise <strong>propagation</strong> (it is <strong>absent under at-layer noise</strong>, where even ridge tracks MI). A weak ridge attack collapses and decorrelates from MI; an information-efficient attack realizes the preserved information (exact Bayes-NN at L0, the ceiling-realization case) and re-correlates with MI (a trained channel-aware decoder at propagated depth).</p>
+    </div>
+    <div class="colophon">
+      <div><b>surface</b>&nbsp;&nbsp;<code>resid_post[L]</code> + L0 embedding · secret = token id</div>
+      <div><b>attack</b>&nbsp;&nbsp;Bayes-NN · channel-aware decoder · forward-model Vec2Text</div>
+      <div><b>probe</b>&nbsp;&nbsp;CLUB <code>I(rep;tok)</code> · capacity-PVI · MDL/SDL — attack-independent</div>
+      <div><b>verdict</b>&nbsp;&nbsp;Codex <span class="mono">gpt-5.x</span> xhigh · result-to-claim PARTIAL · audit WARN</div>
+      <span class="rev">research report · 2026-06-23</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 OVERVIEW ═════ -->
+  <section id="overview">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">What this is</h2>
+      <div class="section-meta">the thesis on one surface</div>
+    </header>
+    <p class="lede">
+      The leakage probes (mutual-information estimators) barely move as differential-privacy noise grows, yet a deployed ridge attack's recovery <em>collapses</em>. Is the probe wrong, or is the attack weak? <strong>The attack is weak.</strong> The information the probe measures is preserved; the weak attack just cannot extract it — and a stronger, information-efficient attack does, re-correlating recovery with the probe.
+    </p>
+    <div class="prose">
+      <p><strong>Threat model — <code>WEIGHTS-PUB</code> honest-but-curious.</strong> The adversary knows the model weights, the embedding table, and the <em>published</em> DP parameters (clip <code>C</code>, noise <code>σ</code>), and can synthesize unlimited <code>(noised-representation, token)</code> training pairs at any <code>σ</code>. Every attack compared here uses only this — comparisons between admissible attacks are fair (<code>claim:threat-model-fairness</code>).</p>
+      <p><strong>The one finding that frames the page:</strong> the MI↔recovery <em>decorrelation</em> (ridge recovery anti-correlating with the MI probes across the sweep) is <strong>not universal — at depth it is specific to noise <span class="accent">propagation</span></strong>. Under noise added <em>at the captured layer</em>, even the weak ridge tracks MI perfectly (ρ=1.0). At L0 ridge still tracks the probes positively (+0.76..+0.88) though its recovery collapses (an uplift gap, not decorrelation). True decorrelation (ridge ρ=−0.09) appears only when DP noise is injected at the embedding and <em>reshaped through the nonlinear blocks</em>; there a stronger decoder is needed, and it re-correlates (+0.83).</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 DEFINITIONS ═════ -->
+  <section id="defs">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Definitions &amp; glossary</h2>
+      <div class="section-meta">terms used on this page</div>
+    </header>
+    <table class="spec">
+      <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>surface</strong></td><td>The released object: a per-position residual-stream vector <code>resid_post[L]∈R^d</code>, or (L0) the noised embedding of a token. Secret = the <strong>token id</strong> behind it.</td></tr>
+        <tr><td><strong>at-layer noise</strong></td><td>Gaussian noise added <em>directly to the captured layer</em> <code>resid_post[L]</code> (level = σ/act-RMS). The representation is otherwise clean.</td></tr>
+        <tr><td><strong>propagated input-DP</strong></td><td>DP Gaussian noise added at the <em>embedding</em>, then run forward through the model; the layer-L observation is the noise <em>reshaped through depth</em>. The hard, interesting regime.</td></tr>
+        <tr><td><strong>ridge</strong></td><td>The information-inefficient baseline attack: closed-form linear (ridge) map from observation → embedding, then nearest token. Self-generates noised training pairs.</td></tr>
+        <tr><td><strong>Bayes-NN</strong></td><td>L0 exact channel optimum: nearest-neighbour to the known embedding table under the published noise model. No training set — uses strictly <em>less</em> than ridge, still admissible.</td></tr>
+        <tr><td><strong>channel-aware decoder</strong></td><td>An MLP / deep / Vec2Text-style corrector trained on the σ-matched noised representation → token. The stronger attack at depth.</td></tr>
+        <tr><td><strong>FMV</strong></td><td>Forward-model-in-loop Vec2Text: re-embed decoder-seeded candidate tokens through the actual model and match to the observed noised representation.</td></tr>
+        <tr><td><strong>CLUB / capPVI / MDL-SDL</strong></td><td>The three attack-<em>independent</em> probes. CLUB = variational MI upper bound <code>I(rep;tok)</code> (bits); capacity-PVI = capacity-controlled reader accuracy; MDL/SDL = surplus description length (bits). None runs the attack.</td></tr>
+        <tr><td><strong>recovery / selectivity</strong></td><td>TTRSR / top-1 exact-match recovery rate; <em>selectivity</em> = recovery − shuffle-control floor (guards against memorization). The per-secret readout.</td></tr>
+        <tr><td><strong>uplift</strong></td><td>recovery(strong attack) − recovery(ridge). Positive ⇒ the stronger attack extracts preserved information ridge misses.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 3 HOW IT WORKS ═════ -->
+  <section id="how">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">How it works</h2>
+      <div class="section-meta">the measurement loop, two noise geometries</div>
+    </header>
+    <div class="prose">
+      <p>For each surface we run the <strong>measurement loop</strong>: (1) run an attack → graded recovery; (2) run an attack-<em>independent</em> probe → bits; (3) sweep the DP budget ε; (4) test whether bits and recovery correlate across the sweep. The novelty here is that the answer depends on <em>where</em> the noise enters.</p>
+    </div>
+    <div class="diagram-frame">
+      <table class="spec">
+        <thead><tr><th>Noise geometry</th><th>Does ridge track MI?</th><th>Does a stronger attack help?</th><th>Reading</th></tr></thead>
+        <tbody>
+          <tr><td><strong>At-layer</strong> (R2/R3)</td><td class="accent">yes, ρ=1.0</td><td class="warn">no — MLP loses to ridge</td><td>No gap: ridge is already near-sufficient; nothing to restore.</td></tr>
+          <tr><td><strong>L0 input-DP</strong> (R1)</td><td>ridge still tracks (+0.76..+0.88) but its recovery collapses</td><td class="accent">yes — Bayes-NN uplift +0.98</td><td>Uplift / ceiling-realization gap (not decorrelation): information preserved, exact optimum extracts it.</td></tr>
+          <tr><td><strong>Propagated</strong> @depth (R4/R5)</td><td class="warn">no — ridge anti-correlates −0.09</td><td class="accent">yes — decoder re-correlates +0.83</td><td>The open regime, cracked in the right direction.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═════ § 4 PROBE ═════ -->
+  <section id="probes">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">The probes</h2>
+      <div class="section-meta">why they are attack-independent</div>
+    </header>
+    <div class="prose">
+      <p>All three probes are computed <strong>without running the attack</strong> (integrity-critical — a probe that reported the attack's own bits would make any correlation circular). The cross-model integrity audit confirmed CLUB, capacity-PVI and MDL/SDL each estimate leakage independently and do not call the attack's recovery output.</p>
+      <p>Under <strong>at-layer noise all three track recovery</strong> (Spearman 0.80–1.0): CLUB and capPVI are smoothest (ρ=1.0), MDL/SDL noisier and 6–7× costlier (report it auxiliary). This closes the "is MDL faithful too?" question and shows the probes are not the limiting factor — the attack is.</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>Probe</th><th>Bits it reports</th><th class="num">at-layer ρ(probe, recovery)</th><th>independent of attack?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>CLUB</strong></td><td>MI upper bound <code>I(rep;tok)</code></td><td class="num accent">+1.00</td><td>yes (trains <code>q(y|x)</code>, not the attack)</td></tr>
+        <tr><td><strong>capacity-PVI</strong></td><td>reader accuracy (V-info)</td><td class="num accent">+1.00</td><td>yes (capacity-matched reader)</td></tr>
+        <tr><td><strong>MDL / SDL</strong></td><td>surplus description length</td><td class="num">+0.80</td><td>yes (online code length)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 5 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">bits canonical + per-secret readout · gemma-2-2b · AMD ROCm iGPU</div>
+    </header>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:8px 0 8px;">R1 — L0 input-DP · exact Bayes-NN vs ridge <span class="mono" style="font-size:12px">(synthetic_proxy; recovery from l0_fast.txt, bits from b2_l0_bayes.json)</span></h4>
+    <table class="spec">
+      <thead><tr><th>ε (r=σ√d/C)</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">uplift</th><th class="num">CLUB (bits)</th><th class="num">capPVI</th></tr></thead>
+      <tbody>
+        <tr><td>∞ (0.00)</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">+0.000</td><td class="num">3084</td><td class="num">0.981</td></tr>
+        <tr><td>256 (0.91)</td><td class="num">0.202</td><td class="num accent">1.000</td><td class="num accent">+0.798</td><td class="num">2624</td><td class="num">0.935</td></tr>
+        <tr><td><b>128 (1.82)</b></td><td class="num warn">0.020</td><td class="num accent">1.000</td><td class="num accent">+0.980</td><td class="num">1912</td><td class="num">0.736</td></tr>
+        <tr><td>64 (3.63)</td><td class="num warn">0.002</td><td class="num accent">0.993</td><td class="num accent">+0.992</td><td class="num">—</td><td class="num">—</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>Bayes-NN holds ~1.0 to r≈2.4 while ridge collapses 50×; CLUB decays only −38%. The information is <strong>preserved</strong> — ridge is information-inefficient. (L0 is the easiest layer: observation ≈ noised embedding, exact table known. Clean proof-of-principle, not the hard case.)</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R2 — AT-LAYER noise · the negative that defines the regime</h4>
+    <table class="spec">
+      <thead><tr><th>L</th><th class="num">level</th><th class="num">ridge sel</th><th class="num">decoder sel</th><th class="num">uplift</th><th class="num">CLUB (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>12</td><td class="num">0.0</td><td class="num">+0.704</td><td class="num">+0.406</td><td class="num warn">−0.298</td><td class="num">2902</td></tr>
+        <tr><td>20</td><td class="num">0.0</td><td class="num">+0.720</td><td class="num">+0.495</td><td class="num warn">−0.225</td><td class="num">3043</td></tr>
+        <tr><td>20</td><td class="num">3.0</td><td class="num">+0.077</td><td class="num">+0.030</td><td class="num warn">−0.047</td><td class="num">375</td></tr>
+      </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Across the noise sweep, <strong>both</strong> ridge and decoder selectivity track the MI probes with Spearman <strong>ρ=1.00</strong> at L5/12/20 (a per-sweep correlation, not a per-row value) — ridge does not decorrelate under at-layer noise.</caption>
+    </table>
+    <div class="prose"><p>A 250-epoch MLP decoder <strong>loses to ridge</strong> at every depth/level — and crucially, <strong>both attacks track MI perfectly (ρ=1.0)</strong>. Ridge does <em>not</em> decorrelate here. So the decorrelation seen at depth is <strong>not</strong> a generic property of ridge under noise — it is specific to propagation (R4/R5).</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R5 — PROPAGATED input-DP @L20 · the headline <span class="mono" style="font-size:12px">(single seed — no robustness claim)</span></h4>
+    <table class="spec">
+      <thead><tr><th>attack</th><th class="num">ρ(selectivity, capPVI)</th><th class="num">ρ(selectivity, CLUB)</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td><strong>deep decoder</strong></td><td class="num accent">+0.83</td><td class="num">—</td><td>re-correlates with MI</td></tr>
+        <tr><td>iterative corrector</td><td class="num accent">+0.71</td><td class="num accent">+0.71</td><td>re-correlates</td></tr>
+        <tr><td><strong>ridge</strong></td><td class="num warn">−0.09</td><td class="num warn">−0.09</td><td>anti-correlates (decorrelated)</td></tr>
+      </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Descriptive Spearman over a <strong>single seed</strong>, n=6 ε points — directional, not a robustness claim; multi-seed CIs are the named firm-up.</caption>
+    </table>
+    <div class="prose"><p>The trained decoder's recovery <strong>tracks the MI probes (+0.83) where ridge anti-correlates (−0.09)</strong> — exactly the objective: a stronger attack restores the correlation the weak attack breaks. Uplift is a noise crossover (decoder wins ε≤384, ridge wins clean). <strong>Embedding-space iteration is null</strong> (<code>iter_T3 − iter_T1 = +0.000</code>): a fixed-point corrector — the lever is noise-aware training, not re-embedding feedback.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R6 — forward-model Vec2Text @L20 · regime-dependence (the open gap)</h4>
+    <table class="spec">
+      <thead><tr><th>ε</th><th class="num">ridge</th><th class="num">decoder</th><th class="num">FMV</th><th class="num">uplift FMV−ridge</th></tr></thead>
+      <tbody>
+        <tr><td><b>∞</b></td><td class="num">0.212</td><td class="num">0.380</td><td class="num accent">0.738</td><td class="num accent">+0.526</td></tr>
+        <tr><td>512</td><td class="num">0.489</td><td class="num">0.431</td><td class="num">0.495</td><td class="num">+0.006</td></tr>
+        <tr><td>256</td><td class="num">0.227</td><td class="num">0.245</td><td class="num warn">0.025</td><td class="num warn">−0.202</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>FMV closes the low-noise gap (+0.53 over ridge at clean) but is <strong>noise-fragile</strong> — it matches a <em>clean</em> reference to a single noisy draw, collapsing below ridge at ε=256. Mirror image of R5's decoder (best at high noise). <strong>No single attack dominates the noise range</strong> ⇒ the named optimum is a <em>noise-aware</em> FMV (match <code>E[Y|candidate]</code>) ⊕ a learned denoiser — the live frontier.</p></div>
+  </section>
+
+  <!-- ═════ § 6 CLAIM ═════ -->
+  <section id="claims">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Claims</h2>
+      <div class="section-meta">jury-gated · PARTIAL</div>
+    </header>
+    <div class="prose">
+      <p><strong><code>claim:restore-correlation</code></strong> — <em>info-efficient attacks restore the MI↔recovery correlation where the weak attack decorrelates</em>. Verdict: <strong>PARTIAL</strong> (Codex xhigh, medium confidence). L0 supports the attack-efficiency premise via <em>uplift / ceiling-realization</em> (Bayes-NN +0.98); propagated depth supplies the literal <em>re-correlation</em> evidence (deep decoder +0.83 vs ridge −0.09); explicitly <em>not</em> under at-layer noise (no gap); a full-noise-range depth ceiling attack is open. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
+      <p><strong><code>claim:bayes-gap-diagnosis</code></strong> — <em>the MI-recovery gap is a Bayes-optimality (attack-efficiency) gap, not poor MI prediction</em>. Verdict: <strong>PARTIAL</strong>. Directly shown at L0 (probe high while ridge collapses, Bayes recovers ~1.0); at depth the gap is inferred, not measured to the ceiling. <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
+      <p>Both rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (Bayes-optimal weakly dominates lossy/linear; recovery monotone in MI on the Gaussian arm) — these are its empirical instantiation on the residual stream.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 PROOF ═════ -->
+  <section id="proofs">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Proof backbone</h2>
+      <div class="section-meta">the verified theorem under the empirics</div>
+    </header>
+    <div class="prose">
+      <p><strong>T1</strong> (verified, Codex xhigh proof-checker): under the S–X–Y Markov chain with finite second moment / finite alphabet, (a) the Bayes-optimal attack on <code>Y</code> weakly dominates any lossy/linear attack for every prior and stated loss (Blackwell post-processing / Rao–Blackwell); (b) strict for squared loss unless <code>E[S|Y]</code> is affine (MMSE orthogonality); (c) on the Gaussian/DP arm the optimal attack's recovery is monotone in MI (I-MMSE: <code>dI/dsnr = ½·mmse</code>; degradation-order DPI for the token target).</p>
+      <p>This is exactly why the empirics read as an <em>attack-efficiency</em> story: the optimal attack <em>must</em> track MI by T1(c); a weak attack carries an additional approximation-gap term and need not. The full proof lives in <span class="mono">research-wiki/claims/thm-t1-info-efficient.md</span>.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 8 CONCLUSIONS ═════ -->
+  <section id="conclusions">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Conclusions</h2>
+      <div class="section-meta">what leaks, how much, why</div>
+    </header>
+    <div class="prose">
+      <p><strong>What leaks.</strong> Under DP the token-identity information measured by MI is largely preserved (CLUB decays slowly); whether it is <em>recovered</em> is an attack-strength question. The <strong>anti-correlation</strong> between bits and recovery seen <strong>at depth</strong> is a property of <strong>noise propagation</strong>, not of MI or of noise per se (under at-layer noise even ridge tracks MI; at L0 the gap is uplift, not anti-correlation).</p>
+      <p><strong>The honest gap.</strong> No single attack dominates the noise range — forward-model match wins low-noise (+0.53), the trained decoder wins high-noise. The matched program's next move is a noise-aware FMV ⊕ denoiser with multi-seed dense-ε confidence intervals; this consolidation is <em>single-seed at depth</em> and makes no robustness claim there.</p>
+      <p><strong>Dead-ends recorded (first-class):</strong> plain MLP-vs-ridge under at-layer noise (no gap); embedding-space Vec2Text iteration (null, fixed point at t=1); Vec2Text on per-position resid (category error — it needs a pooled bottleneck, moved to the <a href="vec2text.html">pooled-embedding surface</a>). See <span class="mono">research-wiki/experiments/resid-dp-attacks-negative-results.md</span>.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="colophon" style="margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+    <div>
+      <h5>Code</h5>
+      <ul>
+        <li><code>scripts/spikes/b2_l0_bayes_attack.py</code> · R1</li>
+        <li><code>scripts/spikes/b2_lpos_decoder.py</code> · R2</li>
+        <li><code>scripts/spikes/b2_propagated_dp.py</code> · R4</li>
+        <li><code>scripts/spikes/b6_strong_decoder.py</code> · R5</li>
+        <li><code>scripts/spikes/b6c_forward_model_vec2text.py</code> · R6</li>
+        <li><code>scripts/spikes/mdl_probe_check.py</code> · R3</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims &amp; logs</h5>
+      <ul>
+        <li><code>research-wiki/claims/restore-correlation.md</code></li>
+        <li><code>research-wiki/claims/bayes-gap-diagnosis.md</code></li>
+        <li><code>research-wiki/claims/thm-t1-info-efficient.md</code> · verified</li>
+        <li><code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code></li>
+        <li><code>refine-logs/resid-dp-attacks/EXPERIMENT_AUDIT.md</code> · WARN</li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>I-MMSE · Guo, Shamai, Verdú (2005)</li>
+        <li>de Cherisey et al. · side-channel MI bounds</li>
+        <li>BeamClean · denoise-then-invert under DP</li>
+        <li>LMs are Injective · <a href="https://arxiv.org/abs/2510.15511">arXiv 2510.15511</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
