@@ -63,3 +63,5 @@
 {"from": "exp:vec2text-feedback-null", "to": "claim:spectral-channel-mi-embedding-inversion", "type": "supports", "evidence": "partial: feedback-null on per-position resid motivates pooled-surface scope", "added": "2026-06-23T19:29:16Z"}
 {"from": "idea:info-efficient-attacks", "to": "exp:cover-break-matched-deferred", "type": "tested_by", "evidence": "exp cover-break-matched-deferred tests idea", "added": "2026-06-23T21:18:12Z"}
 {"from": "exp:cover-break-matched-deferred", "to": "claim:perm-llr-threshold", "type": "relates", "evidence": "negative companion: matched cover-break deferred (fastica unimplemented)", "added": "2026-06-23T21:19:52Z"}
+{"from": "exp:defenses-existing-leakage-utility", "to": "claim:defense-channel-selectivity-mechanism-dependent", "type": "supports", "evidence": "partial: channel-selectivity + mechanism-dependent calibration", "added": "2026-06-23T21:59:08Z"}
+{"from": "claim:defense-channel-selectivity-mechanism-dependent", "to": "claim:depth-decoupling-input-dp", "type": "supports", "evidence": "Shredder no-sign-flip corroborates input-DP decoupling as injection-locus property", "added": "2026-06-23T21:59:09Z"}

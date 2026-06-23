@@ -79,7 +79,7 @@ surface: defenses-existing
 run_id: a6-defenses
 gate: review refine-logs/defenses-existing/REVIEW_STATE.json
 objective: consolidate the implemented aloepri + shredder defense evals into a leakage–utility story (bits + readout vs parameter), claim(s)+log+HTML; note which surfaces each touches.
-- [ ] run-phase: a6-defenses
+- [x] run-phase: a6-defenses
 
 ### Task 8: site assembly + index + zero-leakage reference
 recipe: consolidate

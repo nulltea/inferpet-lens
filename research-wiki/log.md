@@ -65,3 +65,6 @@ _Append-only timeline._
 - `2026-06-23T21:18:12Z` add_experiment: updated exp:vma-fullsort-vs-rowsort [verdict=yes confidence=high]
 - `2026-06-23T21:18:12Z` add_experiment: updated exp:cover-break-matched-deferred [verdict=no confidence=high]
 - `2026-06-23T21:19:52Z` consolidate perm-cover: claim:perm-llr-threshold verified (proof PASS 019ef653); exp:vma-fullsort-vs-rowsort yes; exp:cover-break-matched-deferred deferred
+- `2026-06-23T21:57:46Z` add_claim: updated claim:defense-channel-selectivity-mechanism-dependent [status=drafted] prov=.aris/traces/result-to-claim/2026-06-23_defenses-existing_run01/ ; refine-logs/defenses-existing/PROOF_AUDIT.json
+- `2026-06-23T21:57:46Z` add_experiment: updated exp:defenses-existing-leakage-utility [verdict=partial confidence=medium]
+- `2026-06-23T21:59:09Z` consolidate defenses-existing: claim:defense-channel-selectivity-mechanism-dependent (drafted, proof PASS) + exp:defenses-existing-leakage-utility (partial); edges supports + corroborates depth-decoupling

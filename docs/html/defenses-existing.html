@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — implemented defenses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Implemented defenses<br><em>leakage against utility</em></h1>
+      <p class="subtitle">Two deployed defenses, a learned additive noise at a split activation and a static invertible obfuscation of the embedding table, are swept from plaintext through their privacy parameter. Additive noise is channel selective: it drives permutation recovery from full to near chance while token identity stays recoverable at every depth. The mutual-information probe tracks recovery within each defense, but the calibration from bits to recovery does not transfer across defense families.</p>
+      <span class="rev">research report · 2026-06-23</span>
+    </div>
+  </header>
+
+  <!-- §01 INTRODUCTION -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">two defenses, one leakage-utility question</div>
+    </header>
+    <p class="lede">A defense advertises one privacy parameter. Does increasing it reduce leakage uniformly across every secret a representation carries, and does a single information measure predict how much an attacker recovers once the defense is in place? For the two defenses measured here the answer to both is no.</p>
+    <div class="prose">
+      <p>The first defense adds independent Laplace noise to an intermediate activation before it leaves the device, a learned lossy split-inference cover (Mireshghallah et al., 2020). The second is a static, invertible obfuscation of the token-embedding table: a secret row permutation, optional additive noise, and an optional dense change of basis (covariant obfuscation, 2026). Both are read here as defenses, that is, swept across their privacy parameter and graded for leakage against the recovery an attacker achieves.</p>
+      <p><strong>Threat model (public weights).</strong> The adversary knows the model weights, the embedding table, and the published defense parameters, and synthesizes unlimited training pairs at any parameter value. Comparisons between admissible attacks are therefore fair.</p>
+      <p><strong>Headline.</strong> Additive Laplace noise of growing scale collapses permutation (row-correspondence) recovery from 1.00 to 0.04 while token-identity recovery stays at or above 0.45 at every depth, including the largest noise. The same noise that destroys fine row geometry leaves the coarse token-identity statistic recoverable. Separately, the rank correlation between probe bits and attack recovery is higher within a single defense family (input-layer differential privacy 0.64 to 0.81) than within the additive-noise family (0.39 to 0.43), and pooling the two families degrades it (0.45 to 0.57). A probe calibrated on one defense under-predicts recovery on another. This cross-family comparison is preliminary: few sweep points, and one channel's additive-noise arm is undefined.</p>
+    </div>
+  </section>
+
+  <!-- §02 PRELIMINARIES -->
+  <section id="preliminaries">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Preliminaries</h2>
+      <div class="section-meta">terms used on this page</div>
+    </header>
+    <table class="spec">
+      <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>additive-noise cover</strong></td><td>Independent Laplace noise of scale <code>b</code> added to the observed activation before release. The privacy parameter is <code>b</code>: larger <code>b</code> lowers signal-to-noise and accuracy.</td></tr>
+        <tr><td><strong>static obfuscation</strong></td><td>An invertible transform of the embedding table: a secret row permutation, additive Gaussian noise scaled by <code>α</code>, and (in the strong regime) a dense invertible change of basis applied to the feature coordinates.</td></tr>
+        <tr><td><strong>permutation channel</strong></td><td>Secret = which obfuscated row corresponds to which token (the row correspondence). Recovered by matching rows to the plaintext table.</td></tr>
+        <tr><td><strong>token-identity channel</strong></td><td>Secret = the token behind a representation. Recovered by inverting the representation to the embedding and taking the nearest token.</td></tr>
+        <tr><td><strong>matching recovery</strong></td><td>Fraction of rows placed on their true token by a permutation-invariant signature and a one-to-one (Hungarian) assignment. The permutation readout.</td></tr>
+        <tr><td><strong>inversion recovery</strong></td><td>Top-1 token recovery of a closed-form linear (ridge) inverse from the noised representation. The token-identity readout.</td></tr>
+        <tr><td><strong>channel mutual-information probe</strong></td><td>A variational mutual-information upper bound and a capacity-controlled reader, both estimating bits without running the attack. The attack-independent measures.</td></tr>
+        <tr><td><strong>matching-in-bits reference</strong></td><td>A retrieval V-information that fits an inverter and scores the true candidate by cosine-softmax retrieval. This is the matching attack rendered in bits; it travels beside the independent probe and is never read as independent confirmation.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- §03 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">measurement procedure</div>
+    </header>
+    <p class="prose">Activations of a 2.6-billion-parameter model were captured once on a fixed prompt set. For the additive-noise cover, Laplace noise was applied in memory at six scales across four observation depths and three seeds; at each setting a permutation-invariant matcher recovered the row correspondence, a ridge inverse recovered token identity, and the variational and capacity probes reported bits, none of them reading the others' output. For the static obfuscation, a real embedding table was swept across eight noise scales in the permutation-and-noise regime, with one further point exercising the dense change of basis. The rank correlation between probe bits and attack recovery was then computed across each sweep, and across the two defense families pooled. All reported numbers use a common schema: bits stored verbatim, with the per-secret recovery readout beside.</p>
+    <div class="diagram-frame">
+      <svg class="flow" viewBox="0 0 760 320" width="100%" role="img" aria-label="Pipeline: a defended representation feeds two attack paths, permutation matching and token inversion, and an independent mutual-information probe; their recoveries are correlated against probe bits across the parameter sweep.">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="var(--ink)"></path></marker>
+        </defs>
+        <!-- defense -->
+        <rect x="20" y="120" width="160" height="50" rx="6" class="box box-tee"></rect>
+        <text x="100" y="142" text-anchor="middle" class="box-label">defense</text>
+        <text x="100" y="158" text-anchor="middle" class="box-sub">noise scale / obfuscation</text>
+        <!-- surface -->
+        <rect x="20" y="190" width="160" height="50" rx="6" class="box box-gpu"></rect>
+        <text x="100" y="212" text-anchor="middle" class="box-label">defended surface</text>
+        <text x="100" y="228" text-anchor="middle" class="box-sub">activation / embed table</text>
+        <line x1="100" y1="170" x2="100" y2="189" class="arrow" marker-end="url(#ah)"></line>
+        <!-- attack path 1: permutation -->
+        <rect x="250" y="30" width="200" height="50" rx="6" class="box box-client"></rect>
+        <text x="350" y="52" text-anchor="middle" class="box-label">permutation matcher</text>
+        <text x="350" y="68" text-anchor="middle" class="box-sub">signature + Hungarian</text>
+        <rect x="520" y="30" width="210" height="50" rx="6" class="box box-client"></rect>
+        <text x="625" y="52" text-anchor="middle" class="box-label">matching recovery</text>
+        <text x="625" y="68" text-anchor="middle" class="box-sub">vs known permutation</text>
+        <line x1="180" y1="200" x2="250" y2="60" class="arrow" marker-end="url(#ah)"></line>
+        <line x1="450" y1="55" x2="518" y2="55" class="arrow" marker-end="url(#ah)"></line>
+        <!-- attack path 2: token -->
+        <rect x="250" y="120" width="200" height="50" rx="6" class="box box-client"></rect>
+        <text x="350" y="142" text-anchor="middle" class="box-label">token inverter</text>
+        <text x="350" y="158" text-anchor="middle" class="box-sub">ridge + nearest token</text>
+        <rect x="520" y="120" width="210" height="50" rx="6" class="box box-client"></rect>
+        <text x="625" y="142" text-anchor="middle" class="box-label">inversion recovery</text>
+        <text x="625" y="158" text-anchor="middle" class="box-sub">top-1 token</text>
+        <line x1="180" y1="210" x2="250" y2="145" class="arrow" marker-end="url(#ah)"></line>
+        <line x1="450" y1="145" x2="518" y2="145" class="arrow" marker-end="url(#ah)"></line>
+        <!-- probe path -->
+        <rect x="250" y="230" width="200" height="50" rx="6" class="box box-storage"></rect>
+        <text x="350" y="252" text-anchor="middle" class="box-label">mutual-information probe</text>
+        <text x="350" y="268" text-anchor="middle" class="box-sub">variational + capacity</text>
+        <rect x="520" y="230" width="210" height="50" rx="6" class="box box-storage"></rect>
+        <text x="625" y="252" text-anchor="middle" class="box-label">bits</text>
+        <text x="625" y="268" text-anchor="middle" class="box-sub">runs no attack</text>
+        <line x1="180" y1="225" x2="250" y2="252" class="arrow" marker-end="url(#ah)"></line>
+        <line x1="450" y1="255" x2="518" y2="255" class="arrow" marker-end="url(#ah)"></line>
+        <!-- correlation -->
+        <text x="625" y="195" text-anchor="middle" class="box-sub" font-style="italic">Spearman( bits , recovery )</text>
+        <line x1="625" y1="172" x2="625" y2="185" class="arrow" stroke-dasharray="3 3"></line>
+        <line x1="625" y1="228" x2="625" y2="200" class="arrow" stroke-dasharray="3 3"></line>
+      </svg>
+      <p class="diagram-cap">One defended surface feeds two attacks and one independent probe. Recovery and bits are correlated across the parameter sweep, within each defense and pooled across the two families.</p>
+    </div>
+  </section>
+
+  <!-- §04 LEAKAGE MEASURES -->
+  <section id="measures">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Leakage Measures</h2>
+      <div class="section-meta">why they are attack-independent</div>
+    </header>
+    <div class="prose">
+      <p>The variational mutual-information upper bound estimates the bits a representation carries about the secret by fitting a conditional density, never the assignment or the inverse the attacks compute. A cross-model integrity audit confirmed the bits columns are computed without running the matching or inversion attacks (the load-bearing independence check passed). The retrieval V-information is the matching attack rendered in bits; it is reported only as a legible attack-in-bits reference, never as independent confirmation.</p>
+      <p>One numerical caveat shapes the reporting. The perplexity readout and the embedding probe are unstable across seeds (one seed collapses the perplexity readout; the additive-noise embedding probe returns undefined values). The channel-selectivity result below therefore uses attack recovery, not the probe, and the embedding arm of the cross-family comparison is dropped for the additive-noise defense.</p>
+    </div>
+  </section>
+
+  <!-- §05 RESULTS -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">bits canonical + per-secret readout · 2.6B model · ROCm iGPU</div>
+    </header>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:8px 0 8px;">Additive noise is channel selective</h4>
+    <table class="spec">
+      <thead><tr><th>noise scale <code>b</code></th><th class="num">permutation recovery</th><th class="num">token recovery (L0)</th><th class="num">token recovery (L20)</th></tr></thead>
+      <tbody>
+        <tr><td>0.00</td><td class="num">1.000</td><td class="num">0.747</td><td class="num">0.510</td></tr>
+        <tr><td>0.11</td><td class="num">0.977</td><td class="num">0.910</td><td class="num">0.497</td></tr>
+        <tr><td>0.22</td><td class="num">0.565</td><td class="num">0.901</td><td class="num">0.491</td></tr>
+        <tr><td>0.38</td><td class="num">0.204</td><td class="num">0.920</td><td class="num">0.478</td></tr>
+        <tr><td>0.55</td><td class="num">0.099</td><td class="num">0.889</td><td class="num">0.474</td></tr>
+        <tr><td><b>0.82</b></td><td class="num warn">0.037</td><td class="num accent">0.670</td><td class="num accent">0.455</td></tr>
+      </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Permutation recovery is the matching attack on the noised embedding table (mean of three seeds); token recovery is ridge inversion on the activation surface. Token recovery stays at or above 0.45 across all four measured depths (L0, L5, L12, L20; the two intermediate depths sit between the columns shown) over the full noise range. Three seeds, no confidence intervals: the rankings are stable but the absolute values carry seed variation.</caption>
+    </table>
+    <div class="prose"><p>The privacy parameter that takes permutation recovery from 1.00 to 0.04, a 27-fold collapse, leaves token recovery between 0.45 and 0.92. A single noise scale does not protect every secret equally.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">Calibration does not transfer across defense families</h4>
+    <table class="spec">
+      <thead><tr><th>channel</th><th class="num">within input-layer DP</th><th class="num">within additive noise</th><th class="num">pooled</th></tr></thead>
+      <tbody>
+        <tr><td>token identity</td><td class="num">0.642</td><td class="num">0.389</td><td class="num">0.453</td></tr>
+        <tr><td>permutation</td><td class="num accent">0.812</td><td class="num">0.425</td><td class="num">0.569</td></tr>
+        <tr><td>embedding</td><td class="num">0.750</td><td class="num">n/a</td><td class="num">n/a</td></tr>
+      </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Spearman rank correlation between probe bits and attack recovery. The additive-noise embedding arm is undefined (unstable probe) and is omitted. Six noise levels times four depths per family.</caption>
+    </table>
+    <div class="prose"><p>The probe tracks recovery within each family, but the within-family correlation under input-layer differential privacy exceeds the additive-noise one, and pooling the two families lowers it further. The mapping from bits to recovery has a different shape per mechanism.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">Static obfuscation: which mechanism defends</h4>
+    <table class="spec">
+      <thead><tr><th>regime</th><th class="num">noise <code>α</code></th><th class="num">matching recovery</th><th class="num">probe bits</th><th class="num">matching-in-bits</th></tr></thead>
+      <tbody>
+        <tr><td>permutation + noise</td><td class="num">0.00</td><td class="num">1.000</td><td class="num">252</td><td class="num">3.34</td></tr>
+        <tr><td>permutation + noise</td><td class="num">0.35</td><td class="num">0.212</td><td class="num">246</td><td class="num">3.25</td></tr>
+        <tr><td>permutation + noise</td><td class="num">1.50</td><td class="num">0.007</td><td class="num">181</td><td class="num">2.27</td></tr>
+        <tr><td><b>dense change of basis</b></td><td class="num">0.00</td><td class="num accent">0.000</td><td class="num accent">~0</td><td class="num accent">~0</td></tr>
+      </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">In the permutation-and-noise regime the independent probe and the matching-in-bits reference track recovery (Spearman 0.98 and 1.00 across the eight-point noise sweep, single seed). The dense change of basis drives recovery to zero and the probe to its estimator floor at zero added noise; this is a single configuration.</caption>
+    </table>
+    <div class="prose"><p>The permutation-and-noise regime is breakable up to a noise scale near 0.35 and needs roughly 0.5 to suppress recovery below 0.1. The dense change of basis alone, with no added noise, already drives recovery to zero. The invertible basis is the load-bearing mechanism.</p></div>
+  </section>
+
+  <!-- §06 FINDINGS -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">claims with scientific confidence</div>
+    </header>
+    <div class="prose">
+      <p><strong>Additive noise is channel selective (Supported).</strong> Growing the Laplace scale drives permutation recovery from 1.00 to 0.04 while token recovery stays at or above 0.45 at every depth. A single privacy parameter does not reduce leakage uniformly across secret kinds. Evidence is one model with three seeds; not yet replicated across models.</p>
+      <p><strong>The bits-to-recovery calibration is mechanism dependent (Preliminary).</strong> Within-family rank correlation under input-layer differential privacy (0.64 to 0.81) exceeds the additive-noise one (0.39 to 0.43), and pooling degrades it (0.45 to 0.57). The number of sweep points is small and one channel's additive-noise arm is undefined, so this is evidence for limited cross-family transfer, not a transfer-impossibility result.</p>
+      <p><strong>Additive noise injected at the observed layer shows no depth reversal (Supported).</strong> Token recovery stays positive at every depth, unlike differential privacy injected at the input and propagated through the network. Because the noise enters at the observation point with no propagation, it behaves like input-layer noise read at depth zero. This corroborates, from a second defense, that the depth-resolved decoupling under propagated input noise is a property of the injection point, not of lossy defenses in general.</p>
+      <p><strong>The static obfuscation defends through its change of basis (Supported for the configuration tested).</strong> The permutation-and-noise regime is recoverable up to a moderate noise scale, with the independent probe tracking recovery; the dense change of basis eliminates recovery at zero added noise. The change-of-basis result is a single configuration.</p>
+    </div>
+  </section>
+
+  <!-- §07 ANALYSIS -->
+  <section id="analysis">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Analysis</h2>
+      <div class="section-meta">why one channel survives the noise that destroys the other</div>
+    </header>
+    <div class="prose">
+      <p>Channel selectivity follows from a separation of critical noise scales. Model the released representation as a clean point plus isotropic Gaussian noise of scale <code>b</code>. Token identity is decoded by nearest codeword among the distinct used tokens, whose minimum separation is large; permutation recovery must resolve the row correspondence among densely packed points, whose minimum gap is small. A union bound with the Gaussian tail shows the token-identity decoder errs with probability below one half for every <code>b</code> up to a threshold of order the codeword separation divided by the square root of the logarithm of the alphabet size. A complementary argument, giving an optimal decoder all assignments except the orientation within a few disjoint close pairs, reduces permutation recovery to independent binary tests whose error approaches one half; exact recovery is then bounded by two raised to the negative number of such pairs, so it falls toward zero once <code>b</code> exceeds a threshold of order the small inter-row gap.</p>
+      <p>When the inter-row gap is far smaller than the codeword separation, the two thresholds separate by an order of magnitude, opening a band of noise scales in which the permutation channel is destroyed while the token-identity channel survives. This matches the measurement: permutation recovery collapses near scale 0.2 while token recovery persists past 0.8. The proposition is a fixed-codebook model proved for Gaussian noise; the densely-packed-rows condition is the empirical input it encodes, not a claim about the network in general. A full proof is in the claim record.</p>
+    </div>
+  </section>
+
+  <!-- §08 DISCUSSION -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">what leaks, how much, why</div>
+    </header>
+    <div class="prose">
+      <p><strong>What leaks.</strong> A lossy additive defense protects fine geometric secrets, the row correspondence, far more cheaply than coarse ones, the token identity. Reporting a single privacy parameter and a single leakage number understates the residual exposure of the coarse secret. The static obfuscation protects only through its invertible change of basis; its permutation-and-noise core is breakable at moderate noise.</p>
+      <p><strong>The thesis.</strong> The independent measure tracks attack recovery within each defense, confirming the measurement loop, but the calibration is conditional on the mechanism: a measure-to-recovery curve fitted on one defense under-predicts another. Predicting attack success from an attack-independent measure is therefore valid per defense, not universally.</p>
+      <p><strong>Limitations.</strong> One model; the additive-noise sweep uses three seeds, the obfuscation sweep one, and the change-of-basis point is a single configuration; no confidence intervals; the perplexity and embedding probes are numerically unstable, so the channel-selectivity result rests on attack recovery and the embedding arm of the cross-family comparison is omitted. The remaining validation work is multi-seed sweeps with confidence intervals, a held-out calibration test that fits the bits-to-recovery curve on one family and predicts the other, a repaired embedding probe, and a parameter sweep of the change of basis.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer class="colophon" style="margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+    <div>
+      <h5>Code</h5>
+      <ul>
+        <li><code>scripts/defenses/shredder.py</code></li>
+        <li><code>scripts/defenses/aloepri.py</code></li>
+        <li><code>scripts/spikes/b4_cross_scheme.py</code></li>
+        <li><code>scripts/spikes/aloepri_vma_sweep.py</code></li>
+        <li><code>src/talens/report.py</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims &amp; logs</h5>
+      <ul>
+        <li><code>research-wiki/claims/defense-channel-selectivity-mechanism-dependent.md</code></li>
+        <li><code>research-wiki/experiments/defenses-existing-leakage-utility.md</code></li>
+        <li><code>refine-logs/defenses-existing/RESULTS_STANDARDIZED.md</code></li>
+        <li><code>refine-logs/defenses-existing/PROOF_PACKAGE.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>Shredder · Mireshghallah et al. (2020) · <a href="https://arxiv.org/abs/1905.11814">arXiv 1905.11814</a></li>
+        <li>Covariant obfuscation · <a href="https://arxiv.org/abs/2603.01499">arXiv 2603.01499</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

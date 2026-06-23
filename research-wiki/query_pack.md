@@ -30,10 +30,7 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
 - [paper:ding2021_planted_matching_problem] The planted matching problem: Sharp threshold and infinite-order phase transition
 - [paper:dong2025_depth_gives_false] Depth Gives a False Sense of Privacy: LLM Internal States Inversion
 - [paper:fan2019_spectral_graph_matching] Spectral Graph Matching and Regularized Quadratic Relaxations I: The Gaussian Model
-## Recent Relationships (64 total)
-  exp:unified-dp-sweep --supports--> claim:bnn-nns-high-d-geometry
-  exp:unified-dp-sweep --supports--> claim:restore-correlation
-  exp:unified-dp-sweep --extends--> exp:b2-l0-bayes-vs-ridge
+## Recent Relationships (67 total)
   exp:unified-dp-sweep --extends--> exp:b6c-forward-model-vec2text
   claim:bnn-error-bounds-bhattacharyya-fano --uses--> paper:cherisey2019_best_information_most
   claim:bnn-error-bounds-bhattacharyya-fano --uses--> paper:cover2006_elements_information_theory
@@ -42,4 +39,6 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
   claim:bnn-error-bounds-bhattacharyya-fano --supports--> claim:bnn-nns-high-d-geometry
   exp:bnn-error-bounds-validation --supports--> claim:bnn-error-bounds-bhattacharyya-fano
   exp:bnn-error-bounds-validation --supports--> claim:bnn-nns-high-d-geometry
-  idea:info-efficient-attacks -
+  idea:info-efficient-attacks --tested_by--> exp:resid-dp-attacks-negative-results
+  exp:resid-dp-attacks-negative-results --supports--> claim:restore-correlation
+  exp:b2-l0-bayes-vs-ridge --supports--> claim:bayes-gap-di

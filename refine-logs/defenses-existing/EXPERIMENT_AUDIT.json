@@ -1,0 +1,22 @@
+{
+  "date": "2026-06-23",
+  "auditor": "codex-gpt5.5-xhigh (read-only, cross-model)",
+  "surface": "defenses-existing",
+  "overall_verdict": "warn",
+  "integrity_status": "warn",
+  "checks": {
+    "gt_provenance": {"status": "pass", "details": "Π GT = rng-generated tau stored as WeightPair.perm (aloepri.py:134-137); VMA reconstructs via signatures+Hungarian (vma.py:44-54) and reads inverse_perm() only to SCORE (vma.py:63). Token GT = tokenizer input_ids (b4:51,55); ridge fits on train labels, scores held-out (_inversion.py:58-96). No GT leak into attack."},
+    "score_normalization": {"status": "pass", "details": "Recovery = raw equality/hit means (vma.py:65; ridge.py:113). CLUB bits = mi_nats/ln2 verbatim (club.py:197); keymat floor -2.3937 preserved in JSON (aloepri_vma_sweep.json:91). No model-max normalization."},
+    "result_existence": {"status": "warn", "details": "Core numbers trace: Shredder Π=0.037 is honest 3-seed mean of raw 0.036/0.031/0.045 (b4:385,721,1057). cross_scheme_transfer Spearman exist (b4:76); aloepri spearman_vs_recovery exist (aloepri:18). WARN: 'n_prompts=192' is spike default, not stored in JSON — now annotated in doc."},
+    "dead_code": {"status": "pass", "details": "CLUB computed independently of ridge/VMA (weights/measures.py:41; b4:111)."},
+    "probe_attack_circularity": {"status": "pass", "details": "CLUB is attack-independent. retrieval-PVI is explicitly the inversion attack in bits (vinfo.py:134; weights/measures.py:14); RESULTS_STANDARDIZED.md labels it 'VMA-in-bits / never as independent confirmation' (line 21). No attack reports its own recovery as its probe."},
+    "scope": {"status": "warn", "details": "Doc flags single model + probe instability (seed-1 token_probe collapse, embed NaN: b4:492,494). WARN now addressed: aloepri sweep is SINGLE seed (aloepri_vma_sweep.py:49) and keymat is a SINGLE alpha=0 config (aloepri:84; json:87) — both now stated explicitly in the doc."},
+    "eval_type": "synthetic_proxy (defense applied to real gemma-2 activations/embed table; Π = synthetic AloePri perm on real rows; token-id = real tokenizer GT under synthetic Laplace)"
+  },
+  "claims": [
+    {"id": "C1-channel-selectivity", "impact": "supported"},
+    {"id": "C2-cross-family-transfer", "impact": "needs_qualifier"},
+    {"id": "C3-no-depth-signflip", "impact": "supported"},
+    {"id": "C4-aloepri-keymat", "impact": "needs_qualifier"}
+  ]
+}
