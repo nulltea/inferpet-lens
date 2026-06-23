@@ -5,7 +5,8 @@
 
 # --- executor: default Claude Code, autonomous ---
 # (defaults to: claude --dangerously-skip-permissions --output-format stream-json --verbose)
-# task_model left empty -> Claude CLI default model.
+# task_model: pinned to Opus 4.8 (heavy research executor); jury stays Codex gpt-5.5 (cross-model).
+task_model = claude-opus-4-8
 
 # --- reviews OFF: ARIS does code/research/integrity review per phase (experiment-bridge
 #     Phase 2.5, auto-review-loop, experiment-audit). ralphex's own review is redundant. ---
