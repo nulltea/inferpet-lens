@@ -5,7 +5,7 @@ name: "Union-Bhattacharyya (upper) and Fano-equivocation (lower) bounds two-side
 description: ""
 node_type: claim
 status: verified
-provenance: "refine-logs/PROOF_PACKAGE.md; refine-logs/PROOF_AUDIT.md; Codex thread 019eefac, 3 rounds, verdict PASS"
+provenance: "refine-logs/bnn-error-bounds/PROOF_PACKAGE.md; refine-logs/bnn-error-bounds/PROOF_AUDIT.md; Codex thread 019eefac, 3 rounds, verdict PASS"
 tags: ["bnn", "nns", "union-bhattacharyya", "fano-equivocation", "map-error-bounds", "dp-l0", "matched-probe", "geometry-only", "m-ary-gaussian-channel"]
 date: 2026-06-22
 added: 2026-06-22T00:00:00Z
@@ -49,14 +49,14 @@ unbiased for $H(V\mid Y)$ (T4); the $\varepsilon_{vj}$ use an RNG seed independe
 
 3. **Fano lower bound, population** (exact as $M\to\infty$): $P_{e,\infty}^{\mathrm{lb}}(\sigma)=\dfrac{H(V\mid Y)-1}{\log_2(K-1)}$.
 
-3'. **Fano lower bound, certified finite-$M$** (asymptotic CLT coverage; fix $\alpha\in(0,\tfrac12)$, $M\geq2$): with stratified $\widehat{\mathrm{se}}^2=\frac1{K^2M}\sum_v\widehat s_v^2$ ($\widehat s_v^2$ = sample variance of $\{g_v(\varepsilon_{vj})\}_j$) and $\underline H_{M,\alpha}=\widehat H_M-z_{1-\alpha}\widehat{\mathrm{se}}$:
+3'. **Fano lower confidence bound, finite-$M$ (CLT, asymptotic coverage only — not a finite-$M$ certificate)** (fix $\alpha\in(0,\tfrac12)$, $M\geq2$): with stratified $\widehat{\mathrm{se}}^2=\frac1{K^2M}\sum_v\widehat s_v^2$ ($\widehat s_v^2$ = sample variance of $\{g_v(\varepsilon_{vj})\}_j$) and $\underline H_{M,\alpha}=\widehat H_M-z_{1-\alpha}\widehat{\mathrm{se}}$:
 $$P_{e,\alpha}^{\mathrm{lb}}=\frac{\underline H_{M,\alpha}-1}{\log_2(K-1)},\qquad \liminf_{M\to\infty}\mathbb{P}\big(P_{e,\alpha}^{\mathrm{lb}}\leq P_e^*\big)\geq1-\alpha\ \text{(coverage, not a finite-}M\text{ certificate).}$$
 
 ---
 
 ## Theorem 1 — Two-sided bound validity (uniform prior, K≥3)
 **Claim.** $\forall\sigma>0$: $P_{e,\infty}^{\mathrm{lb}}\leq P_e^*\leq P_e^{\mathrm{ub}}\leq P_e^{\mathrm{ub,B}}$; the upper bounds and $P_{e,\infty}^{\mathrm{lb}}$ are functions of $(\{e_v\},\sigma,K)$ only; $P_{e,\alpha}^{\mathrm{lb}}\leq P_e^*$ w.p. $\geq1-\alpha$.
-**Proof.** *Union-Bhattacharyya upper:* condition $V=v$; uniform ⟹ MAP = nearest-neighbor, so error ⟹ $\exists u\neq v$ with $\|Y-e_u\|<\|Y-e_v\|$. Union bound over $u$. With $Y=e_v+\varepsilon$, $\|Y-e_u\|^2-\|Y-e_v\|^2=\|\Delta_{vu}\|^2+2\langle\varepsilon,\Delta_{vu}\rangle<0$ iff $\langle\varepsilon,\Delta_{vu}\rangle<-\|\Delta_{vu}\|^2/2$; since $\langle\varepsilon,\Delta_{vu}\rangle\sim\mathcal N(0,\sigma^2\|\Delta_{vu}\|^2)$ this is $Q(\|\Delta_{vu}\|/2\sigma)$. Average over $v$ ⟹ $P_e^*\leq P_e^{\mathrm{ub}}$. Chernoff $Q(x)\leq\tfrac12e^{-x^2/2}$ ($x\geq0$) ⟹ $P_e^{\mathrm{ub}}\leq P_e^{\mathrm{ub,B}}$. *Fano lower (population):* Fano (Cover–Thomas Thm 2.10.1) $H(V\mid Y)\leq H_b(P_e)+P_e\log_2(K-1)$, $H_b\leq1$; for MAP (min error $P_e^*$), $K\geq3$ ⟹ $P_e^*\geq(H(V\mid Y)-1)/\log_2(K-1)$. *Fano lower (certified):* the functional $\ell(h)=(h-1)/\log_2(K-1)$ is increasing; $\widehat H_M$ unbiased (T4), CLT ⟹ $\underline H_{M,\alpha}\leq H(V\mid Y)$ w.p. $\geq1-\alpha$, so $\ell(\underline H_{M,\alpha})\leq\ell(H(V\mid Y))\leq P_e^*$. ∎
+**Proof.** *Union-Bhattacharyya upper:* condition $V=v$; uniform ⟹ MAP = nearest-neighbor, so error ⟹ $\exists u\neq v$ with $\|Y-e_u\|<\|Y-e_v\|$. Union bound over $u$. With $Y=e_v+\varepsilon$, $\|Y-e_u\|^2-\|Y-e_v\|^2=\|\Delta_{vu}\|^2+2\langle\varepsilon,\Delta_{vu}\rangle<0$ iff $\langle\varepsilon,\Delta_{vu}\rangle<-\|\Delta_{vu}\|^2/2$; since $\langle\varepsilon,\Delta_{vu}\rangle\sim\mathcal N(0,\sigma^2\|\Delta_{vu}\|^2)$ this is $Q(\|\Delta_{vu}\|/2\sigma)$. Average over $v$ ⟹ $P_e^*\leq P_e^{\mathrm{ub}}$. Chernoff $Q(x)\leq\tfrac12e^{-x^2/2}$ ($x\geq0$) ⟹ $P_e^{\mathrm{ub}}\leq P_e^{\mathrm{ub,B}}$. *Fano lower (population):* Fano (Cover–Thomas Thm 2.10.1) $H(V\mid Y)\leq H_b(P_e)+P_e\log_2(K-1)$, $H_b\leq1$; for MAP (min error $P_e^*$), $K\geq3$ ⟹ $P_e^*\geq(H(V\mid Y)-1)/\log_2(K-1)$. *Fano lower (CLT lower confidence bound, asymptotic coverage):* the functional $\ell(h)=(h-1)/\log_2(K-1)$ is increasing; $\widehat H_M$ unbiased (T4), CLT ⟹ $\underline H_{M,\alpha}\leq H(V\mid Y)$ w.p. $\geq1-\alpha$, so $\ell(\underline H_{M,\alpha})\leq\ell(H(V\mid Y))\leq P_e^*$. ∎
 **Honest scope.** Union-Bhattacharyya upper **vacuous** ($>1$) at low SNR (report $\min(1,\cdot)$); tight at high SNR / near-orthogonal pool. Fano lower **vacuous** ($\leq0$) when $H(V\mid Y)\leq1$ bit. Tighter via α-information Fano (Rioul et al. arXiv:2105.07167), deferred. Finite-$M$ Fano bound is asymptotic; $g_v$ is **unbounded** (Hoeffding inapplicable) but **sub-exponential** (T4), so a non-asymptotic route uses Bernstein-type concentration or ε-truncation.
 
 ## Theorem 2 — BNN attains the two-sidedly bounded error
@@ -91,15 +91,15 @@ $\langle\varepsilon,\Delta_{vu}\rangle$ Gaussian ⟹ $\max_{u\neq v}|\cdot|$ has
 For empirical $\hat p$: if $\hat p$ is the class-frequency of the *same* test labels $\{V_i\}$, it touches the transcript ⟹ T3 weakens to conditional independence given label counts; estimate $\hat p$ from a **separate public corpus** to preserve full independence. Prior-aware forms: upper pairwise $Q(\tfrac{\|\Delta_{vu}\|}{2\sigma}-\tfrac{\sigma}{\|\Delta_{vu}\|}\log\tfrac{\hat p(u)}{\hat p(v)})$ weighted $\hat p(v)$; Bhattacharyya $\sqrt{\hat p(u)\hat p(v)}e^{-\|\Delta_{vu}\|^2/8\sigma^2}$; equivocation with $\hat p$ inside the posterior.
 
 ## Viability (complexity)
-Cheapest non-trivial probe and uniquely **⊥ test-set size $n$**: codebook Gram $O(K^2d)\approx19$ GFLOP once (~2 ms, cached over σ); union-Bhattacharyya upper bound sub-ms/σ; Fano $\widehat H_{64}$ ~1.2 s/σ. Full 5-point ε-sweep ~6 s vs 20–60 s/ε iterative training for CLUB/CapPVI/MDL. Reproduces BNN-not-1.0: small-$\|\Delta\|$ morphological pairs dominate the union sum, recovering the ≈0.6% confusion floor of [[claim:bnn-nns-high-d-geometry]] from geometry alone. Limitation: bounds loose at extremes — **the gap between the upper and lower bounds is itself a diagnostic** of where geometry determines the outcome.
+Cheapest non-trivial probe and uniquely **⊥ test-set size $n$**: codebook Gram $O(K^2d)\approx19$ GFLOP once (~2 ms, cached over σ); union-Bhattacharyya upper bound sub-ms/σ; Fano $\widehat H_{64}$ ~1.2 s/σ. Full 5-point ε-sweep ~6 s vs 20–60 s/ε iterative training for CLUB/CapPVI/MDL. Reproduces BNN-not-1.0: small-$\|\Delta\|$ pairs dominate the union sum (the very closest are rare Unicode/PUA glyph tokens of the under-trained tail; case/space/number twins are the *recognizable* subset), recovering the ≈0.6% confusion floor of [[claim:bnn-nns-high-d-geometry]] from geometry alone. Limitation: bounds loose at extremes — **the gap between the upper and lower bounds is itself a diagnostic** of where geometry determines the outcome.
 
 ## Connections
 Uses [[paper:cherisey2019_best_information_most]] (MI predicts optimal-attack success under AWGN),
 [[paper:cover2006_elements_information_theory]] (Fano Thm 2.10.1; Chernoff §11.9),
 [[claim:thm-t1-info-efficient]] (BNN is the Bayes-optimal L0 instance), [[claim:bayes-gap-diagnosis]]
 (instantiates the Fano/de-Cherisey ceiling as computable geometry-only bounds).
-Bounds/supports [[claim:bnn-nns-high-d-geometry]]. Supersedes the NNS-PVI design (rejected — see wiki log 2026-06-22). Tested by exp:bnn-error-bounds-validation (planned, `refine-logs/EXPERIMENT_PLAN.md`).
-Full audited proof: `refine-logs/PROOF_PACKAGE.md`, `refine-logs/PROOF_AUDIT.md`.
+Bounds/supports [[claim:bnn-nns-high-d-geometry]]. Supersedes the NNS-PVI design (rejected — see wiki log 2026-06-22). **Validated** by [[exp:bnn-error-bounds-validation]] (verdict `yes`, high confidence: bracketing 10/10 ε on gemma-2-2b; `refine-logs/bnn-error-bounds/EXPERIMENT_RESULTS.md`).
+Full audited proof: `refine-logs/bnn-error-bounds/PROOF_PACKAGE.md`, `refine-logs/bnn-error-bounds/PROOF_AUDIT.md`.
 
 **References**: Proakis, *Digital Communications* (M-ary union/min-distance bounds); Cover & Thomas,
 *Elements of IT* §11.9, Thm 2.10.1; de Chérisey et al. TCHES 2019; Rioul et al. arXiv:2105.07167;

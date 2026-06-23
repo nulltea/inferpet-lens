@@ -19,7 +19,7 @@ tags: ["bnn", "union-bhattacharyya", "fano-equivocation", "dp-l0", "matched-prob
 
 ## Objective
 A *formal MI probe that correlates with embedding-distance-geometry attacks (BNN@L0)* and is
-**independent of the attack**. Validates the Codex-verified proof (`refine-logs/PROOF_PACKAGE.md`).
+**independent of the attack**. Validates the Codex-verified proof (`refine-logs/bnn-error-bounds/PROOF_PACKAGE.md`).
 
 ## Setup
 gemma-2-2b embedding table (vocab=256000, d=2304), C_raw=4.147, z_dp=4.845, pool=2048 (515
@@ -50,9 +50,13 @@ vocab-disjoint test tokens + fillers), seed=20260622. Channel V~Unif(pool), Y=cl
   low noise** (ε=80: 0.0058 vs 0.0125; ε=96: 0.0006 vs 0.0007) then saturates; the **Fano-equivocation
   lower bound tracks at high noise** (ε≤48: BNN 0.34→0.98 vs lb 0.11→0.79). The two-sided bound brackets
   throughout; the "which side is informative" crossover at r≈3.6 is a SNR-regime diagnostic.
-- **C2 morphological floor — CONFIRMED.** Top union-bound pairs at ε=16 are case/space/number neighbours:
-  `'Hardware'~' Hardware'`, `' pasta'~' Pasta'`, `' six'~' seven'`, `' differential'~'Differential'`,
-  `'3'~'5'`, `' global'~' Global'` — exactly the tokens BNN confuses, from geometry alone.
+- **C2 small-distance / under-trained-tail floor — CONFIRMED (with scope note; morphological twins are the *recognizable* subset, not the dominant one).** The very closest pairs (smallest ‖Δ‖) are
+  dominated by **rare Unicode / private-use glyph tokens** (`'𞤥'~''`, `'𞤥'~'⸏'`, `'⸏'~' vooz'`) that
+  sit almost on top of each other in the under-trained tail of the table. The **recognizable** floor — the
+  human-legible subset of the top-union pairs — is exactly the case/space/number twins one expects:
+  `'Hardware'~' Hardware'` (rank 4), `' pasta'~' Pasta'`, `' six'~' seven'`, `' differential'~'Differential'`,
+  `'3'~'5'`, `' global'~' Global'` — the tokens BNN confuses, named from geometry alone. The claim is that
+  geometry *names the confusable set*; it does not claim that set is *only* morphological twins.
 - **C3 independence — CONFIRMED.** Probe takes no observation argument; depends only on (codebook, σ, RNG).
 
 ## Correlation caveat
@@ -65,6 +69,17 @@ morphological-floor attribution** (predicts *which* tokens confuse — no σ-con
 Mid-transition (r≈3.6) bound gap widest (BNN 0.063 ∈ [0, 0.346]); α-information-Fano / min-distance
 union refinement deferred. Uniform-prior headline scope (empirical-prior Remark-N variant not run). L0 only.
 
+## Result-to-claim verdict (Codex `gpt-5.5` xhigh, thread 019ef607)
+**partial** for the full general claim · **yes** for the experimental validation in the tested
+setting · confidence **medium-high**. What the sweep *does* carry: bracketing 10/10, complementary
+tightness, geometry-only morphological attribution (no σ-confound). What it does *not*: a
+universal claim across models/priors/channels, a tight point estimate, or both-bounds-tight-at-one-ε.
+Crucially, **"independent of the attack by construction" is a proof/design property, not provable by
+an ε-sweep** — it is discharged by the proof (Codex PASS) *and* by the mechanical data-flow assertion
+`tests/test_channel_error_bounds.py::test_no_observation_argument` (T-e: both bound functions expose
+no observation parameter; the bounds path consumes only `{e_v},σ,K,RNG`). Scope is uniform-prior, L0,
+one embedding table (gemma-2-2b) — documented in Limitations, not over-claimed.
+
 ## Connections
-Supports [[claim:bnn-error-bounds-bhattacharyya-fano]], brackets [[claim:bnn-nns-high-d-geometry]].
-Edges in `graph/edges.jsonl`.
+Supports (scoped, partial) [[claim:bnn-error-bounds-bhattacharyya-fano]], brackets
+[[claim:bnn-nns-high-d-geometry]]. Edges in `graph/edges.jsonl`.

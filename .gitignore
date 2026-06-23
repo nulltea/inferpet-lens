@@ -34,3 +34,6 @@ wandb/
 scripts/harness/telegram.env
 scripts/harness/campaign.env
 .deps/
+
+# detached campaign run logs
+refine-logs/_campaign-logs/

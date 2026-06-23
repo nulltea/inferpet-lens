@@ -295,10 +295,12 @@
       the sum of the per-rival errors (the <em class="k">union bound</em>). But that sum is dominated by the very few
       <b>close</b> rivals — almost every pair is near-orthogonal (gap ≈5.86, error ≈0). So a token's fate is decided by
       its single nearest neighbour.</p>
-    <p>These nearest neighbours are not random: they are <b>morphological / case / number twins</b> that the embedding
-      places almost on top of each other. Below are the real closest pairs found in the gemma-2-2b pool, with the
-      per-pair error each contributes at <code>&#949;<sub>dp</sub>=16</code> (highest noise tested). The geometry alone — no
-      attack run — already names exactly which tokens will be confused.</p>
+    <p>These nearest neighbours are not random. The very closest few are <b>rare/under-trained glyph tokens</b>
+      (private-use and exotic Unicode) that sit almost on top of each other in the tail of the table; the
+      <b>recognizable</b> floor — the human-legible part of the list — is <b>morphological / case / number twins</b>.
+      Below are those legible closest pairs from the gemma-2-2b pool, with the per-pair error each contributes at
+      <code>&#949;<sub>dp</sub>=16</code> (highest noise tested). Either way the point holds: the geometry alone — no
+      attack run — already names <em>which</em> tokens will be confused.</p>
 
     <div class="fig">
       <div class="fig-head"><span>Figure C — the confusable pairs (real gemma-2-2b)</span><span class="tag">geometry-only</span></div>
@@ -352,9 +354,9 @@
 
   <div class="foot">
     transformer-attacks-lens · prototype doc · generated 2026-06-22 ·
-    proof: <code>refine-logs/PROOF_PACKAGE.md</code> ·
+    proof: <code>refine-logs/bnn-error-bounds/PROOF_PACKAGE.md</code> ·
     code: <code>src/talens/measures/channel_error_bounds.py</code> ·
-    results: <code>refine-logs/EXPERIMENT_RESULTS.md</code>
+    results: <code>refine-logs/bnn-error-bounds/EXPERIMENT_RESULTS.md</code>
   </div>
 </div>
 
@@ -569,7 +571,8 @@ function drawCurve(){
 }
 
 /* ---------- Figure C: real confusable pairs ---------- */
-const PAIRS=[ // from results/bnn_error_bounds_validation_dense.json (ε=16, σ=1.2557)
+const PAIRS=[ // legible subset of top_confusable_pairs, results/bnn_error_bounds_validation_dense.json (ε=16, σ=1.2557);
+              // 3 closer pairs (‖Δ‖ 0.62–0.72) are rare/PUA glyph tokens, omitted here for legibility
   ["'Hardware'","' Hardware'",0.741],["' pasta'","' Pasta'",0.996],["' six'","' seven'",0.997],
   ["' differential'","'Differential'",1.015],["' states'","'states'",1.019],["'3'","'5'",1.023],
   ["' global'","' Global'",1.035]];

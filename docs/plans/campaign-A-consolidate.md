@@ -61,7 +61,7 @@ surface: embed-bnn
 run_id: a4-bnn
 gate: review refine-logs/embed-bnn/REVIEW_STATE.json
 objective: consolidate the geometry-only union-Bhattacharyya + Fano L0 error-bound probe; run/validate bnn_error_bounds_validation; fold the verified proof into the claim file; HTML page.
-- [ ] run-phase: a4-bnn
+- [x] run-phase: a4-bnn
 
 ### Task 6: permutation-cover — VMA + cover-break
 recipe: consolidate
