@@ -1,0 +1,28 @@
+{
+  "date": "2026-06-23",
+  "auditor": "external-reviewer-xhigh (codex gpt-5.5, read-only, thread 019ef64a-7557-7f30-aaba-b96e2b0f75fc)",
+  "overall_verdict": "warn",
+  "integrity_status": "warn",
+  "checks": {
+    "gt_provenance": {"status": "pass", "details": "VMA graded vs stored secret permutation tau (aloepri.py:134-137); vma.py:63 inverse_perm. Real cached weights, obfuscated synthetically (model_id aloepri-synthetic). Not attack-derived."},
+    "score_normalization": {"status": "pass", "details": "No self-max normalization. VMA = direct fraction-correct. alpha_e=0 -> 1.0 legitimate (zero noise + column-perm-invariant signature). Bits raw; keymat CLUB -2.4 not clipped."},
+    "result_existence": {"status": "pass", "details": "All cited numbers exist+match: uplift +0.434@a0.2, +0.600@a0.35; Spearman CLUB +0.976 retr-PVI +1.00; rs_vs_club_all 1.0 fe 0.991; keymat VMA 0.0 CLUB -2.3937; cover_break p95 0.917@L0."},
+    "dead_code": {"status": "warn", "details": "cover_break fastica_anchor branch raises NotImplementedError (cover_break.py:81); ridge variant executed; disclosed as deferred in writeup."},
+    "scope": {"status": "warn", "details": "Single cached embedding table; R1 3-seed N=1000, R2 1-seed N=1200 (disclosed). R3=fullcheck-L0-10.json is Qwen3-4B ACTIVATIONS, a different surface, not a matched cover-break."},
+    "eval_type": "real_gt (controlled real-weight-table exact secret-permutation recovery)"
+  },
+  "probe_independence": {
+    "club_on_phi": "INDEPENDENT — no Hungarian/NN matching; uses tau only to form positive pairs; variational CLUB MI estimator (measures.py:45, club.py:101). The clean probe.",
+    "retrieval_pvi": "DEPENDENT — 'VMA-in-bits': inverter + cosine-softmax retrieval ranks the true candidate (measures.py:61, vinfo.py:165, _retrieval.py:44); spike aloepri_vma_sweep.py:12 labels it dependent. Its rho=1.0 with VMA is PARTIALLY CIRCULAR; must not be cited as independent confirmation."
+  },
+  "claims": [
+    {"id": "perm-llr-threshold (empirical full-sort>>RowSort)", "impact": "supported"},
+    {"id": "perm-llr-threshold (theory MAP/2logn)", "impact": "needs_proof (pending proof-checker)"},
+    {"id": "thesis-confirmation", "impact": "needs_qualifier — rests on CLUB-on-phi ONLY (independent); retrieval-PVI is attack-in-bits; soften bidirectional language"}
+  ],
+  "action_items": [
+    "Demote retrieval-PVI from 'independent probe' to 'dependent reference (VMA-in-bits)' in RESULTS_STANDARDIZED.md and the claim.",
+    "Thesis-confirmation rests on CLUB-on-phi (rho +0.976 sweep; +1.00/+0.99 recorrelation) only.",
+    "Clarify R3 cover_break is Qwen3-4B activations, a separate surface (plaintext baseline + deferred matched variant)."
+  ]
+}

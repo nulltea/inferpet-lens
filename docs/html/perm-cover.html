@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens · permutation cover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Permutation cover<br><em>matcher strength vs. leakage</em></h1>
+      <p class="subtitle">An embedding table is hidden by permuting its feature columns and adding Gaussian noise; the adversary must recover which obfuscated row is which token. The baseline matcher uses a 64-bin quantile signature and collapses under small noise, yet an attack-independent mutual-information probe shows the leakage is still present. The full sorted row, the per-row maximal invariant of the column permutation, recovers it: <strong>+0.60</strong> recovery over the baseline at the noise level where the baseline has already lost three quarters of its accuracy. An independent leakage measure tracks the strong matcher's recovery across the privacy sweep.</p>
+      <span class="rev">research report · 2026-06-23</span>
+    </div>
+  </header>
+
+  <!-- §01 INTRODUCTION -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the question on one surface</div>
+    </header>
+    <p class="lede">When a baseline attack's recovery collapses as a defense parameter grows, is the information gone, or is the attack weak? On the permutation cover the answer is unambiguous: the attack is weak.</p>
+    <div class="prose">
+      <p>The defense hides a token-embedding table by applying one permutation to its feature coordinates and adding per-row Gaussian noise, then secretly permuting the rows. The adversary observes the plaintext table and the obfuscated table and recovers the row correspondence (which obfuscated row carries which token). The published baseline matcher compares a 64-bin quantile signature of each sorted row and assigns rows by a one-to-one (Hungarian) matching.</p>
+      <p><strong>Threat model (public weights).</strong> The adversary knows both tables and the defense parameters. The column permutation is a known group action, so any column-permutation-invariant row statistic, the sorted row or its quantiles, is a known function of the secret. The comparison between matchers is therefore fair: both see the same admissible information.</p>
+      <p><strong>Headline.</strong> As the noise level grows the baseline recovery collapses (0.98 at level 0.1 down to 0.20 at level 0.35), but the independent mutual-information probe on the signatures barely moves (about a 4 percent decline over that range). Replacing the 64-bin quantile signature with the full sorted row lifts recovery to 0.80 at the same noise level, a gain of 0.60. The full sorted row is the per-row maximal invariant of the column permutation; the quantile binning discards recoverable structure. Under the shared permutation the defense actually applies, this is a sound dominating relaxation rather than the proven joint optimum.</p>
+    </div>
+  </section>
+
+  <!-- §02 PRELIMINARIES -->
+  <section id="preliminaries">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Preliminaries</h2>
+      <div class="section-meta">terms used on this page</div>
+    </header>
+    <table class="spec">
+      <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
+      <tbody>
+        <tr><td><strong>surface</strong></td><td>A token-embedding table whose feature columns are permuted by a single shared permutation, with per-row isotropic Gaussian noise of level <code>α<sub>e</sub></code>, and whose rows are secretly permuted. The released object is the obfuscated table beside the plaintext table.</td></tr>
+        <tr><td><strong>secret</strong></td><td>The row correspondence (a permutation over the <code>N</code> token rows). The recovery readout is the fraction of rows mapped to their correct token.</td></tr>
+        <tr><td><strong>matcher</strong></td><td>A per-row signature plus a one-to-one (Hungarian) assignment maximizing total signature similarity.</td></tr>
+        <tr><td><strong>RowSort-64</strong></td><td>The published baseline signature: the 64-bin quantile summary of the sorted row, compared by cosine.</td></tr>
+        <tr><td><strong>full sorted row</strong></td><td>The entire sorted row, compared by negative Euclidean distance (the isotropic-Gaussian maximum-likelihood score on the sorted vector) or, equivalently in ranking, cosine.</td></tr>
+        <tr><td><strong>channel mutual information</strong></td><td>The attack-independent probe: a variational mutual-information estimate between the paired plaintext and obfuscated signatures. It runs no matching and reports bits.</td></tr>
+        <tr><td><strong>key-matrix cover</strong></td><td>A dense invertible change of basis (not a coordinate permutation) replacing the column permutation; it removes the sorted-row signature entirely.</td></tr>
+        <tr><td><strong>anchor reconstruction</strong></td><td>A separate activation-surface attack that reconstructs hidden rows from a few known anchor pairs; included only as a plaintext baseline (see Discussion).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- §03 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">measurement procedure</div>
+    </header>
+    <p class="prose">A real token-embedding table (dimension 2304) supplied the plaintext rows. For each noise level two independent computations ran on the same obfuscated table. The matcher built a column-permutation-invariant signature of every row (the 64-bin quantile summary for the baseline, the full sorted row for the proposed attack), scored all plaintext-obfuscated signature pairs, and solved the one-to-one assignment by the Hungarian algorithm; recovery was the fraction of rows placed on their true token, graded against the known secret permutation. The probe estimated the mutual information between the paired signatures with a variational estimator and reported bits, without ever running the assignment. The Spearman correlation between probe bits and matcher recovery was then computed across the noise sweep. A single point replaced the column permutation with the dense key matrix to test the converse.</p>
+    <div class="diagram-frame">
+      <svg class="flow" viewBox="0 0 760 300" width="100%" role="img" aria-label="Pipeline: an obfuscated embedding table feeds two independent paths, a sorted-row matcher and a channel mutual-information probe.">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="var(--ink)"></path></marker>
+        </defs>
+        <!-- defense -->
+        <rect x="20" y="40" width="150" height="44" rx="6" class="box box-tee"></rect>
+        <text x="95" y="60" text-anchor="middle" class="box-label">cover</text>
+        <text x="95" y="75" text-anchor="middle" class="box-sub">column perm + noise</text>
+        <line x1="95" y1="84" x2="95" y2="123" class="arrow" marker-end="url(#ah)"></line>
+        <!-- source -->
+        <rect x="20" y="125" width="150" height="50" rx="6" class="box box-gpu"></rect>
+        <text x="95" y="148" text-anchor="middle" class="box-label">obfuscated table</text>
+        <text x="95" y="164" text-anchor="middle" class="box-sub">rows = tokens</text>
+        <!-- attack path -->
+        <rect x="250" y="40" width="200" height="50" rx="6" class="box box-client"></rect>
+        <text x="350" y="62" text-anchor="middle" class="box-label">sorted-row matcher</text>
+        <text x="350" y="78" text-anchor="middle" class="box-sub">signature + Hungarian</text>
+        <rect x="520" y="40" width="210" height="50" rx="6" class="box box-client"></rect>
+        <text x="625" y="62" text-anchor="middle" class="box-label">recovery rate</text>
+        <text x="625" y="78" text-anchor="middle" class="box-sub">vs known permutation</text>
+        <line x1="170" y1="140" x2="250" y2="72" class="arrow" marker-end="url(#ah)"></line>
+        <line x1="450" y1="65" x2="518" y2="65" class="arrow" marker-end="url(#ah)"></line>
+        <!-- probe path -->
+        <rect x="250" y="210" width="200" height="50" rx="6" class="box box-storage"></rect>
+        <text x="350" y="232" text-anchor="middle" class="box-label">channel MI probe</text>
+        <text x="350" y="248" text-anchor="middle" class="box-sub">variational, on signatures</text>
+        <rect x="520" y="210" width="210" height="50" rx="6" class="box box-storage"></rect>
+        <text x="625" y="232" text-anchor="middle" class="box-label">bits</text>
+        <text x="625" y="248" text-anchor="middle" class="box-sub">runs no matching</text>
+        <line x1="170" y1="160" x2="250" y2="228" class="arrow" marker-end="url(#ah)"></line>
+        <line x1="450" y1="235" x2="518" y2="235" class="arrow" marker-end="url(#ah)"></line>
+        <!-- correlation -->
+        <text x="625" y="150" text-anchor="middle" class="box-sub" font-style="italic">Spearman( bits , recovery )</text>
+        <line x1="625" y1="92" x2="625" y2="140" class="arrow" stroke-dasharray="3 3"></line>
+        <line x1="625" y1="208" x2="625" y2="158" class="arrow" stroke-dasharray="3 3"></line>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §04 LEAKAGE MEASURES -->
+  <section id="measures">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Leakage Measures</h2>
+      <div class="section-meta">the attack-independent probe</div>
+    </header>
+    <div class="prose">
+      <p><strong>Channel mutual information on the signatures.</strong> The probe estimates the mutual information between the paired plaintext and obfuscated row signatures with a variational upper-bound estimator. It uses the true correspondence only to form matched positive pairs; it runs no assignment and produces no row matching. Its output is the leakage in bits for the paired quantile-signature channel, not a global bound over all table information or all matchers. The full sorted row uses a richer signature; the data-processing inequality supplies the argument that the quantile baseline cannot exceed it. The probe is independent of the matching attack whose recovery it is compared against.</p>
+      <p><strong>A dependent reference, reported separately.</strong> A retrieval information measure that fits an inverter and ranks the true candidate is the matching attack expressed in bits. It correlates with recovery almost perfectly, but that correlation is circular, so it is reported only as a labeled attack-in-bits reference and never as independent confirmation. Only the channel mutual information carries the independence claim on this page.</p>
+    </div>
+  </section>
+
+  <!-- §05 RESULTS -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">bits and recovery across the sweep</div>
+    </header>
+    <p class="prose">Attack strength across the noise sweep (1000 rows, three seeds). Recovery is the fraction of rows correctly placed; bits is the independent channel mutual information on the signatures.</p>
+    <table class="spec">
+      <thead><tr><th>noise level</th><th>channel MI (bits)</th><th>RowSort-64 recovery</th><th>full sorted row recovery</th><th>gain</th></tr></thead>
+      <tbody>
+        <tr><td>0.0</td><td>245</td><td>1.000</td><td>1.000</td><td>+0.000</td></tr>
+        <tr><td>0.1</td><td>243</td><td>0.977</td><td>1.000</td><td>+0.023</td></tr>
+        <tr><td>0.2</td><td>240</td><td>0.565</td><td><strong>0.999</strong></td><td><strong>+0.434</strong></td></tr>
+        <tr><td>0.35</td><td>235</td><td>0.204</td><td><strong>0.804</strong></td><td><strong>+0.600</strong></td></tr>
+        <tr><td>0.5</td><td>230</td><td>0.099</td><td>0.442</td><td>+0.343</td></tr>
+        <tr><td>0.75</td><td>219</td><td>0.037</td><td>0.140</td><td>+0.103</td></tr>
+        <tr><td>1.0</td><td>206</td><td>0.023</td><td>0.054</td><td>+0.031</td></tr>
+      </tbody>
+    </table>
+    <p class="prose">Probe tracking and the converse control (1200 rows). Across the noise sweep the independent channel mutual information is a monotone indicator of recovery (Spearman +0.98). When the dense key-matrix cover replaces the column permutation, it removes the sorted-row signature: recovery falls to chance and the independent probe falls to its estimator floor together.</p>
+    <table class="spec">
+      <thead><tr><th>point</th><th>recovery</th><th>channel MI (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>noise 0.2</td><td>0.561</td><td>250</td></tr>
+        <tr><td>noise 0.5</td><td>0.088</td><td>240</td></tr>
+        <tr><td>noise 1.0</td><td>0.022</td><td>214</td></tr>
+        <tr><td>key-matrix cover</td><td><strong>0.000</strong> (chance ≈ 0.0008)</td><td><strong>−2.4 (estimator floor)</strong></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- §06 FINDINGS -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">what the data establishes</div>
+    </header>
+    <div class="prose">
+      <p><strong>Finding 1 (Supported).</strong> The full sorted row recovers the secret permutation far above the 64-bin quantile baseline, by 0.43 to 0.60 across the noise sweep, precisely where the baseline collapses while the independent probe shows the information preserved. The quantile binning is an information-inefficient compression of the sorted row; its collapse is attack weakness, not leakage loss. Supported on a single embedding table across three seeds; the dominance argument is proven (see Analysis).</p>
+      <p><strong>Finding 2 (Preliminary).</strong> The independent channel mutual information tracks permutation recovery across the noise sweep (Spearman +0.98) and collapses together with recovery under the key-matrix control. The leakage measure is a faithful monotone indicator of the attack on this channel. This rests on a single embedding table with a single-seed probe sweep; broader replication across tables and seeds is not yet established.</p>
+    </div>
+  </section>
+
+  <!-- §07 ANALYSIS -->
+  <section id="analysis">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Analysis</h2>
+      <div class="section-meta">why the full sorted row dominates</div>
+    </header>
+    <div class="prose">
+      <p><strong>The quantile signature cannot beat the full sorted row.</strong> The 64-bin quantile summary is a fixed deterministic function of the full sorted row. By the data-processing inequality, the mutual information between two quantile summaries is at most the mutual information between the two full sorted rows, at every noise level. A matcher built on the quantile summary therefore carries no more information than one built on the full sorted row. With a 2304-dimensional row and only 64 bins the quantization is many-to-one, so the loss is strict, which is why the baseline collapses earlier than the leakage actually decays.</p>
+      <p><strong>The full sorted row is the right statistic.</strong> Under coordinate permutation, two rows are equivalent exactly when they have the same sorted vector, so the sorted vector is the maximal invariant of the column permutation. For the per-row isotropic-Gaussian observation model, maximizing the likelihood over the unknown column permutation reduces, by the rearrangement inequality, to the negative squared Euclidean distance between sorted rows. The one-to-one assignment maximizing the total of these scores is exactly the Hungarian matching. So the full sorted row with Hungarian assignment is the profile maximum-likelihood matcher for the per-row column-permutation channel.</p>
+      <p><strong>Scope of the optimality.</strong> The deployed cover applies one shared column permutation to all rows. The data-processing domination holds regardless. The maximum-likelihood optimality is stated for the model in which each row may be permuted independently; under a shared permutation the per-row sorted statistic remains invariant and sound and still dominates the quantile baseline, but it is no longer the joint maximal invariant (the row-by-row inner products survive a shared permutation and are discarded by per-row sorting). The exact recovery threshold for Gaussian feature alignment, mutual information at least twice the logarithm of the row count, is cited from the database-alignment literature and is not re-derived here. The full proof is in the claim file.</p>
+    </div>
+  </section>
+
+  <!-- §08 DISCUSSION -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">implications, limits, deferred work</div>
+    </header>
+    <div class="prose">
+      <p>The permutation channel is the cleanest confirmation of the project's central question, that an attack-independent information measure tracks attack recovery across a privacy sweep. Here the measure tracks recovery monotonically, and a strong matcher realizes the leakage that the measure reports and that a weak baseline misses. The lesson generalizes the information-efficiency result seen on the residual stream: a collapsing baseline is evidence about the attack, not about the defense, and a faithful leakage measure separates the two.</p>
+      <p><strong>What protects and what does not.</strong> Additive noise on a permutation cover degrades recovery slowly and the leakage measure tracks that decay. The dense key-matrix cover, by contrast, destroys the sorted-row signature outright; recovery and the independent measure both fall to the floor. Removing the invariant, not adding noise to it, is what eliminates the leakage.</p>
+      <p><strong>Limitations.</strong> The results use a single embedding table; the probe-tracking sweep is single-seed. The maximum-likelihood optimality is exact for the per-row permutation model and is a sound dominating relaxation, not the proven joint optimum, under the shared permutation the defense actually uses. A matcher aware of cross-row structure could in principle improve on per-row sorting against the shared cover; this is a stated follow-up.</p>
+      <p><strong>Recorded negative result.</strong> The anchor-reconstruction attack against a genuine non-identity cover is not yet implemented; its independent-component variant raises a not-implemented error. Under the identity transform it serves only as a plaintext baseline on residual activations (p95 cosine 0.92 at the first layer, decaying with depth), a different surface from the embedding-table permutation channel. The matched cover-break is deferred and is not claimed.</p>
+    </div>
+  </section>
+
+  <!-- ─── COLOPHON ─── -->
+  <footer class="colophon" style="margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+    <div>
+      <h5>Code</h5>
+      <ul>
+        <li><code>scripts/spikes/vma_stronger.py</code></li>
+        <li><code>scripts/spikes/aloepri_vma_sweep.py</code></li>
+        <li><code>src/talens/weights/vma.py</code></li>
+        <li><code>src/talens/attacks/cover_break.py</code></li>
+        <li><code>scripts/defenses/aloepri.py</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims &amp; logs</h5>
+      <ul>
+        <li><code>research-wiki/claims/perm-llr-threshold.md</code> · verified</li>
+        <li><code>research-wiki/experiments/vma-fullsort-vs-rowsort.md</code></li>
+        <li><code>research-wiki/experiments/cover-break-matched-deferred.md</code></li>
+        <li><code>refine-logs/perm-cover/RESULTS_STANDARDIZED.md</code></li>
+        <li><code>refine-logs/perm-cover/PROOF_AUDIT.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>Database Alignment with Gaussian Features · Dai, Cullina, Kiyavash · <a href="https://arxiv.org/abs/1903.01422">arXiv 1903.01422</a></li>
+        <li>Rearrangement inequality · Hardy, Littlewood, Pólya</li>
+        <li>Data-processing inequality · Cover &amp; Thomas</li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

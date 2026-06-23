@@ -70,7 +70,7 @@ surface: perm-cover
 run_id: a5-perm-cover
 gate: review refine-logs/perm-cover/REVIEW_STATE.json
 objective: consolidate VMA full-sorted-matcher >> RowSort-64 and the anchor cover-break into claim(s)+proof+log+HTML; standardize metrics; frame the permutation channel as the thesis confirmation.
-- [ ] run-phase: a5-perm-cover
+- [x] run-phase: a5-perm-cover
 
 ### Task 7: defenses — aloepri + shredder (existing)
 recipe: consolidate

@@ -61,3 +61,7 @@ _Append-only timeline._
 - `2026-06-23T19:04:56Z` add_claim: updated claim:depth-decoupling-input-dp [status=drafted] prov=.aris/traces/result-to-claim/2026-06-23_run01/
 - `2026-06-23T19:04:56Z` add_experiment: updated exp:resid-capacity-pvi [verdict=partial confidence=medium]
 - `2026-06-23T19:05:18Z` consolidate resid-capacity-pvi: claims capacity-matched-pvi (proof PASS) + depth-decoupling-input-dp (jury PARTIAL/scoped); exp:resid-capacity-pvi supports both
+- `2026-06-23T21:18:12Z` add_claim: updated claim:perm-llr-threshold [status=verified] prov=.aris/traces/proof-checker/2026-06-23_run01/
+- `2026-06-23T21:18:12Z` add_experiment: updated exp:vma-fullsort-vs-rowsort [verdict=yes confidence=high]
+- `2026-06-23T21:18:12Z` add_experiment: updated exp:cover-break-matched-deferred [verdict=no confidence=high]
+- `2026-06-23T21:19:52Z` consolidate perm-cover: claim:perm-llr-threshold verified (proof PASS 019ef653); exp:vma-fullsort-vs-rowsort yes; exp:cover-break-matched-deferred deferred

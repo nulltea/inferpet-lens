@@ -61,3 +61,5 @@
 {"from": "exp:resid-capacity-pvi", "to": "claim:depth-decoupling-input-dp", "type": "supports", "evidence": "scoped/partial: rho(cap-acc,TTRSR) +0.96 L0 → -0.21 L20, CLUB parallel attenuation +0.96→+0.29 (single seed, n=7/layer)", "added": "2026-06-23T19:05:18Z"}
 {"from": "exp:spectral-mi-probe-eval", "to": "claim:spectral-channel-mi-embedding-inversion", "type": "supports", "evidence": "partial: Spearman(I_G,recovery)=+1.0 tokenF1/cos, +0.71 exact, in-sweep", "added": "2026-06-23T19:29:16Z"}
 {"from": "exp:vec2text-feedback-null", "to": "claim:spectral-channel-mi-embedding-inversion", "type": "supports", "evidence": "partial: feedback-null on per-position resid motivates pooled-surface scope", "added": "2026-06-23T19:29:16Z"}
+{"from": "idea:info-efficient-attacks", "to": "exp:cover-break-matched-deferred", "type": "tested_by", "evidence": "exp cover-break-matched-deferred tests idea", "added": "2026-06-23T21:18:12Z"}
+{"from": "exp:cover-break-matched-deferred", "to": "claim:perm-llr-threshold", "type": "relates", "evidence": "negative companion: matched cover-break deferred (fastica unimplemented)", "added": "2026-06-23T21:19:52Z"}
