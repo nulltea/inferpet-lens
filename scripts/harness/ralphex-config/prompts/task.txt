@@ -54,7 +54,9 @@ Invoke every skill as `/name` (skills resolve only via /name). After EACH sub-sk
   e. DEAD-END (jury says pivot/insufficient): write a short negative-result log to
      research-wiki/experiments/ (what was tried, why it fails, what supersedes it). This is a
      first-class deliverable — do NOT manufacture a claim.
-  f. Build docs/html/<surface>.html per docs/html/STYLE.md (+ /figure-spec or /paper-figure).
+  f. Build docs/html/<surface>.html per docs/html/STYLE.md (+ /figure-spec or /paper-figure), then
+     CLEAN IT UP (mandatory): /humanize then /proofread then /term-audit on that file (they edit
+     prose only); re-open it to confirm it still renders.
   g. /auto-review-loop to its positive STOP (this writes the gate file).
 
 — recipe `full` (Block B: ONE new surface×attack[×defense], experiment→theory→report) —
@@ -75,7 +77,8 @@ Invoke every skill as `/name` (skills resolve only via /name). After EACH sub-sk
         spawn-depth: <parent depth + 1>     # STOP self-spawning at spawn-depth 2
         - [ ] run-phase: <surface>-followup-1
      Do NOT append if this phase's own `spawn-depth` is already >=2 (cap runaway self-extension).
-  e. Build docs/html/<surface>.html per docs/html/STYLE.md (+ figures).
+  e. Build docs/html/<surface>.html per docs/html/STYLE.md (+ figures), then CLEAN IT UP (mandatory):
+     /humanize then /proofread then /term-audit on that file (prose only); re-open to confirm render.
   f. /auto-review-loop to its positive STOP.
 
 — recipe `experiment` (pure data, no claim/report this phase) —

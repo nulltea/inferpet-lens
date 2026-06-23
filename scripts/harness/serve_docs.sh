@@ -25,16 +25,24 @@ scheme="${3:-${TALENS_DOCS_SCHEME:-https}}"
 pidf="/tmp/talens-docs-http.$port.pid"
 
 hostname_ts() { tailscale status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["Self"]["DNSName"].rstrip("."))' 2>/dev/null || echo '<tailnet-host>'; }
+# pid of the LOCAL (127.0.0.1) http server on $port — robust kill/check without pidf tracking.
+# (Do NOT match tailscaled's own :port proxy listeners on the tailnet address.)
+port_pid() { ss -ltnp 2>/dev/null | grep -E "127\.0\.0\.1:$port " | grep -oE 'pid=[0-9]+' | head -1 | cut -d= -f2; }
 
 case "$cmd" in
   start)
     command -v tailscale >/dev/null || { echo "tailscale not found"; exit 3; }
     [ -d "$docroot" ] || { echo "docroot missing: $docroot"; exit 3; }
-    if [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; then
-      echo "http server already running (pid $(cat "$pidf")) on 127.0.0.1:$port"
+    if [ -n "$(port_pid)" ]; then
+      echo "http server already running on 127.0.0.1:$port (pid $(port_pid))"
     else
-      ( cd "$docroot" && nohup python3 -m http.server "$port" --bind 127.0.0.1 >/tmp/talens-docs-http.$port.log 2>&1 & echo $! > "$pidf" )
-      sleep 1; echo "http server on 127.0.0.1:$port (pid $(cat "$pidf")) serving $docroot"
+      ( cd "$docroot" && nohup python3 -c "import http.server,socketserver
+class H(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        self.send_header('Cache-Control','no-store, max-age=0'); super().end_headers()
+socketserver.TCPServer.allow_reuse_address=True
+with socketserver.TCPServer(('127.0.0.1',$port),H) as s: s.serve_forever()" >/tmp/talens-docs-http.$port.log 2>&1 & )
+      sleep 1; echo "http server (no-store) on 127.0.0.1:$port (pid $(port_pid)) serving $docroot"
     fi
     if ! tailscale serve --bg "--$scheme=$pub_port" "$port"; then
       echo "ERROR: 'tailscale serve --bg --$scheme=$pub_port $port' failed." >&2; exit 4
@@ -44,11 +52,12 @@ case "$cmd" in
     ;;
   stop)
     tailscale serve "--$scheme=$pub_port" off 2>/dev/null || tailscale serve reset 2>/dev/null || true
-    [ -f "$pidf" ] && kill "$(cat "$pidf")" 2>/dev/null && rm -f "$pidf" && echo "stopped ($scheme=$pub_port + http server)" || echo "no http server pid (cleared $scheme=$pub_port)"
+    p="$(port_pid)"; if [ -n "$p" ]; then kill "$p" 2>/dev/null; echo "stopped local http server (pid $p) + cleared $scheme=$pub_port"; else echo "no local http server on $port (cleared $scheme=$pub_port)"; fi
+    rm -f "$pidf" 2>/dev/null
     ;;
   status)
     tailscale serve status 2>/dev/null || true
-    [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null && echo "http server up (pid $(cat "$pidf")) on 127.0.0.1:$port" || echo "http server down"
+    p="$(port_pid)"; [ -n "$p" ] && echo "http server up (pid $p) on 127.0.0.1:$port" || echo "http server down"
     ;;
   *) echo "usage: serve_docs.sh [start|stop|status] [pub_port] [http|https]"; exit 2 ;;
 esac

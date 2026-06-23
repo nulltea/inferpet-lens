@@ -29,45 +29,67 @@ External fonts via CDN are fine here (this is a tailscale-served static site, **
 Artifact — no CSP). Keep all styling in `css/site.css`; if a genuinely new component is needed,
 add a class to `site.css` (shared) rather than a per-page `<style>`.
 
-## Masthead + colophon (provenance is mandatory)
+## Cardinal rule — every page is a short academic paper
 
-`<header class="masthead">` holds `<h1 class="title">`, a `.subtitle` one-liner, and a
-`.colophon` block that states the cell's provenance — every report declares these four:
+Write each page as a research paper on one surface, not a blog post or a lab log: descriptive but
+**terse and fact-packed** (match the density of a paper abstract). Three non-negotiables:
 
-```html
-<div class="colophon">
-  <div><b>surface</b>  <which representation></div>
-  <div><b>attack</b>   <attack + family></div>
-  <div><b>probe</b>    <measure> — verified | candidate</div>
-  <div><b>proof</b>    Codex gpt-5.5 xhigh · N rounds · PASS</div>
-  <span class="rev">research report · YYYY-MM-DD</span>
-</div>
-```
+1. **Standard academic register only** (on par with the no-em-dash rule). Plain, precise, literal
+   vocabulary; NO colloquial / conversational / figurative wording where a standard term exists.
+   Avoid: "answer it", "boils/comes down to", "at once", "the whole point", "story", "buys" (=gains),
+   "a lot", "kind/sort of", "sweet spot", "knob", "reads differently", "cracked", "the lever is",
+   "the live frontier", figurative "geometry"/"concede". Prefer the plainest term ("simultaneously",
+   "is essential", "relax a constraint", "applies differently"). When unsure, pick the plainer literal
+   word. **No em-dashes** (`—`/`---`) — use commas, colons, or parentheses.
+2. **No project/process jargon, ever** in visible text. Forbidden: internal experiment/run ids
+   (`R1`, `R5`, `T1`, run_ids, surface slugs); review-process artifacts (`Codex`, `gpt-5.x`, `xhigh`,
+   `result-to-claim`, `audit WARN`, `PARTIAL`, "medium confidence", thread ids); harness/skill names;
+   spike file paths in prose. The reader is a researcher, not an operator. Refer to results
+   descriptively ("under input-layer DP", "at depth 20"); spell things out ("Theorem 1", not "T1");
+   state confidence scientifically ("supported at the input layer; the depth result is single-seed
+   and not yet robust"), never as a review verdict.
+3. **Substance, not hedging.** Every section states findings with numbers and mechanism. No
+   throat-clearing, no significance inflation, no AI-voice transitions ("Moreover", "It is important
+   to note", "Notably"). The cleanup pass enforces this, but write clean first.
 
-## Section sequence (use these ids — the topnav links to them)
+## Masthead
 
-| id | `.section-title` | contents |
+`<header class="masthead">` holds `<h1 class="title">` and a `.subtitle` one-liner. Keep the title
+short (≤ ~4 words) so it stays on one line.
+
+**Do NOT add a long `.colophon` provenance block** (surface/attack/probe/verdict lines): it is
+redundant with the body and its long lines starve the title column. Provenance belongs in the body
+(Definitions table, Claims/Proof sections) and the footer. At most, an optional one-line
+`<span class="rev">research report · YYYY-MM-DD</span>` directly under the subtitle.
+
+## Section sequence — STANDARD ACADEMIC TITLES (anchor id → title)
+
+Use these exact section **titles** (academic noun phrases), in order. NEVER colloquial titles like
+"What this is", "How it works", or "Proof backbone".
+
+| anchor id | section title | required content |
 |----|------------------|----------|
-| `overview` | Overview | the cell's thesis in 2–3 sentences (`.lede` + `.prose`) |
-| `defs` | Definitions | glossary `.spec` table (surface, secret, threat model, terms) |
-| `how` | How it works | mechanism; `.diagram-frame` figure (see below) |
-| `probes` | Probe | the measure, why it is attack-*independent*, what it bounds |
-| `results` | Results | the **bits + readout** table + the bits-vs-recovery correlation |
-| `claims` | Claim | the claim statement; link the `research-wiki/claims/<slug>.md` node |
-| `proofs` | Proof | proof sketch + provenance (full proof lives in the claim file) |
-| `conclusions` | Conclusions | what leaks, how much, why; correlate→thesis or not→why |
+| `introduction` | **Introduction** | the problem, the threat model in one line, and the headline finding with its key number; expands the subtitle. Active voice. |
+| `preliminaries` | **Preliminaries** | `.spec` glossary table: surface, secret, threat model, measures, attacks. Terms only. |
+| `method` | **Method** | the measurement procedure (past tense, reproducible) AND a **MANDATORY** `.diagram-frame` SVG figure of the surface→attack→probe pipeline (build via `/figure-spec`). A Method section without its figure is incomplete. |
+| `measures` | **Leakage Measures** | each probe, why it is attack-independent, what it bounds (bits). |
+| `results` | **Results** | bits + per-secret readout `.spec` tables; the bits-vs-recovery relationship across the sweep. Data only, no interpretation. |
+| `findings` | **Findings** | the claims as paper statements with scientific confidence; cite the claim node by name in the footer, not by internal id/verdict in prose. |
+| `analysis` | **Analysis** | the theorem/bound explaining the results; proof sketch (full proof in the claim file). |
+| `discussion` | **Discussion** | what leaks, how much, why; correlation→thesis or the gap and its cause; limitations; recorded negative results. |
 
-Each section: `<header class="section-head"><div class="section-num">NN</div><h2 class="section-title">…</h2><div class="section-meta">…</div></header>` then body. Omit a section only if genuinely empty; keep the order.
+Each section: `<header class="section-head"><div class="section-num">NN</div><h2 class="section-title">TITLE</h2><div class="section-meta">short label</div></header>` then body. Keep the order; omit a section only if genuinely empty.
 
 ## Components
 
-- **`.spec` table** — the workhorse. Results tables MUST carry **both axes** per the metric
+- **`.spec` table** — the workhorse. Put tables **directly in the section** (a bare `<table class="spec">`),
+  NOT inside `.diagram-frame` (that boxes them). Results tables MUST carry **both axes** per the metric
   convention: a `bits` column (canonical) and the per-secret human readout (perplexity / token-F1 /
   recovery-rate / cosine / AUC). One row per sweep point (plaintext → defense parameter).
-- **`.diagram-frame` + `.diagram-cap`** — figures. Prefer a deterministic SVG from `/figure-spec`
-  (architecture/flow) or a `/paper-figure` plot (bits-vs-recovery curve) embedded inline; caption
-  in `.diagram-cap`. Reuse the trust-zone palette classes (`.box-tee` terracotta, `.box-gpu`
-  slate, `.arrow-*`) for split-TEE/GPU diagrams.
+- **`.diagram-frame` + `.diagram-cap`** — **SVG figures/diagrams only** (never tables). A deterministic
+  SVG from `/figure-spec` (architecture/flow) or a `/paper-figure` plot (bits-vs-recovery curve)
+  embedded inline; caption in `.diagram-cap`. Reuse the trust-zone palette classes (`.box-tee`
+  terracotta, `.box-gpu` slate, `.arrow-*`) for split-TEE/GPU diagrams.
 - **`.prose` / `.lede`** — narrative; `.lede` for the section's opening emphasis line.
 - **`.cgrid`** — card grid for parallel items (e.g. condition C0/C1/C2 comparisons).
 
@@ -78,8 +100,33 @@ and to `docs/html/index.html` (the site landing page: one card/row per surface, 
 cryptographic **zero-leakage reference** box for Euston/Fision/TwinShield-full — documented, not
 swept). Serve the site with `scripts/harness/serve_docs.sh`.
 
+## Cleanup pass — mandatory, after writing/editing a page
+
+Generated HTML reads as AI-drafted (boilerplate transitions, cliché lexicon, em-dash overuse,
+metaphor register). After the page is written and **before the report gate**, run all three
+non-interactive cleanup skills on it, in order (they edit prose only — never tags, code, numbers,
+or table data):
+
+```
+/humanize docs/html/<surface>.html      # strip AI-voice tells
+/proofread docs/html/<surface>.html     # grammar / typos / structure
+/term-audit docs/html/<surface>.html    # word-choice / register / remove em-dashes
+```
+
+Then re-open the page to confirm it still renders (tags balanced, tables intact). Only after this
+does the page go to `/auto-review-loop`.
+
+## Subtitle (abstract)
+
+The `.subtitle` is a 1–2 sentence abstract: the problem and the headline finding. NOT a paragraph.
+Substance goes in the sections, not the subtitle.
+
 ## Voice
 
-Terse, formal, structured. Comparative tables over prose lists. Cite arXiv/DOI inline. State what
-is measured/decided and why. Numbers come from `refine-logs/<surface>/` and the claim node — never
-hand-typed estimates.
+Active voice, terse, fact-packed; comparative tables over prose lists; past tense for Method/Results.
+Cite arXiv/DOI inline by author + year, never by internal id. Numbers come from the experiment
+results and the claim node, never invented. No em-dashes. The mandatory cleanup pass
+(`/humanize` → `/proofread` → `/term-audit`) strips residual AI tells after writing; its AI-tell
+ruleset follows Wikipedia's AI-cleanup guide + Strunk & White (significance inflation, "delve/
+leverage", negative parallelisms, rule-of-three, filler, hedging, signposting). Write to this
+standard first.

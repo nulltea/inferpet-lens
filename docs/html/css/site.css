@@ -266,7 +266,6 @@ a {
   font-size: 22px;
   color: var(--ink-2);
   margin: 14px 0 0;
-  max-width: 56ch;
 }
 .colophon {
   font-size: 11px;
@@ -275,7 +274,7 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.16em;
   align-self: end;
-  white-space: nowrap;
+  max-width: 320px;
 }
 .colophon b {
   color: var(--ink);
@@ -348,7 +347,6 @@ section {
   line-height: 1.5;
   color: var(--ink-2);
   margin: 0 0 24px;
-  max-width: 80ch;
 }
 .lede em {
   color: var(--tee);
@@ -916,7 +914,6 @@ table.spec .accent {
   font-size: 13px;
   line-height: 1.65;
   margin: 0 0 14px;
-  max-width: 80ch;
 }
 .prose p strong {
   color: var(--ink);

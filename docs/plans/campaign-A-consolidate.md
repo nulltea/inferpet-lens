@@ -34,7 +34,7 @@ surface: resid-capacity-pvi
 run_id: a1-capacity-pvi
 gate: review refine-logs/resid-capacity-pvi/REVIEW_STATE.json
 objective: consolidate the capacity-matched class-PVI work into claim(s)+proof+experiment-log+HTML; standardize metrics; record where capPVI tracks attack recovery across depth and where it diverges (L20 under input-DP).
-- [ ] run-phase: a1-capacity-pvi
+- [x] run-phase: a1-capacity-pvi
 
 ### Task 3: residual-stream — DP-stronger / info-efficient attacks
 recipe: consolidate

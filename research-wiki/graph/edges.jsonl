@@ -57,3 +57,5 @@
 {"from": "exp:resid-dp-attacks-negative-results", "to": "claim:restore-correlation", "type": "supports", "evidence": "bounds: at-layer no gap (rho=1.0), per-position vec2text wrong surface", "added": "2026-06-23T15:39:15Z"}
 {"from": "exp:b2-l0-bayes-vs-ridge", "to": "claim:bayes-gap-diagnosis", "type": "supports", "evidence": "L0: probe high while ridge collapses, Bayes recovers ~1.0", "added": "2026-06-23T15:39:15Z"}
 {"from": "exp:b6-strong-decoder", "to": "claim:bayes-gap-diagnosis", "type": "supports", "evidence": "partial: stronger attack closes gap, depth ceiling not measured", "added": "2026-06-23T15:39:15Z"}
+{"from": "exp:resid-capacity-pvi", "to": "claim:capacity-matched-pvi", "type": "supports", "evidence": "scoped/partial: cap-acc rho 0.80-1.00 under at-layer rep-space defenses (gemma-2-2b, single seed) + estimator lemma proof-checker PASS", "added": "2026-06-23T19:05:18Z"}
+{"from": "exp:resid-capacity-pvi", "to": "claim:depth-decoupling-input-dp", "type": "supports", "evidence": "scoped/partial: rho(cap-acc,TTRSR) +0.96 L0 → -0.21 L20, CLUB parallel attenuation +0.96→+0.29 (single seed, n=7/layer)", "added": "2026-06-23T19:05:18Z"}

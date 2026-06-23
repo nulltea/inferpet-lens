@@ -57,3 +57,7 @@ _Append-only timeline._
 - `2026-06-22T17:17:36Z` add_claim: updated claim:spectral-channel-mi-embedding-inversion [status=verified] prov=refine-logs/dp-stronger-attacks/vec2text-pooled/PROOF_PACKAGE.md; Codex gpt-5.5 xhigh thread 019ef046, 3 rounds, PASS
 - `2026-06-23T15:38:41Z` add_experiment: updated exp:resid-dp-attacks-negative-results [verdict=no confidence=high]
 - `2026-06-23T15:39:15Z` result-to-claim: resid-dp-attacks consolidation verdict=PARTIAL for restore-correlation + bayes-gap-diagnosis; audit=WARN
+- `2026-06-23T19:04:32Z` add_claim: updated claim:capacity-matched-pvi [status=drafted] prov=.aris/traces/proof-checker/2026-06-23_run01/
+- `2026-06-23T19:04:56Z` add_claim: updated claim:depth-decoupling-input-dp [status=drafted] prov=.aris/traces/result-to-claim/2026-06-23_run01/
+- `2026-06-23T19:04:56Z` add_experiment: updated exp:resid-capacity-pvi [verdict=partial confidence=medium]
+- `2026-06-23T19:05:18Z` consolidate resid-capacity-pvi: claims capacity-matched-pvi (proof PASS) + depth-decoupling-input-dp (jury PARTIAL/scoped); exp:resid-capacity-pvi supports both
