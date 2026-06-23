@@ -23,6 +23,7 @@ from .report import (
     Readout,
     canonical_bits,
     embedding_readout,
+    error_band_readout,
     format_bits,
     membership_readout,
     permutation_readout,
@@ -52,4 +53,5 @@ __all__ = [
     "permutation_readout",
     "embedding_readout",
     "membership_readout",
+    "error_band_readout",
 ]

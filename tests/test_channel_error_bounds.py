@@ -147,3 +147,28 @@ def test_bracketing_synthetic():
         assert lb - 0.02 <= err <= ub + 0.02, (
             f"σ={sigma}: err={err:.3f} not in [{lb:.3f}, {ub:.3f}]"
         )
+
+
+# ── σ=0 collision honesty (round-2/3 review regression) ───────────────────────
+def test_sigma0_distinct_codewords_full_leakage():
+    """σ=0, distinct codewords: deterministic injective channel ⇒ i_channel=log₂K,
+    H(V|Y)=0, and the union/Bhattacharyya error upper bound is exactly 0."""
+    E = np.eye(8, dtype=np.float32)
+    fa = fano_equivocation(E, sigma=0.0)
+    assert abs(fa["i_channel_bits"] - 3.0) < 1e-9  # log2(8)
+    assert abs(fa["h_cond_bits"] - 0.0) < 1e-9
+    assert union_bhattacharyya(E, sigma=0.0)["p_e_ub"] == 0.0
+
+
+def test_sigma0_collision_does_not_overstate_leakage_or_understate_error():
+    """σ=0 with collisions (4 distinct codewords each duplicated → K=8, G=4): the
+    deterministic channel is NON-injective, so i_channel must drop to log₂G=2 (not
+    overstate as log₂K=3) AND the MAP error upper bound must rise to (K−G)/K=0.5
+    (not the false 0 the distinctness assumption gives)."""
+    E = np.repeat(np.eye(4, dtype=np.float32), 2, axis=0)  # K=8, 4 groups of 2
+    fa = fano_equivocation(E, sigma=0.0)
+    assert abs(fa["i_channel_bits"] - 2.0) < 1e-9  # log2(4), NOT log2(8)
+    assert abs(fa["h_cond_bits"] - 1.0) < 1e-9     # 1 bit ambiguity within each pair
+    ub = union_bhattacharyya(E, sigma=0.0)
+    assert ub["min_dist"] == 0.0
+    assert abs(ub["p_e_ub"] - 0.5) < 1e-9          # (8-4)/8 — recovery floor = 0.5, not 1

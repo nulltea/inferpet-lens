@@ -17,6 +17,7 @@ from talens.report import (
     Readout,
     canonical_bits,
     embedding_readout,
+    error_band_readout,
     format_bits,
     membership_readout,
     permutation_readout,
@@ -134,6 +135,70 @@ def test_canonical_bits_declined_measure_is_none():
 def test_canonical_bits_unknown_measure_raises():
     with pytest.raises(KeyError):
         canonical_bits("not_a_measure", {})
+
+
+def test_canonical_bits_missing_key_is_schema_drift_not_declined():
+    # An absent canonical key signals schema drift and must RAISE — never be masked as
+    # a declined (None) measure. A real decline sets the key explicitly to None.
+    with pytest.raises(KeyError):
+        canonical_bits("club", {"club_mi_nats": 1.0})  # key absent
+    bits, _ = canonical_bits("club", {"club_mi_bits": None})  # explicit decline
+    assert bits is None
+
+
+def test_canonical_bits_error_bounds_family():
+    # The BNN error-bound probe's canonical bits = Fano-derived channel-MI estimate,
+    # a point estimate distinct from spectral's channel-MI *upper bound*.
+    res = {"i_channel_bits": 3.2, "h_cond_bits": 2.8, "K": 64, "p_e_lb": 0.4}
+    bits, kind = canonical_bits("fano_equivocation", res)
+    assert bits == 3.2 and kind == "channel_mi"
+    assert kind != "channel_mi_upper_bound"  # not conflated with the spectral converse
+    # Declined (K<3) maps to None, not 0.
+    declined, _ = canonical_bits("fano_equivocation", {"i_channel_bits": None})
+    assert declined is None
+
+
+# ---------------------------------------------------------------------------
+# error-band readout + two-sided bound row (the geometry-only BNN probe)
+# ---------------------------------------------------------------------------
+
+
+def test_error_band_readout_brackets_recovery():
+    # error in [lb=0.4, ub=0.7] ⇒ recovery in [1-0.7=0.3, 1-0.4=0.6]; primary = ceiling.
+    r = error_band_readout(p_e_lb=0.4, p_e_ub=0.7)
+    assert r.secret_kind == "token_id"
+    assert abs(r.primary_value - 0.6) < 1e-9
+    assert abs(r.fields["recovery_floor"] - 0.3) < 1e-9
+    assert r.fields["map_err_lb"] == 0.4 and r.fields["map_err_ub"] == 0.7
+
+
+def test_leakage_report_from_error_bounds_pairs_mi_and_recovery_band():
+    fano = {"i_channel_bits": 3.2, "h_cond_bits": 2.8, "K": 64, "p_e_lb": 0.4}
+    ub = {"p_e_ub": 0.7, "min_dist": 1.3, "K": 64}
+    rep = LeakageReport.from_error_bounds(fano, ub, surface="embed-bnn", sigma=1.0)
+    assert rep.measure == "fano_equivocation" and rep.bits == 3.2
+    assert rep.bits_kind == "channel_mi"
+    # both axes render; recovery ceiling is the readout primary
+    line = rep.render()
+    assert "recovery_ceiling=0.6" in line and "3.2 bits" in line
+    assert rep.extra["h_cond_bits"] == 2.8 and rep.extra["K"] == 64
+    import json
+
+    json.dumps(rep.to_dict())  # serializable
+
+
+def test_leakage_report_from_error_bounds_declined_fano_no_misleading_ceiling():
+    # K<3: Fano channel-MI undefined. The row must NOT advertise recovery_ceiling=1
+    # (which the placeholder p_e_lb=0 would otherwise produce) — bits None ⇒ primary None.
+    fano = {"i_channel_bits": None, "h_cond_bits": 0.0, "K": 2, "p_e_lb": 0.0,
+            "note": "K<3: Fano denominator undefined"}
+    ub = {"p_e_ub": 0.5, "min_dist": 0.9, "K": 2}
+    rep = LeakageReport.from_error_bounds(fano, ub)
+    assert rep.bits is None
+    assert rep.readout.primary_value is None  # no misleading recovery ceiling
+    assert rep.extra["note"].startswith("K<3")
+    # the union-Bhattacharyya floor is still informative and travels in the readout
+    assert abs(rep.readout.fields["recovery_floor"] - 0.5) < 1e-9
 
 
 # ---------------------------------------------------------------------------

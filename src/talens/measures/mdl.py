@@ -55,7 +55,8 @@ def online_code_length(
     memorisation floor. See ``docs/dev/control-tasks.md``.
     """
     if X.shape[0] < 8:
-        return {"online_code_length_bits": None, "note": "too few rows"}
+        return {"online_code_length_bits": None,
+                "surplus_description_length_bits": None, "note": "too few rows"}
 
     y_idx_all, classes = to_class_indices(y)
     if classes.size > max_classes:
@@ -142,7 +143,8 @@ def online_code_length_retrieval(
     )
 
     if X.shape[0] < 8:
-        return {"online_code_length_bits": None, "note": "too few rows"}
+        return {"online_code_length_bits": None,
+                "surplus_description_length_bits": None, "note": "too few rows"}
 
     n_cls = int(np.unique(y).size)
     pool = build_candidate_pool(

@@ -28,13 +28,13 @@
   <header class="masthead">
     <div>
       <h1 class="title">The metric convention<br><em>— bits canonical + per-secret readout</em></h1>
-      <p class="subtitle">Every leakage measure in this study reports on <strong>one comparable scale</strong> — <strong>bits</strong> — beside a <strong>per-secret human readout</strong> (perplexity / token-F1 / recovery-rate / cosine / AUC). This page documents the convention and the <code>talens.report</code> layer that enforces it: a single canonical-bits extractor across all seven measure families, a legibility-preserving bits formatter, and one standardized <code>LeakageReport</code> row carrying both axes. It is the substrate every surface page (vec2text, bnn, resid, permutation, defenses) renders its sweep tables on.</p>
+      <p class="subtitle">Every leakage measure in this study reports on <strong>one comparable scale</strong> — <strong>bits</strong> — beside a <strong>per-secret human readout</strong> (perplexity / token-F1 / recovery-rate / cosine / AUC). This page documents the convention and the <code>talens.report</code> layer that enforces it: a single canonical-bits extractor across all eight measure families, a legibility-preserving bits formatter, and one standardized <code>LeakageReport</code> row carrying both axes. It is the substrate every surface page (vec2text, bnn, resid, permutation, defenses) renders its sweep tables on.</p>
     </div>
     <div class="colophon">
       <div><b>surface</b>&nbsp;&nbsp;reporting layer (cross-surface infrastructure)</div>
       <div><b>module</b>&nbsp;&nbsp;<code>src/talens/report.py</code></div>
-      <div><b>probe</b>&nbsp;&nbsp;all 7 measure families — bits extractor</div>
-      <div><b>validation</b>&nbsp;&nbsp;25 unit tests · 121 suite · model-free</div>
+      <div><b>probe</b>&nbsp;&nbsp;all 8 measure families — bits extractor</div>
+      <div><b>validation</b>&nbsp;&nbsp;30 report tests · 128 suite · model-free</div>
       <span class="rev">research report · 2026-06-23</span>
     </div>
   </header>
@@ -67,7 +67,8 @@
       <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
       <tbody>
         <tr><td><strong>canonical bits</strong></td><td>The single comparable scalar each measure contributes to the bits axis, extracted by <code>canonical_bits(measure, result)</code> from the measure's output dict.</td></tr>
-        <tr><td><strong>bits_kind</strong></td><td>A tag on the bits value naming <em>which</em> quantity it is: <code>v_info</code>, <code>capacity_v_info</code>, <code>mi_upper_bound</code>, <code>sdl</code>, <code>pid_total_mi</code>, <code>channel_mi_upper_bound</code>. Prevents conflating distinct bit-valued quantities.</td></tr>
+        <tr><td><strong>bits_kind</strong></td><td>A tag on the bits value naming <em>which</em> quantity it is: <code>v_info</code>, <code>capacity_v_info</code>, <code>mi_upper_bound</code>, <code>sdl</code>, <code>pid_total_mi</code>, <code>channel_mi_upper_bound</code> (spectral converse ceiling), <code>channel_mi</code> (Fano point estimate). Prevents conflating distinct bit-valued quantities — e.g. an MI <em>upper bound</em> with a Fano-derived <em>point estimate</em>.</td></tr>
+        <tr><td><strong>equivocation</strong></td><td>The remaining uncertainty <code>H(V|Y)</code> about a secret given the channel output. The dual of leakage: under a uniform prior, <code>I(V;Y) = log₂K − H(V|Y)</code>. The reporting layer stores the <em>leakage</em> side (sign-consistent: more bits = more leakage), not the equivocation, and carries <code>H(V|Y)</code> as context.</td></tr>
         <tr><td><strong>per-secret readout</strong></td><td>The recovery axis rendered in the secret's native units. The <em>primary</em> field is the single graded scalar a sweep correlates bits against; the rest are human context.</td></tr>
         <tr><td><strong>millibit (mbit)</strong></td><td>1/1000 bit. The display unit below 0.1 bit so small-but-nonzero leakage stays legible.</td></tr>
         <tr><td><strong>token-F1</strong></td><td>Multiset (order-free) F1 between predicted and ground-truth token ids: harmonic mean of multiplicity-counted precision and recall. The text-recovery readout.</td></tr>
@@ -97,8 +98,12 @@
         <tr><td><code>mdl</code></td><td><code>surplus_description_length_bits</code></td><td>sdl</td></tr>
         <tr><td><code>pid</code></td><td><code>i_joint_bits</code></td><td>pid_total_mi</td></tr>
         <tr><td><code>spectral_channel_mi</code></td><td><code>i_g_bits</code></td><td>channel_mi_upper_bound</td></tr>
+        <tr><td><code>fano_equivocation</code></td><td><code>i_channel_bits</code></td><td>channel_mi</td></tr>
       </tbody>
     </table>
+    <div class="prose">
+      <p><strong>The two-sided error-bound probe.</strong> The geometry-only BNN/MAP error-bound family (<code>channel_error_bounds</code>) is the one probe whose native output is an <em>error probability</em>, not bits. It is standardized by <code>LeakageReport.from_error_bounds(fano, ub)</code>, which pairs its two halves into one row: the <strong>bits axis</strong> takes the Fano-derived channel-MI estimate <code>I(V;Y)=log₂K−H(V|Y)</code> (stored sign-consistent with the other leakage measures, tagged <code>channel_mi</code> to distinguish it from the spectral converse <em>upper bound</em>), and the <strong>readout axis</strong> takes the recovery band bracketed by the union-Bhattacharyya error upper bound and the Fano error lower bound — recovery&nbsp;∈&nbsp;<code>[1−P<sub>e</sub><sup>ub</sup>, 1−P<sub>e</sub><sup>lb</sup>]</code>. Both halves are functions of the codebook geometry and σ alone, so the row never reports the attack's own recovery.</p>
+    </div>
   </section>
 
   <!-- ═════ § 4 RESULTS ═════ -->
@@ -115,8 +120,10 @@
         <tr><td><code>v_information</code> [v_info]</td><td><code>-22 mbit</code></td><td>token_top1_recovery_rate=0.55 (top10=0.8, perplexity=4.05)</td></tr>
         <tr><td><code>spectral_channel_mi</code> [channel_mi_upper_bound]</td><td><code>48.5 bits</code></td><td>cosine=0.91 (token_f1=0.42)</td></tr>
         <tr><td><code>club</code> [mi_upper_bound]</td><td><code>1.25 bits</code></td><td>auc=0.66</td></tr>
+        <tr><td><code>fano_equivocation</code> [channel_mi]</td><td><code>5.14 bits</code></td><td>recovery_ceiling=1 (recovery_floor=0.533, map_err_ub=0.467, map_err_lb=0)</td></tr>
       </tbody>
     </table>
+    <p class="prose">The error-bounds row (64-codeword pool, σ=1, 16-d) shows the two-sided probe in its standardized form: <code>5.14</code> bits of channel-MI (with <code>H(V|Y)=0.86</code> bit equivocation, summing to <code>log₂64=6</code>), beside a recovery band whose <em>ceiling is 1</em> — the Fano error lower bound is vacuous at this SNR, so the gap between the two error bounds is itself the diagnostic, exactly as the BNN probe documents.</p>
     <p class="prose"><strong>Legibility contract (tested).</strong> A stored <code>0.01</code> renders <code>10.0 mbit</code>, never <code>0.00 bits</code>; the stored float is byte-for-byte unchanged. A declined measure (<code>None</code>) renders <code>n/a</code>, distinct from a measured zero.</p>
   </section>
 
@@ -128,7 +135,7 @@
       <div class="section-meta">what this enables</div>
     </header>
     <div class="prose">
-      <p>This is infrastructure, not a leakage finding — there is no claim node here. Every downstream surface page (Tasks 2–7) renders its <code>(bits, recovery)</code> sweep on this layer, so the whole site reports one comparable bits axis beside a secret-appropriate recovery axis, with sub-0.1-bit leakage staying legible. Validated by 25 unit tests against the real output schema of all seven measures, with no regression across the 121-test model-free suite.</p>
+      <p>This is infrastructure, not a leakage finding — there is no claim node here. Every downstream surface page (Tasks 2–7) renders its <code>(bits, recovery)</code> sweep on this layer, so the whole site reports one comparable bits axis beside a secret-appropriate recovery axis, with sub-0.1-bit leakage staying legible. Validated by 30 unit tests against the real output schema of all eight measure families — including the two-sided geometry-only BNN error-bound probe, whose error-probability output is standardized into the same bits + recovery-band row — with no regression across the 128-test model-free suite. The extractor raises on a missing canonical key (schema drift) rather than masking it as a declined measure, and the σ=0 limit is collision-honest on both axes: the channel-MI is computed from the duplicate-group sizes (never overstating leakage as <code>log₂K</code> when codewords collide after clipping), and the paired error upper bound rises to <code>(K−G)/K</code> so the recovery floor is not falsely rendered as 1.</p>
     </div>
     <div class="prose">
       <h5>Provenance</h5>

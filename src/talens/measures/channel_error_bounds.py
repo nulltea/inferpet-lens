@@ -83,6 +83,9 @@ def union_bhattacharyya(
     self-distance multiset and ``σ`` only. Returns both forms (raw and
     clamped to ``[0,1]``), the minimum inter-codeword distance, and ``K``.
     Pass a precomputed ``sq_dists`` (``K×K``) to amortise the Gram across σ.
+    At ``σ = 0`` distinct codewords give error 0; if codewords collide the branch
+    overrides to the exact deterministic MAP error ``(K − G)/K`` (``G`` distinct
+    groups) rather than the false 0 the distinctness assumption would give.
     """
     E = np.ascontiguousarray(pool_emb, dtype=np.float64)
     K = E.shape[0]
@@ -95,11 +98,16 @@ def union_bhattacharyya(
     min_dist = float(math.sqrt(max(0.0, off.min())))
 
     if sigma <= 0.0:
-        # σ→0: no noise can flip a decision; bound is exactly 0 (distinct
-        # codewords). Ties (‖Δ‖=0) violate the distinctness assumption.
+        # σ→0: no noise can flip a decision among DISTINCT codewords ⇒ error 0.
+        # If codewords collide (min_dist=0) the MAP decoder cannot resolve the tie:
+        # the exact deterministic error is (K − G)/K for G distinct groups — a valid
+        # (and tight) upper bound, not the false 0 the distinctness assumption gives.
+        # Reporting it keeps the paired recovery floor honest (1 − p_e_ub ≠ 1 under ties).
+        G = int(np.unique(E, axis=0).shape[0])
+        pe = (K - G) / K
         return {
-            "p_e_ub": 0.0, "p_e_ub_raw": 0.0,
-            "p_e_ub_bhat": 0.0, "p_e_ub_bhat_raw": 0.0,
+            "p_e_ub": pe, "p_e_ub_raw": pe,
+            "p_e_ub_bhat": pe, "p_e_ub_bhat_raw": pe,
             "min_dist": min_dist, "K": K,
         }
 
@@ -137,18 +145,33 @@ def fano_equivocation(
     and a one-sided ``1−α`` lower-confidence variant uses
     ``H_lcb = Ĥ_M − z_{1−α}·se`` (CLT coverage, not a finite-M certificate).
 
-    Returns equivocation (bits), its SE, and both lower bounds (clamped to
-    ``[0,1]`` and raw). ``σ = 0`` ⇒ ``H(V|Y)=0`` ⇒ vacuous lower bound 0.
+    Returns equivocation (bits), the channel-MI estimate ``i_channel_bits =
+    log₂K − H(V|Y)``, its SE, and both lower bounds (clamped to ``[0,1]`` and raw).
+    ``σ = 0``: for DISTINCT codewords ``H(V|Y)=0`` (full leakage ``log₂K``, vacuous
+    error lower bound 0); if codewords collide the equivocation is the duplicate-group
+    entropy ``Σ_g (n_g/K)·log₂ n_g`` and ``i_channel_bits`` drops accordingly.
     """
     E = np.ascontiguousarray(pool_emb, dtype=np.float32)
     K = E.shape[0]
     out_base = {"h_cond_bits": 0.0, "se": 0.0, "K": K}
     if K < 3:
-        return {**out_base, "p_e_lb": 0.0, "p_e_lb_raw": 0.0,
+        # Fano denominator undefined; the channel-MI is likewise not estimable here.
+        return {**out_base, "i_channel_bits": None,
+                "p_e_lb": 0.0, "p_e_lb_raw": 0.0,
                 "p_e_lb_lcb": 0.0, "p_e_lb_lcb_raw": 0.0,
                 "note": "K<3: Fano denominator undefined"}
     if sigma <= 0.0:
-        return {**out_base, "p_e_lb": 0.0, "p_e_lb_raw": 0.0,
+        # No noise ⇒ Y = e_V deterministic ⇒ I(V;Y) = H(Y), H(V|Y) = within-group
+        # entropy. DISTINCT codewords give H(Y) = log₂K and H(V|Y) = 0; if codewords
+        # collide (e.g. two tokens clip to the same vector) Y is no longer injective,
+        # so I drops and H(V|Y) rises — computed honestly from the duplicate-group
+        # sizes rather than overstating leakage as log₂K.
+        _, counts = np.unique(E, axis=0, return_counts=True)
+        c = counts.astype(np.float64)
+        h_cond_det = float((c / K * np.log2(c)).sum())  # Σ_g (n_g/K) log₂ n_g
+        return {"h_cond_bits": h_cond_det, "i_channel_bits": math.log2(K) - h_cond_det,
+                "se": 0.0, "K": K,
+                "p_e_lb": 0.0, "p_e_lb_raw": 0.0,
                 "p_e_lb_lcb": 0.0, "p_e_lb_lcb_raw": 0.0}
 
     inv2s2 = 1.0 / (2.0 * sigma ** 2)
@@ -202,8 +225,12 @@ def fano_equivocation(
     lb_raw = (h_cond - 1.0) / logK1
     lb_lcb_raw = (h_lcb - 1.0) / logK1
     clamp01 = lambda x: min(1.0, max(0.0, x))  # noqa: E731
+    # Channel MI estimate (uniform prior): I(V;Y) = H(V) − H(V|Y) = log₂K − Ĥ_M.
+    # Ĥ_M is unbiased for H(V|Y), so this is an unbiased estimate of I(V;Y) — the
+    # sign-consistent leakage scalar (more bits = more leakage), unlike equivocation.
+    i_channel = math.log2(K) - h_cond
     return {
-        "h_cond_bits": h_cond, "se": se, "K": K,
+        "h_cond_bits": h_cond, "i_channel_bits": i_channel, "se": se, "K": K,
         "p_e_lb": clamp01(lb_raw), "p_e_lb_raw": lb_raw,
         "p_e_lb_lcb": clamp01(lb_lcb_raw), "p_e_lb_lcb_raw": lb_lcb_raw,
     }

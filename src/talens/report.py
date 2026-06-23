@@ -181,6 +181,26 @@ def membership_readout(*, auc: float | None) -> Readout:
     return Readout("membership", "auc", auc)
 
 
+def error_band_readout(*, p_e_lb: float | None, p_e_ub: float | None) -> Readout:
+    """Token-id secret bracketed by a two-sided MAP error bound (the BNN probe).
+
+    The geometry-only bounds bracket the *best achievable* token recovery in
+    ``[1 − p_e_ub, 1 − p_e_lb]`` (a Fano lower bound on error ⇒ recovery *ceiling*;
+    a union/Bhattacharyya upper bound on error ⇒ recovery *floor*). Primary is the
+    recovery ceiling (the most an attacker could recover); the floor and both raw
+    error bounds travel as context. This is a *bound*, not a measured recovery — read
+    it beside an actual attack's recovery, never as one.
+    """
+    rec_ceiling = None if p_e_lb is None else 1.0 - float(p_e_lb)
+    fields: dict[str, float] = {}
+    if p_e_ub is not None:
+        fields["recovery_floor"] = 1.0 - float(p_e_ub)
+        fields["map_err_ub"] = float(p_e_ub)
+    if p_e_lb is not None:
+        fields["map_err_lb"] = float(p_e_lb)
+    return Readout("token_id", "recovery_ceiling", rec_ceiling, fields)
+
+
 # ---------------------------------------------------------------------------
 # Canonical bits — extract the one comparable scalar from any measure dict.
 # ---------------------------------------------------------------------------
@@ -195,6 +215,11 @@ _BITS_REGISTRY: dict[str, tuple[str, str]] = {
     "mdl": ("surplus_description_length_bits", "sdl"),
     "pid": ("i_joint_bits", "pid_total_mi"),
     "spectral_channel_mi": ("i_g_bits", "channel_mi_upper_bound"),
+    # Geometry-only BNN/MAP error-bound probe: the canonical bits is the Fano-derived
+    # channel-MI estimate I(V;Y)=log₂K−H(V|Y) (a point estimate, NOT a bound — hence a
+    # kind distinct from spectral's channel_mi_upper_bound). The matching error-rate
+    # readout is built by error_band_readout / LeakageReport.from_error_bounds.
+    "fano_equivocation": ("i_channel_bits", "channel_mi"),
 }
 
 
@@ -211,7 +236,15 @@ def canonical_bits(measure: str, result: dict[str, Any]) -> tuple[float | None, 
             f"known: {sorted(_BITS_REGISTRY)}"
         )
     key, kind = _BITS_REGISTRY[measure]
-    val = result.get(key)
+    if key not in result:
+        # Absent key = schema drift / wrong dict, NOT a declined measure. A genuinely
+        # declined measure carries the canonical key explicitly set to None; masking a
+        # missing key as None would silently hide a measure-output regression.
+        raise KeyError(
+            f"measure {measure!r} result is missing its canonical key {key!r}; "
+            f"got keys {sorted(result)}"
+        )
+    val = result[key]
     return (None if val is None else float(val)), kind
 
 
@@ -256,6 +289,52 @@ class LeakageReport:
             measure=measure, bits=bits, bits_kind=kind, readout=readout,
             surface=surface, layer=layer, transform=transform, sigma=sigma,
             extra=extra or {},
+        )
+
+    @classmethod
+    def from_error_bounds(
+        cls,
+        fano_result: dict[str, Any],
+        ub_result: dict[str, Any],
+        *,
+        surface: str | None = None,
+        layer: int | None = None,
+        transform: str = "Identity",
+        sigma: float | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> "LeakageReport":
+        """Standardize the two-sided geometry-only BNN error-bound probe into one row.
+
+        Pairs the two functions of :mod:`talens.measures.channel_error_bounds`: canonical
+        bits = the Fano-derived channel-MI estimate ``I(V;Y)`` (from ``fano_result``);
+        readout = the recovery band bracketed by the Fano error lower bound and the
+        union-Bhattacharyya error upper bound (``ub_result``). Both halves are
+        attack-*independent* (codebook geometry + σ only), so the row never reports the
+        attack's own recovery.
+        """
+        bits, kind = canonical_bits("fano_equivocation", fano_result)
+        declined = bits is None  # Fano K<3: channel-MI not estimable, bounds vacuous
+        if declined:
+            # Do NOT render a recovery ceiling of 1 (= 1 − p_e_lb with the placeholder
+            # p_e_lb=0) for a row whose bits are undefined — that would read as
+            # "fully recoverable". Surface no readout primary; carry the note.
+            readout = error_band_readout(p_e_lb=None, p_e_ub=ub_result.get("p_e_ub"))
+        else:
+            readout = error_band_readout(
+                p_e_lb=fano_result.get("p_e_lb"), p_e_ub=ub_result.get("p_e_ub")
+            )
+        ex = dict(extra or {})
+        ex.setdefault("h_cond_bits", fano_result.get("h_cond_bits"))
+        ex.setdefault("K", fano_result.get("K"))
+        ex.setdefault("min_dist", ub_result.get("min_dist"))
+        ex.setdefault("se", fano_result.get("se"))
+        ex.setdefault("p_e_lb_raw", fano_result.get("p_e_lb_raw"))
+        ex.setdefault("p_e_ub_raw", ub_result.get("p_e_ub_raw"))
+        if fano_result.get("note") is not None:
+            ex.setdefault("note", fano_result["note"])
+        return cls(
+            measure="fano_equivocation", bits=bits, bits_kind=kind, readout=readout,
+            surface=surface, layer=layer, transform=transform, sigma=sigma, extra=ex,
         )
 
     def bits_legible(self) -> str:

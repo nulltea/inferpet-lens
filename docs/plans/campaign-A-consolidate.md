@@ -25,7 +25,7 @@ surface: metric-std
 run_id: a0-metric-std
 gate: review refine-logs/metric-std/REVIEW_STATE.json
 objective: build/extend the src/talens reporting layer so every probe emits bits canonical + a per-secret human readout (perplexity/token-F1/recovery-rate/cosine/AUC); retrofit existing measures; this is the supervised harness shakedown.
-- [ ] run-phase: a0-metric-std
+- [x] run-phase: a0-metric-std
 
 ### Task 2: residual-stream — capacity-matched PVI
 recipe: consolidate
