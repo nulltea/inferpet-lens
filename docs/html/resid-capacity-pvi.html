@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>transformer-attacks-lens — capacity-matched token-id leakage</title>
+<title>transformer-attacks-lens — capacity-matched leakage (retired → V_cap probe + input-DP surface)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
@@ -15,7 +15,6 @@
   <span class="crosshair tr"></span>
   <span class="crosshair bl"></span>
   <span class="crosshair br"></span>
-
 
   <!-- ─── TOPNAV ─── -->
   <div class="topnav">
@@ -66,235 +65,23 @@
   <!-- ─── MASTHEAD ─── -->
   <header class="masthead">
     <div>
-      <h1 class="title">Capacity-matched leakage<br><em>— the independent token-id reader</em></h1>
-      <p class="subtitle">An attack-independent probe predicts the token behind a hidden state without ever reading the embedding table. Reducing its feature dimension below the validation count removes a catastrophic estimator failure and yields a reader whose accuracy tracks an embedding-inversion attack at correlation 0.80 to 1.00 under representation-space defenses. Under input-layer differential privacy the two diverge with depth, and the divergence localizes what the defense protects.</p>
-      <span class="rev">research report · 2026-06-23</span>
+      <h1 class="title">Capacity-matched leakage<br><em>— page retired, content split</em></h1>
+      <p class="subtitle">This page used to present capacity-matched predictive V-information (<code>V_cap</code>) as if it were a surface. It was not: it mixed a probe's methodology with one surface's measured results. Its content has been split along the probe/surface boundary. This stub stays on disk so old links do not break; it is off the navigation.</p>
+      <span class="rev">retired · 2026-06-24</span>
     </div>
   </header>
 
-  <!-- §01 INTRODUCTION -->
-  <section id="introduction">
+  <section id="moved">
     <header class="section-head">
-      <div class="section-num">§01</div>
-      <h2 class="section-title">Introduction</h2>
-      <div class="section-meta">problem and headline finding</div>
-    </header>
-    <p class="lede">A leakage probe is useful only if it is independent of the attack it is meant to predict. A reader that recovers the token identity from a hidden state, and never consults the embedding table, is independent by construction. The question is whether such a reader can be made a well-behaved estimator, and whether it then predicts a real inversion attack.</p>
-    <div class="prose">
-      <p>The threat model is an adversary that knows the model weights, the embedding table, and any published defense parameters, and can synthesize unlimited pairs of defended representation and token. The secret is the token identity behind a residual-stream vector in gemma-2-2b (dimension 2304, an evaluation pool of 2048 candidate tokens).</p>
-      <p>The token-identity reader (here called capacity-matched predictive V-information, <code>V_cap</code>) originally failed as a bits estimator: with more features than validation points it interpolates, and its information content evaluated on a label-shuffled control falls to roughly negative fifty bits at every depth, an artifact rather than a leakage signal. Reducing the feature dimension below the validation count bounds that control value near negative one bit at every depth, at about 0.57 times the cost. The repaired reader's bounded top-1 accuracy then tracks the inversion attack's recovery rate at Spearman correlation 0.80 to 1.00 under representation-space defenses, while under input-layer differential privacy the two attenuate and finally diverge as the observation layer deepens.</p>
-    </div>
-  </section>
-
-  <!-- §02 PRELIMINARIES -->
-  <section id="preliminaries">
-    <header class="section-head">
-      <div class="section-num">§02</div>
-      <h2 class="section-title">Preliminaries</h2>
-      <div class="section-meta">terms used on this page</div>
-    </header>
-    <table class="spec">
-      <thead><tr><th style="width:24%">Term</th><th>Definition</th></tr></thead>
-      <tbody>
-        <tr><td><strong>surface</strong></td><td>The released object: a residual-stream vector <code>resid_post[L]&isin;R<sup>d</sup></code> (and at layer 0 the noised input embedding). The secret is the token identity behind it.</td></tr>
-        <tr><td><strong>token-identity reader</strong></td><td>The attack-independent probe. It standardizes the hidden state, reduces it to <code>dim&lt;n<sub>val</sub></code> by a train-only principal-component projection, then fits a calibrated linear-softmax classifier over the token-identity classes. It never reads the embedding table.</td></tr>
-        <tr><td><strong>reader accuracy</strong></td><td>The probe's bounded top-1 recovery rate over the token-identity classes. The robust readout.</td></tr>
-        <tr><td><strong>reader information (bits)</strong></td><td>The probe's predictive V-information in bits, reported as the selectivity (real minus label-shuffled control). Calibration-sensitive, reported as auxiliary.</td></tr>
-        <tr><td><strong>shuffle control</strong></td><td>The probe refit with token labels permuted; its information is the floor that a genuine estimate must clear.</td></tr>
-        <tr><td><strong>inversion attack</strong></td><td>A ridge regression from the hidden state to the embedding vector, then nearest-token decode. Its top-1 token recovery rate is the ground truth the probe is tested against.</td></tr>
-        <tr><td><strong>channel mutual information</strong></td><td>A variational upper bound on the mutual information between hidden state and token, in bits. An independent comparator estimator.</td></tr>
-        <tr><td><strong>representation-space defense</strong></td><td>Noise or subspace removal applied directly at the observed layer: isotropic hidden-state noise, or principal-component-subspace ablation.</td></tr>
-        <tr><td><strong>input-layer differential privacy</strong></td><td>Gaussian noise added at the input embedding and then propagated through the network; the layer-L observation is that noise reshaped by depth.</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <!-- §03 METHOD -->
-  <section id="method">
-    <header class="section-head">
-      <div class="section-num">§03</div>
-      <h2 class="section-title">Method</h2>
-      <div class="section-meta">measurement procedure</div>
-    </header>
-    <p class="prose">For each surface and defense strength, two independent computations ran on the same hidden states. The attack fit a ridge map to the embedding and decoded the nearest token, scored by exact-match recovery rate on held-out tokens. The probe standardized the hidden state on training statistics, projected to a fixed dimension below the validation count by covariance eigendecomposition, fit a calibrated linear-softmax reader over token-identity classes, and reported both the reader accuracy and the information selectivity against a label-shuffled control. Spearman correlation between the probe readout and the attack recovery was then computed across the defense sweep, separately at each observation layer.</p>
-    <div class="diagram-frame">
-      <svg class="flow" viewBox="0 0 760 300" width="100%" role="img" aria-label="Pipeline: a hidden state feeds two independent paths, an embedding-inversion attack and a token-identity probe.">
-        <defs>
-          <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="var(--ink)"></path></marker>
-        </defs>
-        <!-- source -->
-        <rect x="20" y="125" width="150" height="50" rx="6" class="box box-gpu"></rect>
-        <text x="95" y="148" text-anchor="middle" class="box-label">hidden state X</text>
-        <text x="95" y="164" text-anchor="middle" class="box-sub">resid_post[L]</text>
-        <!-- defense parameter -->
-        <rect x="20" y="40" width="150" height="44" rx="6" class="box box-tee"></rect>
-        <text x="95" y="60" text-anchor="middle" class="box-label">defense</text>
-        <text x="95" y="75" text-anchor="middle" class="box-sub">DP / noise / ablation</text>
-        <line x1="95" y1="84" x2="95" y2="123" class="arrow" marker-end="url(#ah)"></line>
-        <!-- attack path -->
-        <rect x="250" y="40" width="200" height="50" rx="6" class="box box-client"></rect>
-        <text x="350" y="62" text-anchor="middle" class="box-label">inversion attack</text>
-        <text x="350" y="78" text-anchor="middle" class="box-sub">ridge to embedding table</text>
-        <rect x="520" y="40" width="210" height="50" rx="6" class="box box-client"></rect>
-        <text x="625" y="62" text-anchor="middle" class="box-label">recovery rate (TTRSR)</text>
-        <text x="625" y="78" text-anchor="middle" class="box-sub">exact token match, ground truth</text>
-        <line x1="170" y1="140" x2="250" y2="72" class="arrow" marker-end="url(#ah)"></line>
-        <line x1="450" y1="65" x2="518" y2="65" class="arrow" marker-end="url(#ah)"></line>
-        <!-- probe path -->
-        <rect x="250" y="210" width="200" height="50" rx="6" class="box box-storage"></rect>
-        <text x="350" y="232" text-anchor="middle" class="box-label">token-identity probe</text>
-        <text x="350" y="248" text-anchor="middle" class="box-sub">PCA dim&lt;n, softmax reader</text>
-        <rect x="520" y="210" width="210" height="50" rx="6" class="box box-storage"></rect>
-        <text x="625" y="232" text-anchor="middle" class="box-label">reader accuracy + bits</text>
-        <text x="625" y="248" text-anchor="middle" class="box-sub">never reads embedding table</text>
-        <line x1="170" y1="160" x2="250" y2="228" class="arrow" marker-end="url(#ah)"></line>
-        <line x1="450" y1="235" x2="518" y2="235" class="arrow" marker-end="url(#ah)"></line>
-        <!-- correlation -->
-        <text x="625" y="150" text-anchor="middle" class="box-sub" font-style="italic">Spearman( accuracy , recovery )</text>
-        <line x1="625" y1="92" x2="625" y2="140" class="arrow" stroke-dasharray="3 3"></line>
-        <line x1="625" y1="208" x2="625" y2="158" class="arrow" stroke-dasharray="3 3"></line>
-      </svg>
-    </div>
-    <p class="diagram-cap">The hidden state feeds two independent paths. The attack reconstructs the embedding and decodes the nearest token; the probe predicts the token identity from a dimension-reduced reader that never touches the embedding table. Their agreement across a defense sweep is the test of whether the probe predicts the attack.</p>
-  </section>
-
-  <!-- §04 LEAKAGE MEASURES -->
-  <section id="measures">
-    <header class="section-head">
-      <div class="section-num">§04</div>
-      <h2 class="section-title">Leakage Measures</h2>
-      <div class="section-meta">two independent probes</div>
+      <div class="section-num">→</div>
+      <h2 class="section-title">Where the content went</h2>
+      <div class="section-meta">probe methodology vs measured surface</div>
     </header>
     <div class="prose">
-      <p><strong>Token-identity reader.</strong> Predicts the token-identity class from the hidden state. It is independent of the inversion attack because it never reads the embedding table and predicts a class label, not a vector; its correlation with a retrieval-style reader is 0.66 to 0.76, below the redundancy threshold. The single change from the original failing version is the dimensionality reduction, which adds no attack information. Two readouts: bounded reader accuracy (primary) and predictive information in bits (auxiliary).</p>
-      <p><strong>Channel mutual information.</strong> A variational upper bound on the mutual information between hidden state and token, in bits, computed by a separate estimator. It is reported beside the reader to show that any depth effect is a property of the signal rather than of one estimator.</p>
+      <p><strong>The <code>V_cap</code> probe methodology</strong> belongs to the probe, not a surface: the capacity-matching estimator repair (the shuffle-control floor moving from −49.7 to −1.9 bits at about 0.57× the cost), the accuracy-primary / bits-auxiliary rationale, and Lemma&nbsp;1 / Proposition&nbsp;2 / Proposition&nbsp;3. It is the registered probe <strong>capacity-matched predictive V-information</strong> (<code>V_cap</code>). See the <a href="probes-registry.html">probe registry</a> now; the dedicated <code>V_cap</code> probe page (<code>probe-vcap.html</code>, with Algorithm / Method / Rationale) is being built in the probe-pages phase.</p>
+      <p><strong>The measured input-DP results</strong> belong to the input-DP surface: the depth-resolved tracking tables and the depth-decoupling finding (ρ +0.96 at L0 → −0.21 at L20 under propagated input-DP, with CLUB attenuating in parallel). They now live, as block <strong>R7</strong>, on <a href="resid-dp-attacks.html">residual stream under differential privacy</a>, the single source of truth for that surface. The claim node <code>claim:depth-decoupling-input-dp</code> is cited from there.</p>
     </div>
   </section>
-
-  <!-- §05 RESULTS -->
-  <section id="results">
-    <header class="section-head">
-      <div class="section-num">§05</div>
-      <h2 class="section-title">Results</h2>
-      <div class="section-meta">bits canonical + recovery readout</div>
-    </header>
-    <p class="prose">All numbers are gemma-2-2b, single seed. The estimator repair (the shuffle-control floor) and the two regimes follow.</p>
-
-    <p class="prose"><strong>Estimator repair, by reader family (layer 12).</strong></p>
-    <table class="spec">
-      <thead><tr><th>reader family</th><th>real information (bits)</th><th>shuffle floor (bits)</th><th>cost vs original</th></tr></thead>
-      <tbody>
-        <tr><td>original (full dimension)</td><td>4.96</td><td>&minus;49.7</td><td>1&times;</td></tr>
-        <tr><td><strong>PCA softmax (selected)</strong></td><td>5.39</td><td><strong>&minus;1.9</strong></td><td>0.57&times;</td></tr>
-        <tr><td>random-projection softmax</td><td>5.17</td><td>&minus;3.9</td><td>0.42&times;</td></tr>
-        <tr><td>Gaussian class-conditional</td><td>&minus;12.0</td><td>&minus;32.6</td><td>0.15&times;</td></tr>
-      </tbody>
-    </table>
-    <p class="prose">The repaired floor holds at every depth: the reduced reader's shuffle floor is &minus;1.25, &minus;1.23, &minus;1.24, &minus;1.27 bits at layers 0, 5, 12, 20, against the original reader's &minus;44.9, &minus;50.2, &minus;51.4, &minus;48.1.</p>
-
-    <p class="prose"><strong>Representation-space defenses: probe accuracy tracks the attack at all depths.</strong> Spearman correlation between reader accuracy and attack recovery across the defense parameter:</p>
-    <table class="spec">
-      <thead><tr><th>defense</th><th>readout</th><th>layer 5</th><th>layer 12</th><th>layer 20</th></tr></thead>
-      <tbody>
-        <tr><td>subspace ablation</td><td>reader accuracy</td><td>0.80</td><td>0.90</td><td>0.90</td></tr>
-        <tr><td>subspace ablation</td><td>channel mutual information</td><td>0.90</td><td>0.90</td><td>0.90</td></tr>
-        <tr><td>isotropic noise</td><td>reader accuracy</td><td>1.00</td><td>1.00</td><td>1.00</td></tr>
-        <tr><td>isotropic noise</td><td>channel mutual information</td><td>1.00</td><td>1.00</td><td>1.00</td></tr>
-      </tbody>
-    </table>
-
-    <p class="prose"><strong>Input-layer differential privacy: tracking attenuates with depth.</strong> One row per observation layer; correlation with the attack recovery across the privacy sweep, with a sample of the per-point bits and recovery at layer 0.</p>
-    <table class="spec">
-      <thead><tr><th>layer</th><th>clean recovery</th><th>accuracy vs recovery (&rho;)</th><th>channel MI vs recovery (&rho;)</th><th>reader bits vs recovery (&rho;)</th></tr></thead>
-      <tbody>
-        <tr><td>0</td><td>0.809</td><td>+0.96</td><td>+0.96</td><td>+0.71</td></tr>
-        <tr><td>5</td><td>0.559</td><td>+0.68</td><td>+0.96</td><td>+0.68</td></tr>
-        <tr><td>12</td><td>0.347</td><td>+0.43</td><td>+0.89</td><td>+0.32</td></tr>
-        <tr><td>20</td><td>0.462</td><td><strong>&minus;0.21</strong></td><td>+0.29</td><td>&minus;0.21</td></tr>
-      </tbody>
-    </table>
-    <table class="spec">
-      <thead><tr><th>privacy &epsilon; (layer 0)</th><th>attack recovery</th><th>reader bits</th><th>reader accuracy</th><th>channel MI (bits)</th></tr></thead>
-      <tbody>
-        <tr><td>&infin;</td><td>0.809</td><td>6.67</td><td>0.882</td><td>3.85e3</td></tr>
-        <tr><td>1024</td><td>0.661</td><td>6.80</td><td>0.878</td><td>3.64e3</td></tr>
-        <tr><td>512</td><td>0.428</td><td>6.47</td><td>0.846</td><td>3.34e3</td></tr>
-        <tr><td>256</td><td>0.140</td><td>5.46</td><td>0.684</td><td>2.81e3</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <!-- §06 FINDINGS -->
-  <section id="findings">
-    <header class="section-head">
-      <div class="section-num">§06</div>
-      <h2 class="section-title">Findings</h2>
-      <div class="section-meta">claims as paper statements</div>
-    </header>
-    <div class="prose">
-      <p><strong>Capacity matching repairs the independent token-identity probe.</strong> The original reader failed as a bits estimator because it had more features than validation points and interpolated; on a label-shuffled control its information fell to roughly negative fifty bits at every depth. Reducing the feature dimension below the validation count bounds that control value near negative one bit at every depth, at about 0.57 times the cost, with the repair driven by the dimension reduction rather than by the regularization strength. The repaired probe's bounded reader accuracy tracks the inversion attack at correlation 0.80 to 1.00 under representation-space defenses. Supported for gemma-2-2b; the accuracy readout is the object that tracks, the bits readout is auxiliary. Generality across models and seeds is not yet established.</p>
-      <p><strong>The probe and the attack decouple with depth under input-layer privacy.</strong> As the observation layer deepens, the correlation between reader accuracy and attack recovery attenuates from +0.96 to &minus;0.21, turning negative at layer 20. The independent channel-information estimator attenuates in the same direction, from +0.96 to +0.29, but stays positive: it does not reproduce the sign reversal. The shared attenuation indicates a property of the propagated signal; the sign reversal at layer 20 is specific to the bounded token-identity readout. This is single-seed and not yet robust.</p>
-    </div>
-  </section>
-
-  <!-- §07 ANALYSIS -->
-  <section id="analysis">
-    <header class="section-head">
-      <div class="section-num">§07</div>
-      <h2 class="section-title">Analysis</h2>
-      <div class="section-meta">why the estimator fails and how it is bounded</div>
-    </header>
-    <div class="prose">
-      <p>The repair has a proof. The probe's information in bits is the log-probability the reader assigns the true token minus the prior log-probability. Because a probability can approach zero, this quantity has no lower bound over readers: a single confidently-wrong assignment sends it to negative infinity. Accuracy, an indicator average, stays in the unit interval. This is why accuracy cannot blow up while the bits can (Lemma 1).</p>
-      <p>With more features than validation points the data is separable, and an unregularized log-loss fit interpolates: training probabilities approach one. On a shuffled control the confident prediction disagrees with the permuted label on at least one point, the assigned probability there approaches zero, and the empirical control information, a finite average with one diverging term, falls without bound. This is the mechanism of the observed floor, not a derivation of its exact value (Proposition 2).</p>
-      <p>If the reader's logits are bounded by a cap fixed independently of the feature dimension, then every class probability is at least a positive softmax floor, so the information is bounded below by a finite, dimension-independent constant (Proposition 3). Dimensionality reduction does not enter this bound directly; it is the practical device that keeps the fit out of the interpolation regime so a modest logit cap is attainable, which is why the repair tracks the dimension rather than the regularization strength. The full proof is in the claim record.</p>
-    </div>
-  </section>
-
-  <!-- §08 DISCUSSION -->
-  <section id="discussion">
-    <header class="section-head">
-      <div class="section-num">§08</div>
-      <h2 class="section-title">Discussion</h2>
-      <div class="section-meta">what leaks, and the limit</div>
-    </header>
-    <div class="prose">
-      <p>Under representation-space defenses the independent probe and the inversion attack agree closely at every depth: the probe predicts the attack. Under input-layer privacy they diverge as the noise propagates through the network, and the divergence localizes what the defense protects. Input-layer privacy degrades the embedding geometry that the attack reconstructs before it degrades the token-identity decodability that the probe measures; at the deepest layer the embedding reconstruction has collapsed while the token identity remains partly decodable, so the two measures move oppositely. Because an independent information estimator attenuates in parallel under propagated privacy (though it does not itself reverse sign), this is a property of the propagated signal rather than an artifact of the probe.</p>
-      <p>Two scope notes follow from the design. The agreement reported here is intervention-ordered co-tracking: a defense parameter degrades several readouts in the same order, so a high rank correlation establishes co-movement under ordered intervention, not mechanistic or causal equivalence. The independence of probe and attack rules out the probe reading the attack's own output, but not shared dependence on representation geometry, token frequency, or layerwise separability.</p>
-      <p><strong>Limitations and recorded negatives.</strong> The results are a single model and a single seed, with seven privacy points per layer and no confidence intervals. A leave-one-out check on the input-privacy sweep gives a robustness floor short of multiple seeds: removing any single point, the correlation stays positive at layer 12 (range +0.09 to +0.60) and stays negative at layer 20 (range &minus;0.94 to &minus;0.09), so the layer-20 sign survives single-point deletion while its magnitude remains volatile. The depth reversal is reported as an observation in this run, not an established effect. The information-in-bits readout is calibration-sensitive and is reported only as auxiliary. The Gaussian class-conditional reader remains miscalibrated even after dimensionality reduction, so capacity matching is necessary but not sufficient: the reader must also be calibrated. Named next steps are multiple seeds with intervals, cross-model replication, a sensitivity check at a smaller reduced dimension, a calibration diagnostic on the bits-fragile cells, and a matched embedding-cosine readout at the deepest layer to confirm that geometry collapses while identity decodability survives.</p>
-    </div>
-  </section>
-
-  <!-- ─── FOOTER ─── -->
-  <footer class="colophon" style="margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
-    <div>
-      <h5>Probe &amp; code</h5>
-      <ul>
-        <li><code>src/talens/measures/vinfo_capacity.py</code></li>
-        <li><code>src/talens/report.py</code> · bits + readout</li>
-        <li><code>scripts/spikes/diag_capacity.py</code></li>
-        <li><code>scripts/spikes/localdp_runner.py</code></li>
-      </ul>
-    </div>
-    <div>
-      <h5>Claims &amp; logs</h5>
-      <ul>
-        <li><code>research-wiki/claims/capacity-matched-pvi.md</code> · estimator lemma verified</li>
-        <li><code>research-wiki/claims/depth-decoupling-input-dp.md</code></li>
-        <li><code>refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md</code></li>
-        <li><code>refine-logs/resid-capacity-pvi/EXPERIMENT_AUDIT.md</code></li>
-      </ul>
-    </div>
-    <div>
-      <h5>External references</h5>
-      <ul>
-        <li>Hewitt et al. · conditional V-information (2021)</li>
-        <li>Soudry et al. · implicit bias of gradient descent (2018)</li>
-        <li>Lyu &amp; Li · multiclass max-margin (2020)</li>
-        <li>LMs are Injective · <a href="https://arxiv.org/abs/2510.15511">arXiv 2510.15511</a></li>
-      </ul>
-    </div>
-  </footer>
 </div>
 </body>
 </html>

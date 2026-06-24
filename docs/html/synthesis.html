@@ -98,7 +98,7 @@
         <tr><th>Surface</th><th>Attack(s)</th><th>Defense · swept parameter</th><th>Probe (bits)</th><th style="width:12%">ρ(bits, recovery)</th><th style="width:14%">Verdict</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="resid-capacity-pvi.html">capacity-matched predictive V-information (V_cap)</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
+        <tr><td><a href="resid-dp-attacks.html#results">capacity-matched predictive V-information (V_cap)</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
         <tr><td><a href="resid-dp-attacks.html">differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td><code>CLUB</code>; <code>V_cap</code></td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
         <tr><td><a href="resid-depth-inversion.html">depth inversion</a></td><td>cosine-NN, ridge, learned mlp2</td><td>none · depth L0–L32</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">+0.85</td><td>tracks; depth ≠ privacy</td></tr>
         <tr><td><a href="resid-rep2text.html">Rep2Text inversion</a></td><td>adapter to frozen decoder</td><td>none · length; noise σ</td><td><code>I_G</code></td><td class="num">0.18 length (vacuous); 1.00 over σ</td><td>vacuous: capacity slack</td></tr>

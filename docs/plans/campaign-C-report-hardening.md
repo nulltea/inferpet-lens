@@ -92,7 +92,7 @@ decision — SPLIT (grilled 2026-06-24):
 
 steps: (a) move the input-DP measured tables (the at-layer ablation table, the input-DP-by-depth table, the per-ε table) + the depth-decoupling prose into `resid-dp-attacks.html`, reconciling with whatever DP content already lives there (de-duplicate, single source of truth); (b) stage the estimator-repair + rationale + the three propositions for the `V_cap` probe page (write to refine-logs/capacity-pvi-restructure/ as the handoff content Task 4 consumes); (c) retire `resid-capacity-pvi.html` (stub linking the two destinations using the Task-2 `V_cap` name); (d) verify no measured number is lost in the move (diff the relocated tables against the source) and the claim node is cited from its new home; (e) cleanup pass (/humanize → /proofread → /term-audit) on the edited `resid-dp-attacks.html`.
 acceptance: the input-DP tables + depth-decoupling finding appear exactly once, on `resid-dp-attacks.html`, with no number changed (diff shown); `resid-capacity-pvi.html` no longer presents itself as a surface (retired/stub) and is gone from the residual navgroup + index (already true since the 2026-06-24 restructure); the V_cap methodology content is staged for Task 4; `claim:depth-decoupling-input-dp` is cited from its new home; cleanup pass run.
-- [ ] run-phase: c3-capacity-pvi-restructure
+- [x] run-phase: c3-capacity-pvi-restructure
 
 ### Task 4: per-probe pages — Algorithm / Method / Rationale + plaintext reference (one per registered probe)
 recipe: consolidate

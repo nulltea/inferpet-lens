@@ -1,57 +1,47 @@
-# Auto-Review Loop — campaign-C Task 2 (probe registry)
+# Auto Review Loop — campaign-C Task 3 (capacity-pvi restructure)
 
-Target: docs/plans/campaign-C-report-hardening.md Task 2 ("probe registry — canonical
-names + symbols, used verbatim everywhere"). Reviewer: Codex / gpt-5.5 (xhigh), medium,
-thread 019efb27-a15c-7051-861f-20251859e725.
-Deliverable: docs/html/probes-registry.html + a `probes` navgroup on all 15 pages +
-site-wide canonicalization of probe names + synthesis glossary deferral to the registry.
+Target: `docs/plans/campaign-C-report-hardening.md` Task 3 — split `resid-capacity-pvi.html` along the probe/surface boundary.
+Reviewer backend: Codex (gpt-5.5, xhigh). Difficulty: medium. Started 2026-06-24.
 
 ## Round 1 (2026-06-24)
-- Score: 7/10 — Verdict: almost
-- Passed: registry page satisfies Task 2(a); I_G vs shared-spectral-capacity distinction
-  correct vs src/talens/measures/; `probes` navgroup on all 15 pages; old drift strings
-  (`spectral channel-MI`, `spectral channel mutual information`, `capPVI`, `cap-PVI`) gone.
-- Findings: (1) residual non-canonical visible mentions; (2) synthesis table shorthand;
-  (3) pre-existing prose em-dashes on edited pages.
-- Fixes: #1 + #2 eliminated; #3 scoped to registry page + edited spans, rest deferred
-  to per-page cleanup passes (Tasks 4/5/6).
 
-## Round 2
-- Score: 7.5/10 — Verdict: almost. **Ruled the em-dash scoping ACCEPTABLE for Task 2.**
-- Findings: more verbatim-naming nits (synthesis:101, index:117, shared-spectral-capacity,
-  negentropy headers, row-negentropy coinage, resid-dp V_cap/SDL prose).
-- Fixes: canonical names at synthesis:101 + index:117; "shared spectral capacity"; J in
-  table headers; row-negentropy → whitened-row negentropy; ρ(negentropy,…)→ρ(J,…); resid-dp
-  V_cap/SDL descriptions canonical.
+### Assessment (Summary)
+- Score: 8/10
+- Verdict: almost
+- Key criticisms: (1) L0 cap-accuracy ρ source cell is "+0.96 / +0.99"; R7 kept only +0.96 — preserve the source form. (2/3/4) minor: label normalization, future-page link, source-vs-handoff citation distinction — verified already satisfied in the live file.
 
-## Round 3
-- Score: 8.5/10 — Verdict: almost. **Ruled bare post-definition `negentropy` shorthand ACCEPTABLE.**
-- Findings: index:117 missing (V_cap)/(CLUB)/(SDL); three index probe cells naming the Gaussian
-  channel-capacity MI ceiling without I_G; kv-cloak:217 "spectral-capacity spread".
-- Fixes: index symbols added; kv-cloak:217 → "shared spectral capacity spread".
+STOP CONDITION met at round 1: score 8 ≥ 6 AND verdict "almost" ∈ {ready, almost}.
 
-## Round 4 (final)
-- Score: 8/10 — Verdict: almost  → **PASS** (score≥6 AND verdict∈{ready,almost}).
-- Residual nit: three descriptive index probe `<dd>` cells (lines 130/221/234) phrased without
-  registry symbols.
-- Fix applied post-review (artifact strictly improved over reviewed state): the three cells now
-  read `capacity-matched predictive V-information (V_cap) and variational MI upper bound (CLUB)`,
-  `variational MI upper bound (CLUB) on the permutation-invariant signature`, and
-  `whitened-row negentropy separability (J), computed without joint diagonalization`.
+### Reviewer Raw Response
 
-### Round 4 reviewer raw response
-<details><summary>expand</summary>
+<details>
+<summary>Full reviewer response (round 1)</summary>
 
-Score: 8/10. Verdict: almost. Remaining blocker: index.html still had three visible probe labels
-(lines 130/221/234) not using registry names + symbols; minimum fix = canonicalize those probe
-`<dd>` cells. Everything else in good shape: old umbrella strings gone, `probes` nav on all 15
-pages, registry page satisfies the row/module/distinction spec, synthesis defers to the registry,
-no I_G / shared spectral capacity conflation.
+**Score: 8/10**
+
+The restructure is largely faithful: the measured input-DP material moved to `resid-dp-attacks.html` as R7, the old page is retired rather than left as a fake surface, the V_cap methodology is staged for Task 4, and the depth-decoupling claim is cited from the new surface home.
+
+**Ranked Weaknesses**
+
+1. R7 has one numerical fidelity ambiguity at L0. Source has `+0.96 / +0.99` for L0 cap-accuracy tracking; R7 keeps only `+0.96`. Minimum fix: preserve the source form, or add a note.
+2. Some source labels slightly normalized (`cap reader accuracy` → `V_cap reader accuracy`; `isotropic hidden-state noise` → `isotropic noise`). Minimum fix: use `isotropic hidden-state noise`.
+3. Stub names the future probe page `probe-vcap.html` — must not be an actual hyperlink until created.
+4. R7 should cite `RESULTS_STANDARDIZED.md` as measurement source; the staged handoff is interpretation/later-page, not surface evidence.
+
+**Numerical Check** — No mismatch in R7 Tables 1/2/3 except the L0 `+0.96 / +0.99` issue. `3.85e3`→`3850` etc. numerically identical, not a fidelity problem. The R7↔R5 reconciliation is honest: complementary cuts, both showing deepest-layer decorrelation, not a contradiction.
+
+**Verdict: almost ready** — after the small L0 source-fidelity fix, ready for the documentation-restructure phase.
 
 </details>
 
-## Termination
-MAX_ROUNDS (4) reached; STOP CONDITION met at every round (score 7 → 7.5 → 8.5 → 8, verdict
-"almost"). The reviewer's last-named blocker (three index probe cells) was then fixed, leaving
-the artifact strictly better than the 8/almost reviewed state. No GPU. No new research claim
-(Task 2 recipe-fit: edit-pages + cleanup + auto-review only).
+### Actions Taken (round 1, before closing)
+- Fix #1: added the source's tie-handling form to the R7 by-depth caption ("The L0 accuracy↔recovery ρ is +0.96 (+0.99 under alternative tie-handling) in the source.").
+- Fix #2: non-issue — the live file already labels both rows "isotropic hidden-state noise" (the abbreviation existed only in the paste to the reviewer).
+- Fix #3: already satisfied — `probe-vcap.html` appears inside `<code>`, not as an `<a href>`.
+- Fix #4: already satisfied — R7 heading + footer cite `refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md` as source; the staged handoff is not cited as surface evidence.
+
+### Status
+- Stopping at round 1 (positive assessment). Difficulty: medium.
+
+## Method Description
+Documentation restructure (no GPU, no new research claim). The page `resid-capacity-pvi.html`, which conflated the `V_cap` probe's methodology with one surface's measured input-DP results under a false "surface" identity, was split: measured input-DP tables + the depth-decoupling finding relocated to the surface page `resid-dp-attacks.html` (block R7, numbers preserved verbatim from `RESULTS_STANDARDIZED.md`); the `V_cap` estimator-repair methodology + Lemma 1 / Prop 2 / Prop 3 staged to `refine-logs/capacity-pvi-restructure/VCAP-PROBE-PAGE-CONTENT.md` for Task 4's dedicated probe page; the old page retired to an off-nav stub linking both destinations; `claim:depth-decoupling-input-dp` cited from its new home; the synthesis V_cap overview row repointed.

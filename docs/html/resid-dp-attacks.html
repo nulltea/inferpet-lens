@@ -125,7 +125,7 @@
       <tbody>
         <tr><td><strong>At-layer</strong> (R2/R3)</td><td class="accent">yes, ρ=1.0</td><td class="warn">no — MLP loses to ridge</td><td>No gap: ridge is already near-sufficient; nothing to restore.</td></tr>
         <tr><td><strong>L0 input-DP</strong> (R1)</td><td>ridge still tracks (+0.76..+0.88) but its recovery collapses</td><td class="accent">yes — Bayes-NN uplift +0.98</td><td>Uplift / ceiling-realization gap (not decorrelation): information preserved, exact optimum extracts it.</td></tr>
-        <tr><td><strong>Propagated</strong> @depth (R4/R5)</td><td class="warn">no — ridge anti-correlates −0.09</td><td class="accent">yes — decoder re-correlates +0.83</td><td>The open regime, cracked in the right direction.</td></tr>
+        <tr><td><strong>Propagated</strong> @depth (R4/R5)</td><td class="warn">no — ridge anti-correlates −0.09</td><td class="accent">yes — decoder re-correlates +0.83</td><td>The open regime; a stronger attack restores the correlation.</td></tr>
       </tbody>
     </table>
   </section>
@@ -193,7 +193,7 @@
       </tbody>
       <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Descriptive Spearman over a <strong>single seed</strong>, n=6 ε points — directional, not a robustness claim; multi-seed CIs are the named firm-up.</caption>
     </table>
-    <div class="prose"><p>The trained decoder's recovery <strong>tracks the MI probes (+0.83) where ridge anti-correlates (−0.09)</strong> — exactly the objective: a stronger attack restores the correlation the weak attack breaks. Uplift is a noise crossover (decoder wins ε≤384, ridge wins clean). <strong>Embedding-space iteration is null</strong> (<code>iter_T3 − iter_T1 = +0.000</code>): a fixed-point corrector — the lever is noise-aware training, not re-embedding feedback.</p></div>
+    <div class="prose"><p>The trained decoder's recovery <strong>tracks the MI probes (+0.83) where ridge anti-correlates (−0.09)</strong> — exactly the objective: a stronger attack restores the correlation the weak attack breaks. Uplift is a noise crossover (decoder wins ε≤384, ridge wins clean). <strong>Embedding-space iteration is null</strong> (<code>iter_T3 − iter_T1 = +0.000</code>): a fixed-point corrector, so what helps is noise-aware training, not re-embedding feedback.</p></div>
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R6 — forward-model Vec2Text @L20 · regime-dependence (the open gap)</h4>
     <table class="spec">
@@ -204,7 +204,46 @@
         <tr><td>256</td><td class="num">0.227</td><td class="num">0.245</td><td class="num warn">0.025</td><td class="num warn">−0.202</td></tr>
       </tbody>
     </table>
-    <div class="prose"><p>FMV closes the low-noise gap (+0.53 over ridge at clean) but is <strong>noise-fragile</strong> — it matches a <em>clean</em> reference to a single noisy draw, collapsing below ridge at ε=256. Mirror image of R5's decoder (best at high noise). <strong>No single attack dominates the noise range</strong> ⇒ the named optimum is a <em>noise-aware</em> FMV (match <code>E[Y|candidate]</code>) ⊕ a learned denoiser — the live frontier.</p></div>
+    <div class="prose"><p>FMV closes the low-noise gap (+0.53 over ridge at clean) but is <strong>noise-fragile</strong> — it matches a <em>clean</em> reference to a single noisy draw, collapsing below ridge at ε=256. Mirror image of R5's decoder (best at high noise). <strong>No single attack dominates the noise range</strong> ⇒ the named optimum is a <em>noise-aware</em> FMV (match <code>E[Y|candidate]</code>) ⊕ a learned denoiser, the open problem here.</p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R7 — does the <code>V_cap</code> probe track recovery across depth? · the depth-decoupling finding <span class="mono" style="font-size:12px">(single seed, relocated from the retired capacity-pvi page; source: refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md)</span></h4>
+    <div class="prose"><p>R1–R6 vary the <em>attack</em> at fixed layers. This block instead asks the probe-side question on the same surface: does the attack-independent capacity-matched predictive V-information (<code>V_cap</code>), read as a bounded reader accuracy that never touches the embedding table, track the ridge recovery as the privacy parameter sweeps, and does that tracking hold across <em>depth</em>? It does at the input layer and decouples at depth, the <code>claim:depth-decoupling-input-dp</code> finding.</p></div>
+
+    <p class="prose"><strong>At-layer representation-space defenses: the probe tracks at every depth.</strong> Spearman ρ between the readout and ridge recovery across the defense parameter (a per-sweep correlation, not a per-row value):</p>
+    <table class="spec">
+      <thead><tr><th>defense</th><th>readout</th><th class="num">layer 5</th><th class="num">layer 12</th><th class="num">layer 20</th></tr></thead>
+      <tbody>
+        <tr><td>PCA-subspace ablation</td><td><code>V_cap</code> reader accuracy</td><td class="num">0.80</td><td class="num">0.90</td><td class="num">0.90</td></tr>
+        <tr><td>PCA-subspace ablation</td><td>CLUB <code>I(rep;tok)</code></td><td class="num">0.90</td><td class="num">0.90</td><td class="num">0.90</td></tr>
+        <tr><td>isotropic hidden-state noise</td><td><code>V_cap</code> reader accuracy</td><td class="num accent">1.00</td><td class="num accent">1.00</td><td class="num accent">1.00</td></tr>
+        <tr><td>isotropic hidden-state noise</td><td>CLUB <code>I(rep;tok)</code></td><td class="num accent">1.00</td><td class="num accent">1.00</td><td class="num accent">1.00</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>Under noise or subspace removal applied <em>at the observed layer</em>, the bounded reader accuracy tracks ridge at ρ 0.80–1.00 with no depth dependence; this is the same positive regime R2 reports for ridge itself under at-layer noise.</p></div>
+
+    <p class="prose"><strong>Propagated input-DP: tracking attenuates monotonically with depth.</strong> One row per observation layer; ρ with ridge recovery across the privacy sweep:</p>
+    <table class="spec">
+      <thead><tr><th>layer</th><th class="num">clean recovery</th><th class="num">acc vs recovery (ρ)</th><th class="num">CLUB vs recovery (ρ)</th><th class="num">reader bits vs recovery (ρ)</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td class="num">0.809</td><td class="num accent">+0.96</td><td class="num">+0.96</td><td class="num">+0.71</td></tr>
+        <tr><td>5</td><td class="num">0.559</td><td class="num">+0.68</td><td class="num">+0.96</td><td class="num">+0.68</td></tr>
+        <tr><td>12</td><td class="num">0.347</td><td class="num">+0.43</td><td class="num">+0.89</td><td class="num">+0.32</td></tr>
+        <tr><td>20</td><td class="num">0.462</td><td class="num warn">−0.21</td><td class="num">+0.29</td><td class="num warn">−0.21</td></tr>
+      </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">The accuracy↔recovery correlation attenuates +0.96 (L0) → −0.21 (L20), turning negative at L20; CLUB attenuates in parallel but stays positive (+0.96 → +0.29). Consistent with R5's <code>ρ(selectivity, V_cap) = −0.09</code> at L20 (a complementary cut, different sweep); both show <code>V_cap</code> and ridge recovery decorrelating at the deepest layer. The shared attenuation is a signal property; the L20 sign reversal is specific to the bounded-accuracy readout. The L0 accuracy↔recovery ρ is +0.96 (+0.99 under alternative tie-handling) in the source.</caption>
+    </table>
+
+    <p class="prose"><strong>Per-point sample at layer 0</strong> (the easiest layer; observation ≈ noised embedding):</p>
+    <table class="spec">
+      <thead><tr><th>privacy ε</th><th class="num">ridge recovery</th><th class="num">reader bits</th><th class="num"><code>V_cap</code> reader accuracy</th><th class="num">CLUB (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>∞</td><td class="num">0.809</td><td class="num">6.67</td><td class="num">0.882</td><td class="num">3850</td></tr>
+        <tr><td>1024</td><td class="num">0.661</td><td class="num">6.80</td><td class="num">0.878</td><td class="num">3640</td></tr>
+        <tr><td>512</td><td class="num">0.428</td><td class="num">6.47</td><td class="num">0.846</td><td class="num">3340</td></tr>
+        <tr><td>256</td><td class="num">0.140</td><td class="num">5.46</td><td class="num">0.684</td><td class="num">2810</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>Input-layer privacy degrades the embedding geometry the attack reconstructs before it degrades the token-identity decodability the probe measures; at the deepest layer the embedding reconstruction has collapsed while the token identity remains partly decodable, so the two move oppositely. Because CLUB attenuates in parallel (without itself reversing sign), this is a property of the propagated signal, not a probe artifact. Scoped, single seed; the depth reversal is an observation in this run, not an established effect (<code>claim:depth-decoupling-input-dp</code>, jury PARTIAL/scoped).</p></div>
   </section>
 
   <!-- ═════ § 6 CLAIM ═════ -->
@@ -217,7 +256,8 @@
     <div class="prose">
       <p><strong><code>claim:restore-correlation</code></strong>: <em>info-efficient attacks restore the MI↔recovery correlation where the weak attack decorrelates</em>. Status: <strong>Supported</strong> at the input layer, <strong>Preliminary</strong> at propagated depth (single setting). The input layer supports the attack-efficiency premise via uplift and ceiling-realization (Bayes-NN +0.98); propagated depth supplies the literal re-correlation evidence (deep decoder +0.83 against ridge −0.09); the effect is explicitly absent under at-layer noise (no gap); a full-noise-range depth ceiling attack is open. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
       <p><strong><code>claim:bayes-gap-diagnosis</code></strong>: <em>the MI-recovery gap is a Bayes-optimality (attack-efficiency) gap, not poor MI prediction</em>. Status: <strong>Supported</strong> at the input layer, <strong>Preliminary</strong> at depth. Shown directly at the input layer (the probe is high while ridge collapses and Bayes recovers near 1.0); at depth the gap is inferred, not measured to the ceiling. <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
-      <p>Both rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (Bayes-optimal weakly dominates lossy/linear; recovery monotone in MI on the Gaussian arm): they are its empirical instantiation on the residual stream.</p>
+      <p><strong><code>claim:depth-decoupling-input-dp</code></strong>: <em>under propagated input-DP the attack-independent <code>V_cap</code> probe's tracking of the embedding-reconstruction attack is depth-resolved — it attenuates monotonically with depth (ρ +0.96 L0 → −0.21 L20, sign-reversing at L20) while CLUB attenuates in parallel but stays positive (+0.29 at L20)</em>. Status: <strong>scoped / jury PARTIAL</strong>, single seed. The parallel CLUB attenuation makes the depth-attenuation a signal property; the L20 sign reversal is readout-specific. This is the canonical decoupling example the matched-probe program cites (R7 above). <span class="mono">research-wiki/claims/depth-decoupling-input-dp.md</span></p>
+      <p>The first two rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (Bayes-optimal weakly dominates lossy/linear; recovery monotone in MI on the Gaussian arm): they are its empirical instantiation on the residual stream.</p>
     </div>
   </section>
 
@@ -259,6 +299,8 @@
         <li><code>scripts/spikes/b6_strong_decoder.py</code> · R5</li>
         <li><code>scripts/spikes/b6c_forward_model_vec2text.py</code> · R6</li>
         <li><code>scripts/spikes/mdl_probe_check.py</code> · R3</li>
+        <li><code>scripts/spikes/diag_capacity.py</code> · R7</li>
+        <li><code>scripts/spikes/localdp_runner.py</code> · R7</li>
       </ul>
     </div>
     <div>
@@ -266,8 +308,10 @@
       <ul>
         <li><code>research-wiki/claims/restore-correlation.md</code></li>
         <li><code>research-wiki/claims/bayes-gap-diagnosis.md</code></li>
+        <li><code>research-wiki/claims/depth-decoupling-input-dp.md</code> · R7</li>
         <li><code>research-wiki/claims/thm-t1-info-efficient.md</code> · verified</li>
         <li><code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code></li>
+        <li><code>refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md</code> · R7</li>
         <li><code>refine-logs/resid-dp-attacks/EXPERIMENT_AUDIT.md</code> · WARN</li>
       </ul>
     </div>
