@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: Gaussian channel-capacity MI ceiling (I_G)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a class="current" href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Gaussian MI ceiling<br><em>— probe <code>I_G</code></em></h1>
+      <p class="subtitle">The Gaussian channel-capacity mutual-information ceiling: a closed-form converse on embedding-inversion leakage, computed from the embedding covariance spectrum and the release noise alone. It runs no inverter, so it bounds the recovery of every attack at once.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → bits</div>
+    </header>
+    <p class="lede">Given the released channel <code>Y = e₀ + N(0, σ²I)</code> on a clipped embedding <code>e₀</code> whose secret is the source text, <code>I_G</code> reads only the second-order geometry of <code>e₀</code> and the noise scale <code>σ</code>.</p>
+    <div class="prose">
+      <ol>
+        <li>Estimate the covariance <code>Σ = Cov(e₀)</code> over the secret prior (the clean clipped embeddings of the corpus).</li>
+        <li>Eigendecompose <code>Σ</code> to its eigenvalues <code>λ₁ ≥ … ≥ λ_d</code> (via a covariance eigendecomposition, not a full data SVD).</li>
+        <li>Form the per-mode capacity <code>tᵢ = ½ log₂(1 + λᵢ/σ²)</code>, the bits the i-th principal direction carries through the Gaussian channel.</li>
+        <li>Sum to the ceiling <code>I_G(σ) = Σᵢ tᵢ</code> and the effective rank <code>d_eff = #{ i : λᵢ ≥ σ² }</code>; report the accessible cap <code>min{ H(e₀), I_G }</code>, since at low noise the discrete entropy <code>H(e₀)</code> binds.</li>
+      </ol>
+      <p>The output is in bits. Beside it the report renders the per-secret readout for the surface (token-F1 on text recovery), per <code>src/talens/report.py</code>. The estimator is <code>src/talens/measures/spectral_channel_mi.py</code>; the geometry-only behaviour is checked model-free in <code>tests/test_spectral_channel_mi.py</code>.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: one released embedding, two arms (attack → recovery, probe → bits)</span>
+        <span>navy = data owner · plum = defense (σ locus) · slate = adversary/analyst · amber = leak · adapted from Morris et al. 2023 Fig. 1</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 470" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="The owner encodes text to an embedding, the Gaussian mechanism with noise sigma releases it; the adversary arm inverts to recovered text while the probe arm computes I_G from the covariance spectrum and sigma with no attack.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <!-- ZONES -->
+        <rect x="0"    y="40" width="360" height="410" class="zone-band zone-band-client"/>
+        <rect x="360"  y="40" width="270" height="410" class="zone-band zone-band-crypto"/>
+        <rect x="630"  y="40" width="690" height="410" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">holds text X · runs encoder φ → e₀</text>
+        <text x="380" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="380" y="78" class="zone-sublabel">Gaussian mechanism · σ = C·z/ε</text>
+        <text x="650" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="650" y="78" class="zone-sublabel">has φ, published (Σ, σ) · two independent arms</text>
+        <line x1="360" y1="40" x2="360" y2="450" class="boundary"/>
+        <line x1="630" y1="40" x2="630" y2="450" class="boundary"/>
+        <text x="634" y="446" class="boundary-label">release (e′ crosses to adversary)</text>
+
+        <!-- OWNER -->
+        <rect x="24" y="200" width="150" height="70" class="box box-strong box-client"/>
+        <text x="38" y="224" class="box-label">secret text X</text>
+        <text x="38" y="242" class="box-sub">finite alphabet</text>
+        <rect x="196" y="200" width="140" height="70" class="box box-client"/>
+        <text x="210" y="224" class="box-label">φ → e₀</text>
+        <text x="210" y="242" class="box-mono">e₀ = clip(φ(X), C)</text>
+
+        <!-- DEFENSE -->
+        <rect x="384" y="190" width="222" height="92" class="box box-strong box-crypto"/>
+        <text x="398" y="214" class="box-label">Gaussian mechanism</text>
+        <text x="398" y="232" class="box-mono">e′ = e₀ + N(0, σ²I)</text>
+        <text x="398" y="252" class="box-sub">σ = swept defense parameter</text>
+        <text x="398" y="270" class="box-sub">Σ = Cov(e₀) published</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="660" y="120" width="220" height="66" class="box box-gpu"/>
+        <text x="674" y="144" class="box-label">attack arm — inverter</text>
+        <text x="674" y="162" class="box-sub">iterative corrector (Vec2Text)</text>
+        <text x="674" y="178" class="box-mono">recovers x̂ from e′</text>
+        <rect x="940" y="120" width="200" height="66" class="box box-strong box-gpu box-warn"/>
+        <text x="954" y="144" class="box-label warn">recovered text x̂</text>
+        <text x="954" y="162" class="box-sub">recovery: token-F1</text>
+        <text x="954" y="178" class="box-mono">→ bounded by I_G</text>
+
+        <!-- PROBE ARM (numbered computation) -->
+        <rect x="660" y="250" width="156" height="76" class="box box-gpu"/>
+        <text x="674" y="274" class="box-label">① Σ → eig</text>
+        <text x="674" y="292" class="box-mono">λ₁ ≥ … ≥ λ_d</text>
+        <text x="674" y="310" class="box-sub">cov eigendecomp</text>
+        <rect x="838" y="250" width="156" height="76" class="box box-gpu"/>
+        <text x="852" y="274" class="box-label">② per-mode</text>
+        <text x="852" y="292" class="box-mono">tᵢ=½log₂(1+λᵢ/σ²)</text>
+        <text x="852" y="310" class="box-sub">water-filling</text>
+        <rect x="1016" y="240" width="280" height="96" class="box box-strong box-gpu"/>
+        <text x="1030" y="264" class="box-label">③ probe I_G — geometry-only</text>
+        <text x="1030" y="284" class="box-mono">I_G = Σᵢ tᵢ  (bits)</text>
+        <text x="1030" y="304" class="box-mono">cap = min{ H(e₀), I_G }</text>
+        <text x="1030" y="324" class="box-sub">no attack · ceilings recovery (Fano)</text>
+
+        <!-- ARROWS -->
+        <path d="M174 235 L196 235" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="176" y="228" class="arrow-label secret">X</text>
+        <path d="M336 235 L384 236" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="340" y="228" class="arrow-label secret">e₀</text>
+        <path d="M606 220 C636 220 636 153 660 153" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="612" y="150" class="arrow-label masked">e′ released</text>
+        <path d="M606 250 C636 250 636 288 660 288" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="612" y="300" class="arrow-label masked">Σ, σ</text>
+        <path d="M880 153 L940 153" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="892" y="146" class="arrow-label warn">x̂</text>
+        <path d="M816 288 L838 288" class="arrow" marker-end="url(#ah)"/>
+        <text x="818" y="281" class="arrow-label">λᵢ</text>
+        <path d="M994 288 L1016 288" class="arrow" marker-end="url(#ah)"/>
+        <text x="996" y="281" class="arrow-label">tᵢ</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · what it bounds</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> A mutual-information <em>ceiling</em> (converse), not an estimate of realized leakage. <code>I_G</code> is the capacity of the additive white Gaussian channel matched to the released embedding, so by the data-processing inequality it upper-bounds <code>I(X; Y)</code> for the true secret <code>X</code>.</p>
+      <p><strong>Surface.</strong> The pooled sentence embedding under a Gaussian release mechanism is the matched surface (Vec2Text, Stained Glass). It also applies to a single released residual vector (Rep2Text), where it is provably non-binding (see Rationale). It is defined per release noise <code>σ</code>, so it has a reading at each sweep point.</p>
+      <p><strong>What it bounds.</strong> Through Fano, the uniform-prior recovery satisfies <code>P(x̂ = X) ≤ (min{H(e₀), I_G} + 1) / H(X)</code> for every attack; the per-mode profile <code>tᵢ</code> and the effective rank <code>d_eff</code> localize the leakage onto the top eigendirections (a water-filling decomposition). The full converse, sufficiency identity, and localization bound are stated and verified on the <a href="vec2text.html#proofs">Vec2Text page</a>.</p>
+    </div>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · where it tracks · where it is vacuous</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> The probe reads only <code>Σ</code> and <code>σ</code>. It never runs an inverter and never observes the adversary's output, so its correlation with recovery is not circular: it could be computed with the attack code deleted.</p>
+      <p><strong>Where it tracks recovery.</strong> Across the Gaussian-DP budget sweep on pooled GTR embeddings, the ceiling rank-predicts Vec2Text recovery at Spearman ρ = +1.00 on token-F1 (+0.71 on the harder exact-match readout), matching the learned <a href="probe-club.html">variational bound</a> at roughly 28 times lower cost. Under split-inference perturbation it tracks the best inverter at ρ = +0.958 over the full sweep. See the <a href="vec2text.html#results">Vec2Text</a> and <a href="resid-split.html">split-inference</a> pages.</p>
+      <p><strong>Where it is provably non-binding (capacity slack).</strong> On a single released residual vector (Rep2Text), the ceiling is enormous (about 2856 bits, constant across passage length) while recovery rises with length: ρ ≈ 0.18 over length. The single vector is not a binding capacity bottleneck, so the ceiling has large slack and does not order recovery. This is a true measurement-loop outcome, not a refutation; it is the capacity-slack arm of the <a href="synthesis.html#findings">probe-failure dichotomy</a>.</p>
+      <p><strong>Where it is shape-blind.</strong> Under the Stained Glass mechanism at a fixed bit budget, the scalar capacity is constant (826.8 bits) while recovery varies twelvefold across noise shapes: ρ(I_G, token-F1) = +0.48 across shapes. The matched predictor there is read-subspace distortion, not the scalar budget. The scalar ceiling is correct within a shape but blind across shapes (see <a href="embed-sgt.html">Stained Glass</a>).</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">clean model · no attack · no defense</div>
+    </header>
+    <p class="lede">The baseline reading on a clean (no-defense) embedding, beside the recovery the attack achieves there, so the reader sees what the ceiling reports before any privacy parameter moves.</p>
+    <table class="spec">
+      <thead><tr><th>surface (clean)</th><th class="num">I_G raw (bits)</th><th class="num">accessible cap (bits)</th><th class="num">recovery readout</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td>pooled GTR embedding (ε=∞)</td><td class="num">1597</td><td class="num accent">479 = min{H(e₀), I_G}</td><td class="num">token-F1 0.80</td><td>binds at the discrete entropy; tracks recovery across the budget sweep</td></tr>
+        <tr><td>single residual @L10 (Rep2Text)</td><td class="num">2856</td><td class="num">—</td><td class="num">token-F1 rises with length</td><td>large slack; non-binding, ρ ≈ 0.18 over length</td></tr>
+      </tbody>
+    </table>
+    <p class="prose src-note" style="font-size:13px;opacity:.75;">Source: <code>results/spectral_mi_probe_eval.json</code> (pooled GTR, N=96); <code>refine-logs/resid-rep2text/EXPERIMENT_RESULTS.md</code> (single residual @L10). Both are clean-model readings (no DP noise); the recovery columns are the attack's clean-model output for comparison, not part of the probe.</p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator &amp; test</h5>
+      <ul>
+        <li><code>src/talens/measures/spectral_channel_mi.py</code> · the probe</li>
+        <li><code>tests/test_spectral_channel_mi.py</code> · model-free</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/spectral-channel-mi-embedding-inversion.md</code></li>
+        <li><code>research-wiki/claims/pripert-spectral-converse-slack-comonotone-tracking.md</code></li>
+        <li><code>research-wiki/claims/sgt-channel-mi-shape-blind-metric-bound-vec2text.md</code></li>
+        <li><code>research-wiki/claims/rep2text-capacity-nonbinding-extraction-limited.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="vec2text.html">Vec2Text inversion</a> · matched, adopted</li>
+        <li><a href="resid-split.html">split inference (PriPert)</a> · tracks</li>
+        <li><a href="embed-sgt.html">Stained Glass</a> · shape-blind</li>
+        <li><a href="resid-rep2text.html">Rep2Text</a> · capacity slack</li>
+        <li><a href="synthesis.html#ov-vec2text">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

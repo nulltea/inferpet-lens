@@ -56,6 +56,13 @@
         <span class="navgroup-label">probes</span>
         <div class="navgroup-menu">
           <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
         </div>
       </div>
     </span>
@@ -98,17 +105,17 @@
         <tr><th>Surface</th><th>Attack(s)</th><th>Defense · swept parameter</th><th>Probe (bits)</th><th style="width:12%">ρ(bits, recovery)</th><th style="width:14%">Verdict</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="resid-dp-attacks.html#results">capacity-matched predictive V-information (V_cap)</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
-        <tr><td><a href="resid-dp-attacks.html">differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td><code>CLUB</code>; <code>V_cap</code></td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
+        <tr id="ov-vcap"><td><a href="resid-dp-attacks.html#results">capacity-matched predictive V-information (V_cap)</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
+        <tr id="ov-dp"><td><a href="resid-dp-attacks.html">differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td><code>CLUB</code>; <code>V_cap</code></td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
         <tr><td><a href="resid-depth-inversion.html">depth inversion</a></td><td>cosine-NN, ridge, learned mlp2</td><td>none · depth L0–L32</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">+0.85</td><td>tracks; depth ≠ privacy</td></tr>
-        <tr><td><a href="resid-rep2text.html">Rep2Text inversion</a></td><td>adapter to frozen decoder</td><td>none · length; noise σ</td><td><code>I_G</code></td><td class="num">0.18 length (vacuous); 1.00 over σ</td><td>vacuous: capacity slack</td></tr>
-        <tr><td><a href="resid-gelo.html">GELO</a></td><td>JADE separation; amortized ridge</td><td>GELO row-mix · κ(A), shield</td><td><code>J</code></td><td class="num">0.29–0.51 (below 0.6)</td><td>weak loop; likely probe mismatch, stronger attack not ruled out</td></tr>
-        <tr><td><a href="resid-split.html">split inference (PriPert)</a></td><td>ridge, learned mlp2</td><td>PriPert sparsity; perturbation β</td><td><code>I_G</code>; Fano</td><td class="num">+0.958 (+0.915 learned)</td><td>tracks; converse slack</td></tr>
-        <tr><td><a href="vec2text.html">Vec2Text inversion</a></td><td>pretrained corrector</td><td>Gaussian DP ε</td><td><code>I_G</code></td><td class="num">+1.00 (F1), +0.71 (exact)</td><td>tracks; complete probe</td></tr>
-        <tr><td><a href="bnn-attack.html">Bayes-NN bounds</a></td><td>nearest-neighbour MAP</td><td>Gaussian DP ε (L0)</td><td>Bhattacharyya–Fano bounds</td><td class="num">bracket 10/10; +0.94 lower bound</td><td>tracks; bounds bracket error</td></tr>
-        <tr><td><a href="embed-sgt.html">Stained Glass defense</a></td><td>pretrained corrector</td><td>SGT budget B × noise shape</td><td><code>I_G</code></td><td class="num">+1.00 within shape; +0.48 across shape</td><td>shape-blind across shapes</td></tr>
-        <tr><td><a href="kv-accumulation.html">source separation</a></td><td>JADE joint-diagonalization</td><td>plaintext baseline (layer × kind; T-axis flat)</td><td><code>J</code></td><td class="num">+0.92 (genuine margin)</td><td>tracks genuine margin</td></tr>
-        <tr><td><a href="kv-cloak.html">KV-Cloak decoupling</a></td><td>JADE, accumulation</td><td>KV-Cloak · channel, block, scale</td><td><code>J</code></td><td class="num">+0.71 (0.77 channel-mean)</td><td>feature mix load-bearing</td></tr>
+        <tr id="ov-rep2text"><td><a href="resid-rep2text.html">Rep2Text inversion</a></td><td>adapter to frozen decoder</td><td>none · length; noise σ</td><td><code>I_G</code></td><td class="num">0.18 length (vacuous); 1.00 over σ</td><td>vacuous: capacity slack</td></tr>
+        <tr id="ov-gelo"><td><a href="resid-gelo.html">GELO</a></td><td>JADE separation; amortized ridge</td><td>GELO row-mix · κ(A), shield</td><td><code>J</code></td><td class="num">0.29–0.51 (below 0.6)</td><td>weak loop; likely probe mismatch, stronger attack not ruled out</td></tr>
+        <tr id="ov-split"><td><a href="resid-split.html">split inference (PriPert)</a></td><td>ridge, learned mlp2</td><td>PriPert sparsity; perturbation β</td><td><code>I_G</code>; Fano</td><td class="num">+0.958 (+0.915 learned)</td><td>tracks; converse slack</td></tr>
+        <tr id="ov-vec2text"><td><a href="vec2text.html">Vec2Text inversion</a></td><td>pretrained corrector</td><td>Gaussian DP ε</td><td><code>I_G</code></td><td class="num">+1.00 (F1), +0.71 (exact)</td><td>tracks; complete probe</td></tr>
+        <tr id="ov-bnn"><td><a href="bnn-attack.html">Bayes-NN bounds</a></td><td>nearest-neighbour MAP</td><td>Gaussian DP ε (L0)</td><td>Bhattacharyya–Fano bounds</td><td class="num">bracket 10/10; +0.94 lower bound</td><td>tracks; bounds bracket error</td></tr>
+        <tr id="ov-sgt"><td><a href="embed-sgt.html">Stained Glass defense</a></td><td>pretrained corrector</td><td>SGT budget B × noise shape</td><td><code>I_G</code></td><td class="num">+1.00 within shape; +0.48 across shape</td><td>shape-blind across shapes</td></tr>
+        <tr id="ov-kv-accum"><td><a href="kv-accumulation.html">source separation</a></td><td>JADE joint-diagonalization</td><td>plaintext baseline (layer × kind; T-axis flat)</td><td><code>J</code></td><td class="num">+0.92 (genuine margin)</td><td>tracks genuine margin</td></tr>
+        <tr id="ov-kv-cloak"><td><a href="kv-cloak.html">KV-Cloak decoupling</a></td><td>JADE, accumulation</td><td>KV-Cloak · channel, block, scale</td><td><code>J</code></td><td class="num">+0.71 (0.77 channel-mean)</td><td>feature mix load-bearing</td></tr>
         <tr><td><a href="perm-cover.html">permutation cover</a></td><td>full sorted-row vs 64-bin matcher</td><td>column permutation + noise α_e</td><td><code>CLUB</code></td><td class="num">+0.976</td><td>tracks; strong matcher wins</td></tr>
         <tr><td>implemented defenses</td><td>permutation matcher; token reader</td><td>Shredder noise b; table obfuscation</td><td><code>CLUB</code></td><td class="num">0.39–0.81 within family</td><td>tracks within a family</td></tr>
       </tbody>

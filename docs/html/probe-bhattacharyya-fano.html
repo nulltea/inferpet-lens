@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: Bhattacharyya–Fano error bounds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a class="current" href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Bhattacharyya–Fano<br><em>— error bounds</em></h1>
+      <p class="subtitle">A two-sided bound on the decode error of the embedding-DP channel: a union-Bhattacharyya upper bound and a Fano lower bound on the nearest-neighbour decode error, both from the codebook geometry and the noise alone. They bracket the attack's error from above and below.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → two-sided error</div>
+    </header>
+    <p class="lede">The released embedding of a token is one of <code>K</code> codewords passed through a Gaussian channel. The bounds come from how close the codewords are and how large the noise is.</p>
+    <div class="prose">
+      <ol>
+        <li>Take the codebook geometry: the released embedding codewords <code>{e₁, …, e_K}</code> and the release noise <code>σ</code>.</li>
+        <li>For each codeword pair compute the Bhattacharyya coefficient <code>BC_{ij} = exp(−‖eᵢ − eⱼ‖² / 8σ²)</code>: the overlap of their noised distributions.</li>
+        <li><strong>Upper bound (union-Bhattacharyya):</strong> the MAP (nearest-neighbour) decode error is at most the averaged pairwise overlap, <code>P_e^ub = (1/K) Σᵢ Σ_{j≠i} BC_{ij}</code> (clipped to 1).</li>
+        <li><strong>Lower bound (Fano):</strong> from the channel equivocation, <code>P_e^lb</code> solves the Fano inequality given the mutual information the channel passes (no decoder can do better).</li>
+      </ol>
+      <p>The output is the pair <code>(P_e^lb, P_e^ub)</code> bracketing the decode error, with the leakage in bits available from the matched mutual-information ceiling. The estimator is <code>src/talens/measures/channel_error_bounds.py</code>; the bracketing, the Fano equivocation, and the geometry-only independence are checked in <code>tests/test_channel_error_bounds.py</code>.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: embedding codebook under DP, attack arm (nearest-neighbour decode → error) and probe arm (geometry + σ → two-sided bounds)</span>
+        <span>navy = data owner · plum = defense (σ locus) · slate = adversary/analyst · amber = leak · two-sided bracket on the same error</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 480" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="A token embedding codebook is released under a Gaussian mechanism; the attack arm decodes by nearest neighbour and incurs an error, while the probe arm computes a union-Bhattacharyya upper bound and a Fano lower bound from the codebook geometry and the noise alone.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <rect x="0"    y="40" width="350" height="420" class="zone-band zone-band-client"/>
+        <rect x="350"  y="40" width="270" height="420" class="zone-band zone-band-crypto"/>
+        <rect x="620"  y="40" width="700" height="420" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">token · embedding table {eᵢ}</text>
+        <text x="370" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="370" y="78" class="zone-sublabel">Gaussian mechanism · σ = C·z/ε</text>
+        <text x="640" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="640" y="78" class="zone-sublabel">has {eᵢ}, σ · two independent arms</text>
+        <line x1="350" y1="40" x2="350" y2="460" class="boundary"/>
+        <line x1="620" y1="40" x2="620" y2="460" class="boundary"/>
+        <text x="624" y="456" class="boundary-label">release (y crosses to adversary)</text>
+
+        <rect x="20" y="205" width="150" height="70" class="box box-strong box-client"/>
+        <text x="34" y="229" class="box-label">token eᵢ</text>
+        <text x="34" y="247" class="box-sub">1 of K codewords</text>
+        <rect x="192" y="205" width="138" height="70" class="box box-client"/>
+        <text x="206" y="229" class="box-label">codebook {eᵢ}</text>
+        <text x="206" y="247" class="box-mono">embedding table</text>
+
+        <rect x="368" y="200" width="232" height="84" class="box box-strong box-crypto"/>
+        <text x="382" y="224" class="box-label">Gaussian mechanism</text>
+        <text x="382" y="242" class="box-mono">y = eᵢ + N(0, σ²I)</text>
+        <text x="382" y="262" class="box-sub">σ = swept defense parameter</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="650" y="120" width="210" height="64" class="box box-gpu"/>
+        <text x="664" y="144" class="box-label">attack arm — Bayes-NN</text>
+        <text x="664" y="162" class="box-mono">argmin_j ‖y − eⱼ‖</text>
+        <rect x="920" y="120" width="190" height="64" class="box box-strong box-gpu box-warn"/>
+        <text x="934" y="144" class="box-label warn">decode error</text>
+        <text x="934" y="162" class="box-sub">measured P_e</text>
+
+        <!-- PROBE ARM -->
+        <rect x="650" y="248" width="150" height="80" class="box box-gpu"/>
+        <text x="664" y="272" class="box-label">① pairwise BC</text>
+        <text x="664" y="290" class="box-mono">exp(−Δ²/8σ²)</text>
+        <text x="664" y="308" class="box-sub">codeword overlap</text>
+        <rect x="822" y="248" width="474" height="80" class="box box-strong box-gpu"/>
+        <text x="836" y="272" class="box-label">② probe Bhattacharyya–Fano — no decoder</text>
+        <text x="836" y="292" class="box-mono">P_e^ub = (1/K) Σ BC   (union upper)</text>
+        <text x="836" y="312" class="box-mono">P_e^lb from Fano equivocation   (lower)</text>
+
+        <!-- ARROWS -->
+        <path d="M170 240 L192 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="172" y="233" class="arrow-label secret">token</text>
+        <path d="M330 240 L368 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="334" y="233" class="arrow-label secret">eᵢ</text>
+        <path d="M600 222 C630 222 630 152 650 152" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="606" y="150" class="arrow-label masked">y released</text>
+        <path d="M600 252 C630 252 630 288 650 288" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="606" y="300" class="arrow-label masked">{eᵢ}, σ</text>
+        <path d="M860 152 L920 152" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="872" y="145" class="arrow-label warn">P_e</text>
+        <path d="M800 288 L822 288" class="arrow" marker-end="url(#ah)"/>
+        <text x="802" y="281" class="arrow-label">BC</text>
+        <!-- bracket annotation: probe bounds the attack error -->
+        <path d="M1015 248 L1015 184" class="arrow" marker-end="url(#ah)" style="stroke-dasharray:3 3;opacity:.7;"/>
+        <text x="1023" y="220" class="arrow-label">brackets P_e</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · what it bounds</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> A two-sided bound on the decode error: an achievability-style upper bound (a specific decoder, nearest neighbour, cannot do worse than the union-Bhattacharyya sum) and a converse lower bound (no decoder can do better than Fano).</p>
+      <p><strong>Surface.</strong> The embedding table released under the Gaussian mechanism, decoded by nearest-neighbour MAP. The matched attack is the Bayes nearest-neighbour decoder. It is defined per noise level <code>σ</code>.</p>
+      <p><strong>What it bounds.</strong> It bounds the decode error <code>P_e</code> from both sides: <code>P_e^lb ≤ P_e ≤ P_e^ub</code> for the MAP decoder. The two bounds bracket the measured Bayes nearest-neighbour error across the noise sweep.</p>
+    </div>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · where it tracks · the bracket</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> Both bounds come from the codebook geometry (pairwise codeword distances) and the noise <code>σ</code>, never from the adversary's observations or its decoded output. They were adopted in place of a nearest-neighbour-style predictive probe precisely because that alternative was the attack in disguise; these bounds are geometry-only.</p>
+      <p><strong>Where it tracks recovery.</strong> Across the dense Gaussian-DP sweep on the embedding table the two bounds bracket the Bayes nearest-neighbour error at all 10 of 10 noise points (<code>P_e^lb ≤ P_e ≤ P_e^ub</code> at every ε). The Fano lower bound rank-tracks the measured error at ρ = +0.937 and the union-Bhattacharyya upper bound at ρ = +0.888. See the <a href="bnn-attack.html">Bayes-NN page</a>.</p>
+      <p><strong>The bracket is the value.</strong> A single converse (such as the <a href="probe-ig.html"><code>I_G</code></a> Fano ceiling) can be slack; pairing it with an achievability upper bound brackets the realized error, so the gap between the two is itself the diagnostic of how much room an attack has. The Fano arm is the converse; the union-Bhattacharyya arm is the matched achievability for the nearest-neighbour decoder.</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">clean codebook · noise sweep from the low-noise (plaintext) end</div>
+    </header>
+    <p class="lede">On a clean codebook with no noise the decode is exact and both bounds are zero. The baseline is read from the low-noise end of the sweep, where the bounds depart from zero as σ grows.</p>
+    <table class="spec">
+      <thead><tr><th>ε (embedding DP)</th><th class="num">Fano lower bound</th><th class="num">union-Bhattacharyya upper</th><th class="num">measured Bayes-NN error</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td>128 (near-plaintext)</td><td class="num">0.0000</td><td class="num">0.0001</td><td class="num accent">≈ 0</td><td>both bounds ≈ 0; exact decode</td></tr>
+        <tr><td>56</td><td class="num">—</td><td class="num">1.0000</td><td class="num">—</td><td>upper bound saturates</td></tr>
+        <tr><td>16</td><td class="num">0.7939</td><td class="num">1.0000</td><td class="num">bracketed</td><td>error near certain</td></tr>
+      </tbody>
+    </table>
+    <p class="prose src-note" style="font-size:13px;opacity:.75;">Source: <code>results/bnn_error_bounds_validation_dense.json</code> · <code>refine-logs/bnn-error-bounds/EXPERIMENT_RESULTS.md</code> (dense ε sweep). Bracketing holds at 10/10 ε points; Fano lower bound ρ = +0.937 with the measured Bayes nearest-neighbour error, union-Bhattacharyya ρ = +0.888. The clean (no-noise) reference is the σ → 0 limit, where both bounds vanish.</p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator &amp; test</h5>
+      <ul>
+        <li><code>src/talens/measures/channel_error_bounds.py</code> · the probe</li>
+        <li><code>tests/test_channel_error_bounds.py</code> · bracketing, Fano, independence</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/bnn-error-bounds-bhattacharyya-fano.md</code></li>
+        <li><code>research-wiki/claims/bnn-nns-high-d-geometry.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="bnn-attack.html">Bayes-NN bounds</a> · brackets the decode error</li>
+        <li><a href="resid-split.html">split inference (PriPert)</a> · Fano ceiling arm</li>
+        <li><a href="synthesis.html#ov-bnn">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

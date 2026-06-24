@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: surplus description length (SDL)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a class="current" href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Surplus description length<br><em>— probe <code>SDL</code></em></h1>
+      <p class="subtitle">The prequential online code length of the representation-to-label map, minus the all-data floor: the extra bits paid to learn the map online. A complexity-aware leakage signal that is auxiliary to the cheaper predictive readers.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → bits</div>
+    </header>
+    <p class="lede">Minimum-description-length codes a label sequence by transmitting it online: each label is encoded with the model fit on the labels seen so far. A more decodable representation pays fewer bits.</p>
+    <div class="prose">
+      <ol>
+        <li>Order the examples and present the representation-to-label pairs as a stream.</li>
+        <li>For each prefix, fit the reader on the seen pairs and predict the next label; accumulate its negative log-probability. The total is the prequential (online) code length.</li>
+        <li>Subtract the all-data floor (the code length of the same labels under the model fit on the full data): the difference is the surplus description length <code>SDL</code>, the extra bits the online learner pays over the in-hindsight optimum (Whitney SDL).</li>
+        <li>Report <code>SDL</code> in bits, with the shuffle-control floor subtracted to give selectivity.</li>
+      </ol>
+      <p>The output is in bits. The estimator is <code>src/talens/measures/mdl.py</code>. It inherits the same reader family as the capacity-matched predictive reader, and a single online pass costs roughly 6 to 7 times a single bound evaluation, so it is reported as an auxiliary, complexity-aware signal rather than a primary probe.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: released residual, attack arm (→ recovery) and probe arm (prequential online coding → surplus bits)</span>
+        <span>navy = data owner · plum = defense locus · slate = adversary/analyst · amber = leak · prequential = online code length</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 480" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="The released residual feeds an attack arm that recovers the token and a probe arm that codes the labels online prefix by prefix, accumulates the prequential code length, subtracts the all-data floor, and reports surplus description length in bits.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <rect x="0"    y="40" width="340" height="420" class="zone-band zone-band-client"/>
+        <rect x="340"  y="40" width="250" height="420" class="zone-band zone-band-crypto"/>
+        <rect x="590"  y="40" width="730" height="420" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">token behind X · runs model → resid_post[L]</text>
+        <text x="360" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="360" y="78" class="zone-sublabel">at-layer noise · parameter</text>
+        <text x="610" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="610" y="78" class="zone-sublabel">observes X′ · two independent arms</text>
+        <line x1="340" y1="40" x2="340" y2="460" class="boundary"/>
+        <line x1="590" y1="40" x2="590" y2="460" class="boundary"/>
+        <text x="594" y="456" class="boundary-label">release (X′ crosses to adversary)</text>
+
+        <rect x="20" y="205" width="140" height="70" class="box box-strong box-client"/>
+        <text x="34" y="229" class="box-label">token id</text>
+        <text x="34" y="247" class="box-sub">the secret label</text>
+        <rect x="182" y="205" width="138" height="70" class="box box-client"/>
+        <text x="196" y="229" class="box-label">model → X</text>
+        <text x="196" y="247" class="box-mono">resid_post[L]</text>
+
+        <rect x="358" y="200" width="214" height="84" class="box box-strong box-crypto"/>
+        <text x="372" y="224" class="box-label">defense</text>
+        <text x="372" y="242" class="box-mono">X′ = X + noise</text>
+        <text x="372" y="262" class="box-sub">noise level swept</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="620" y="120" width="200" height="64" class="box box-gpu"/>
+        <text x="634" y="144" class="box-label">attack arm — token reader</text>
+        <text x="634" y="162" class="box-sub">ridge inversion</text>
+        <rect x="880" y="120" width="190" height="64" class="box box-strong box-gpu box-warn"/>
+        <text x="894" y="144" class="box-label warn">recovered token</text>
+        <text x="894" y="162" class="box-sub">recovery rate (TTRSR)</text>
+
+        <!-- PROBE ARM -->
+        <rect x="620" y="248" width="150" height="80" class="box box-gpu"/>
+        <text x="634" y="272" class="box-label">① online code</text>
+        <text x="634" y="290" class="box-sub">fit prefix → predict</text>
+        <text x="634" y="308" class="box-mono">Σ −log p(next)</text>
+        <rect x="792" y="248" width="150" height="80" class="box box-gpu"/>
+        <text x="806" y="272" class="box-label">② − all-data floor</text>
+        <text x="806" y="290" class="box-sub">in-hindsight optimum</text>
+        <text x="806" y="308" class="box-mono">surplus</text>
+        <rect x="964" y="244" width="332" height="96" class="box box-strong box-gpu"/>
+        <text x="978" y="268" class="box-label">③ probe SDL — no inverter</text>
+        <text x="978" y="288" class="box-mono">SDL = prequential − floor  (bits)</text>
+        <text x="978" y="308" class="box-sub">minus shuffle control</text>
+        <text x="978" y="328" class="box-sub">complexity-aware, auxiliary</text>
+
+        <!-- ARROWS -->
+        <path d="M160 240 L182 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="160" y="233" class="arrow-label secret">token</text>
+        <path d="M320 240 L358 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="324" y="233" class="arrow-label secret">X</text>
+        <path d="M572 222 C600 222 600 152 620 152" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="578" y="150" class="arrow-label masked">X′ released</text>
+        <path d="M572 252 C600 252 600 288 620 288" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="578" y="300" class="arrow-label masked">X′</text>
+        <path d="M820 152 L880 152" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="832" y="145" class="arrow-label warn">token</text>
+        <path d="M770 288 L792 288" class="arrow" marker-end="url(#ah)"/>
+        <text x="772" y="281" class="arrow-label">code len</text>
+        <path d="M942 288 L964 288" class="arrow" marker-end="url(#ah)"/>
+        <text x="944" y="281" class="arrow-label">bits</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · what it bounds</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> A complexity-aware code length (minimum description length / surplus description length). It charges for the effort of learning the representation-to-label map online, not just the final fit, so a representation that is easy to read incrementally scores low.</p>
+      <p><strong>Surface.</strong> The residual stream with a token-identity label, the same surface as the capacity-matched predictive reader. It is layer-defined.</p>
+      <p><strong>What it bounds.</strong> The surplus bits index how decodable the token is, accounting for sample complexity. It is a leakage signal rather than a converse bound; it is reported beside the predictive reader as a complexity-aware cross-check.</p>
+    </div>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · where it tracks · its cost</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> The prequential code length is computed from the reader's own predictions on held-out prefixes; it never runs the inversion attack and never reads the embedding table. Its shuffle-control floor isolates the genuine signal from the label prior.</p>
+      <p><strong>Where it tracks recovery.</strong> Under at-layer Gaussian noise at layer 12, the surplus selectivity falls from 13898 bits at zero noise to 166 bits at the strongest level and tracks the ridge recovery at Spearman ρ = +0.80. It is one of the predictive-family probes that re-correlate with a stronger attack in the at-layer regime.</p>
+      <p><strong>Its cost and standing.</strong> A single online pass costs roughly 6 to 7 times a single bound evaluation, and the probe inherits the same reader-family sensitivity as the capacity-matched predictive reader. Because the project minimizes probe cost, surplus description length is kept as an auxiliary complexity-aware signal rather than a primary probe.</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">queued — no clean-model across-layers reading on disk</div>
+    </header>
+    <p class="lede">A clean-model, across-layers baseline is not yet on disk: the minimum-description-length pass was disabled during the 36-layer control sweep, so only a single at-layer point exists.</p>
+    <div class="prose">
+      <p><strong>On disk now:</strong> one at-layer point at layer 12 (zero-noise level of the at-layer Gaussian sweep), surplus selectivity 13898 bits, in <code>results/mdl_probe_check.json</code>. There is no plaintext depth or layer sweep.</p>
+      <p><strong>Queued onto the leakage–utility measurement (Task 7):</strong> a small clean-model plaintext-across-layers emission of the surplus description length, on the same clean model as the other probes, so this page can show a baseline reading per layer beside the predictive reader. This page is backfilled after that single GPU run; no GPU run is launched from the probe-page phase. The queued item is recorded in <code>refine-logs/probe-pages/queued-for-utility.md</code>.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator (this repo)</h5>
+      <ul>
+        <li><code>src/talens/measures/mdl.py</code> · the probe</li>
+        <li>model-free unit test: queued (auxiliary, integration in progress)</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/restore-correlation.md</code> · predictive-family probe set</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="resid-dp-attacks.html">differential privacy</a> · at-layer regime, auxiliary</li>
+        <li><a href="synthesis.html#ov-dp">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

@@ -113,7 +113,7 @@ each page has exactly these sections:
 
 diagrams: MUST follow docs/html/DIAGRAM-STYLE.md (research the source paper figure first; trust-zone/surface boundaries; the computation sequence; D3 interactivity per the R2 triggers). depends on Task 2 (canonical names), Task 3 (V_cap staged content), and the shipped DIAGRAM-STYLE.md.
 acceptance: 7 probe pages exist at the canonical filenames, each with Algorithm/Method/Rationale + a plaintext-reference block (real number from disk, or an explicit "queued onto Task 7" placeholder for SDL / shared-spectral-capacity) + at least one compliant `.diagram-frame`; all wired into the `probes` navgroup (created in Task 2) + index; each cross-links its claim node and its synthesis.html row; the V_cap page carries the relocated estimator-repair methodology; the list of queued-onto-Task-7 emissions is written to refine-logs/probe-pages/queued-for-utility.md; cleanup pass (/humanize → /proofread → /term-audit) run.
-- [ ] run-phase: c4-probe-pages
+- [x] run-phase: c4-probe-pages
 
 ### Task 5: redo the shallow/missing method diagrams to DIAGRAM-STYLE.md
 recipe: consolidate

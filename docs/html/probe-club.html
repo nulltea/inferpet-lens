@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: variational MI upper bound (CLUB)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a class="current" href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Variational MI bound<br><em>— probe <code>CLUB</code></em></h1>
+      <p class="subtitle">A learned variational upper bound on the mutual information between the released representation and the token embedding. It brackets leakage from above with a trained network, without solving the inversion the attack performs.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → bits</div>
+    </header>
+    <p class="lede">CLUB (Contrastive Log-ratio Upper Bound, Cheng et al., ICML 2020) bounds <code>I(R; E)</code> between the released representation <code>R</code> and the token embedding <code>E</code> using a learned conditional <code>q_θ(e | r)</code>.</p>
+    <div class="prose">
+      <ol>
+        <li>Collect paired samples <code>(r, e)</code>: released representations and their token embeddings.</li>
+        <li>Train an approximate conditional <code>q_θ(e | r)</code> (a small network) on the positive pairs by maximum likelihood.</li>
+        <li>Evaluate the contrastive upper bound: the mean log-likelihood on matched pairs minus the mean log-likelihood on mismatched pairs, <code>CLUB = E_{p(r,e)}[log q_θ(e|r)] − E_{p(r)p(e)}[log q_θ(e|r)]</code>.</li>
+        <li>Report the bound in bits, with the shuffle-control floor (mismatched labels) subtracted to give selectivity. The estimator is capped (<code>max_rows = 2500</code>, fixed step budget) to keep cost bounded.</li>
+      </ol>
+      <p>The output is in bits. Beside it the report renders the per-secret readout for the surface (token recovery rate). The estimator is <code>src/talens/measures/club.py</code>; its stability under the cap is checked in <code>tests/test_club_stability.py</code>.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: released representation, attack arm (→ recovery) and learned probe arm (train then bound → bits)</span>
+        <span>navy = data owner · plum = defense locus · slate = adversary/analyst · amber = leak · dashed = train phase</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 480" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="The released representation feeds an attack arm that recovers the token and a probe arm that first trains a conditional network on paired samples, then evaluates the contrastive upper bound in bits with no inverter.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <rect x="0"    y="40" width="360" height="420" class="zone-band zone-band-client"/>
+        <rect x="360"  y="40" width="260" height="420" class="zone-band zone-band-crypto"/>
+        <rect x="620"  y="40" width="700" height="420" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">holds token · runs model → representation R</text>
+        <text x="380" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="380" y="78" class="zone-sublabel">noise / DP · privacy parameter</text>
+        <text x="640" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="640" y="78" class="zone-sublabel">observes R′ · two independent arms</text>
+        <line x1="360" y1="40" x2="360" y2="460" class="boundary"/>
+        <line x1="620" y1="40" x2="620" y2="460" class="boundary"/>
+        <text x="624" y="456" class="boundary-label">release (R′ crosses to adversary)</text>
+
+        <rect x="24" y="205" width="150" height="70" class="box box-strong box-client"/>
+        <text x="38" y="229" class="box-label">token / embedding E</text>
+        <text x="38" y="247" class="box-sub">the secret</text>
+        <rect x="196" y="205" width="140" height="70" class="box box-client"/>
+        <text x="210" y="229" class="box-label">model → R</text>
+        <text x="210" y="247" class="box-mono">resid / embedding</text>
+
+        <rect x="378" y="200" width="222" height="84" class="box box-strong box-crypto"/>
+        <text x="392" y="224" class="box-label">defense</text>
+        <text x="392" y="242" class="box-mono">R′ = defense(R)</text>
+        <text x="392" y="262" class="box-sub">privacy parameter swept</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="650" y="120" width="210" height="64" class="box box-gpu"/>
+        <text x="664" y="144" class="box-label">attack arm — inverter</text>
+        <text x="664" y="162" class="box-sub">ridge / learned decoder</text>
+        <rect x="920" y="120" width="190" height="64" class="box box-strong box-gpu box-warn"/>
+        <text x="934" y="144" class="box-label warn">recovered token</text>
+        <text x="934" y="162" class="box-sub">recovery rate (TTRSR)</text>
+
+        <!-- PROBE ARM: train (dashed lane) then evaluate -->
+        <rect x="650" y="250" width="190" height="86" class="box box-gpu" style="stroke-dasharray:5 3;"/>
+        <text x="664" y="274" class="box-label">① train q_θ(e | r)</text>
+        <text x="664" y="292" class="box-sub">fit on positive pairs</text>
+        <text x="664" y="310" class="box-mono">capped (max_rows 2500)</text>
+        <rect x="864" y="250" width="180" height="86" class="box box-gpu"/>
+        <text x="878" y="274" class="box-label">② contrastive bound</text>
+        <text x="878" y="292" class="box-mono">matched − mismatched</text>
+        <text x="878" y="310" class="box-sub">log-ratio</text>
+        <rect x="1064" y="244" width="232" height="98" class="box box-strong box-gpu"/>
+        <text x="1078" y="268" class="box-label">③ probe CLUB — no inverter</text>
+        <text x="1078" y="288" class="box-mono">CLUB ≥ I(R; E)  (bits)</text>
+        <text x="1078" y="308" class="box-sub">minus shuffle floor ≈ 0</text>
+        <text x="1078" y="328" class="box-sub">upper-bounds leakage</text>
+
+        <!-- ARROWS -->
+        <path d="M174 240 L196 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="176" y="233" class="arrow-label secret">E</text>
+        <path d="M336 240 L378 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="340" y="233" class="arrow-label secret">R</text>
+        <path d="M600 222 C630 222 630 152 650 152" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="606" y="150" class="arrow-label masked">R′ released</text>
+        <path d="M600 250 C630 250 630 293 650 293" class="arrow arrow-masked" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
+        <text x="606" y="305" class="arrow-label masked">(r, e) pairs</text>
+        <path d="M860 152 L920 152" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="872" y="145" class="arrow-label warn">token</text>
+        <path d="M840 293 L864 293" class="arrow" marker-end="url(#ah)"/>
+        <text x="842" y="286" class="arrow-label">q_θ</text>
+        <path d="M1044 293 L1064 293" class="arrow" marker-end="url(#ah)"/>
+        <text x="1046" y="286" class="arrow-label">bound</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · what it bounds</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> A mutual-information <em>upper bound</em> (learned). Unlike the geometry-only <a href="probe-ig.html"><code>I_G</code></a> ceiling, CLUB trains a network and so carries estimator variance, but it targets the same quantity from any representation, not just Gaussian-channel embeddings.</p>
+      <p><strong>Surface.</strong> Any released representation paired with a token target: the residual stream under input-layer differential privacy, at-layer noise, the depth sweep, and the permutation-cover embedding table. It is defined per layer and per privacy parameter.</p>
+      <p><strong>What it bounds.</strong> It upper-bounds <code>I(R; E)</code>, the leakage of the token through the released representation. By the sufficiency identity that holds on the embedding surface, that mutual information equals the text leakage. It is a single scalar with no per-mode structure, so it does not localize where leakage lives.</p>
+    </div>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · where it tracks · where it is loose</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> CLUB fits <code>q_θ(e | r)</code> to predict the token embedding, not to reconstruct the attack's target output. It never runs the inverter and its shuffle-control floor is near zero at every layer, so the bound it reports is not the attack recovery in disguise.</p>
+      <p><strong>Where it tracks recovery.</strong> Across the 36-layer control sweep it is a near-perfect rank predictor of recovery (Spearman 0.987, r² 0.96 over 108 blocks). Under the Gaussian-DP embedding sweep it matches <code>I_G</code> at ρ = +1.00, on the permutation cover it tracks the strong matcher at ρ = +0.976, and on the depth sweep ρ = +0.78. Under propagated input-layer differential privacy it attenuates with depth but stays positive (+0.96 at layer 0 to +0.29 at layer 20), where the <a href="probe-vcap.html"><code>V_cap</code></a> reader decouples to −0.21: identity stays decodable while reconstruction does not.</p>
+      <p><strong>Where it is loose.</strong> CLUB is a single scalar and is non-localizing: it reports how much leaks, not which directions or channels carry it. It also costs more than the geometry-only ceiling (it trains a network, roughly 1.3 s per block against about 60 ms for <code>I_G</code>) and inherits the variance of a learned estimator.</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">clean model · no defense · across layers</div>
+    </header>
+    <p class="lede">The baseline reading on the clean residual stream across depth, with no defense applied, so the reader sees the bits the bound reports on plaintext before any privacy parameter moves.</p>
+    <table class="spec">
+      <thead><tr><th>clean residual (Qwen3-4B)</th><th class="num">CLUB (bits)</th><th class="num">recovery readout</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td>layer 0</td><td class="num">3426</td><td class="num">token recovery 0.94</td><td>highest leakage near the input</td></tr>
+        <tr><td>layer 32</td><td class="num">2970</td><td class="num">token recovery 0.69</td><td>residual stream still leaks at depth</td></tr>
+        <tr><td>36-layer sweep (108 blocks)</td><td class="num">—</td><td class="num">ρ(CLUB, recovery) = 0.987</td><td>shuffle floor ≈ 0 at every layer; near-perfect rank predictor</td></tr>
+      </tbody>
+    </table>
+    <p class="prose src-note" style="font-size:13px;opacity:.75;">Source: <code>results/sweep-controls.json</code> (36-layer control sweep, Qwen3-4B, 512 prompts, MDL off); <code>refine-logs/resid-depth-inversion/RESULTS_STANDARDIZED.md</code> (depth sweep, plaintext). The recovery columns are the attack's clean-model output for comparison, not part of the probe.</p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator &amp; test</h5>
+      <ul>
+        <li><code>src/talens/measures/club.py</code> · the probe</li>
+        <li><code>tests/test_club_stability.py</code> · estimator stability</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/capacity-matched-pvi.md</code></li>
+        <li><code>research-wiki/claims/depth-decoupling-input-dp.md</code></li>
+        <li><code>research-wiki/claims/restore-correlation.md</code></li>
+        <li><code>research-wiki/claims/depth-inversion-certificate.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="resid-dp-attacks.html">differential privacy</a> · stays positive by depth</li>
+        <li><a href="resid-depth-inversion.html">depth inversion</a> · tracks</li>
+        <li><a href="perm-cover.html">permutation cover</a> · tracks strong matcher</li>
+        <li><a href="vec2text.html">Vec2Text</a> · matches I_G</li>
+        <li><a href="synthesis.html#ov-dp">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

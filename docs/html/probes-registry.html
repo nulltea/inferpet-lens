@@ -57,6 +57,13 @@
         <span class="navgroup-label">probes</span>
         <div class="navgroup-menu">
           <a class="current" href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
         </div>
       </div>
     </span>
@@ -105,49 +112,49 @@
       <tbody>
         <tr>
           <td><code>I_G</code></td>
-          <td>Gaussian channel-capacity MI ceiling</td>
+          <td><a href="probe-ig.html">Gaussian channel-capacity MI ceiling</a></td>
           <td>mutual-information ceiling (converse, geometry-only)</td>
           <td>upper-bounds the embedding-inversion leakage <code>I(X;Y)</code> and ceilings any attack's recovery via Fano and rate–distortion; computed from the embedding covariance spectrum and noise variance <code>(Σ, σ)</code> alone, so it never runs an inverter.</td>
           <td><code>measures/spectral_channel_mi.py</code></td>
         </tr>
         <tr>
           <td><code>CLUB</code></td>
-          <td>variational MI upper bound</td>
+          <td><a href="probe-club.html">variational MI upper bound</a></td>
           <td>mutual-information upper bound (learned)</td>
           <td>upper-bounds <code>I(representation; token-embedding)</code> from a learned variational network; brackets the leakage from above without solving the inversion the attack performs.</td>
           <td><code>measures/club.py</code></td>
         </tr>
         <tr>
           <td><code>V_cap</code></td>
-          <td>capacity-matched predictive V-information</td>
+          <td><a href="probe-vcap.html">capacity-matched predictive V-information</a></td>
           <td>V-information (capacity-bounded reader accuracy)</td>
           <td>the top-1 accuracy and bits of a capacity-bounded token-identity reader on a class-prior null; capacity-matching makes the estimator well-posed when feature dimension exceeds validation size. Reads token identity, not the attack's reconstruction map.</td>
           <td><code>measures/vinfo_capacity.py</code></td>
         </tr>
         <tr>
           <td><code>J</code></td>
-          <td>whitened-row negentropy separability</td>
+          <td><a href="probe-j.html">whitened-row negentropy separability</a></td>
           <td>independent-component separability resource (bits)</td>
           <td>Hyvärinen negentropy of the whitened rows, summed over rows; higher means more non-Gaussian and more separable by joint-diagonalization. A function of whitened-row moments only, computable with the source-separation attack deleted.</td>
           <td><code>measures/bss_separability.py</code></td>
         </tr>
         <tr>
           <td>—</td>
-          <td>Bhattacharyya–Fano error bounds</td>
+          <td><a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano error bounds</a></td>
           <td>two-sided bounds on the decode error</td>
           <td>a union-Bhattacharyya upper bound and a Fano lower bound on the MAP (nearest-neighbour) decode error of the embedding-DP channel; both from the codebook geometry and σ, never from the attack's observations.</td>
           <td><code>measures/channel_error_bounds.py</code></td>
         </tr>
         <tr>
           <td><code>SDL</code></td>
-          <td>surplus description length</td>
+          <td><a href="probe-sdl.html">surplus description length</a></td>
           <td>complexity-aware code length (bits)</td>
           <td>the prequential online code length minus the all-data floor (Whitney SDL); the extra bits paid to learn the representation-to-label map, a complexity-aware leakage signal independent of any one attack.</td>
           <td><code>measures/mdl.py</code></td>
         </tr>
         <tr>
           <td>—</td>
-          <td>shared spectral capacity</td>
+          <td><a href="probe-shared-spectral-capacity.html">shared spectral capacity</a></td>
           <td>key/value accumulation diagnostic (bits)</td>
           <td>secondary diagnostic for the joint-diagonalization accumulation channel: the spectral capacity of the averaged row covariance across the observation stack against a median-eigenvalue noise floor. <strong>Not <code>I_G</code></strong>: a different channel and a different quantity, reported only as a key/value secondary diagnostic.</td>
           <td><code>measures/bss_separability.py</code></td>
@@ -193,7 +200,13 @@
     <div>
       <h5>Per-probe pages</h5>
       <ul>
-        <li>Algorithm · Method · Rationale per probe (in preparation)</li>
+        <li><a href="probe-ig.html">Gaussian MI ceiling</a> · <code>I_G</code></li>
+        <li><a href="probe-club.html">variational MI bound</a> · <code>CLUB</code></li>
+        <li><a href="probe-vcap.html">capacity-matched V-info</a> · <code>V_cap</code></li>
+        <li><a href="probe-j.html">negentropy separability</a> · <code>J</code></li>
+        <li><a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a></li>
+        <li><a href="probe-sdl.html">surplus description length</a> · <code>SDL</code></li>
+        <li><a href="probe-shared-spectral-capacity.html">shared spectral capacity</a></li>
       </ul>
     </div>
   </footer>

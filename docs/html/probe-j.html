@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: whitened-row negentropy separability (J)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a class="current" href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Negentropy separability<br><em>— probe <code>J</code></em></h1>
+      <p class="subtitle">The summed Hyvärinen negentropy of the whitened rows: how non-Gaussian, and therefore how separable by joint-diagonalization, a released key/value stack is. It is a function of whitened-row moments only, computable with the source-separation attack deleted.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → bits</div>
+    </header>
+    <p class="lede">Blind source separation recovers independent sources from linear mixtures by exploiting their non-Gaussianity. <code>J</code> measures the resource that makes this possible, the departure of the whitened rows from Gaussian.</p>
+    <div class="prose">
+      <ol>
+        <li>Take the released observation stack (rows of the key/value or residual matrix).</li>
+        <li>Whiten the rows: center and linearly transform so the row covariance is the identity, removing all second-order structure.</li>
+        <li>For each whitened row <code>u</code> compute the Hyvärinen negentropy <code>J(u) ≈ [ E G(u) − E G(ν) ]²</code>, where <code>G</code> is a non-quadratic contrast and <code>ν</code> is a standard Gaussian: the row's departure from Gaussian.</li>
+        <li>Sum over rows to the separability resource <code>J</code> (bits). Against a matched random-demix floor it gives the genuine margin, the part above what an unstructured demix would score.</li>
+      </ol>
+      <p>The output is in bits. Beside it the report renders the per-secret readout for the surface (source-separation recovery, or the genuine margin against the random-demix floor). The estimator is <code>src/talens/measures/bss_separability.py</code>; it also computes the <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a> secondary diagnostic on the same channel.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: released KV stack, attack arm (joint-diagonalization → recovery) and probe arm (whiten → per-row negentropy → J bits)</span>
+        <span>navy = data owner · plum = defense locus (feature-mix / row-mix) · slate = adversary/analyst · amber = leak · adapted from KV-Cloak Fig. 1</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 480" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="A released key value stack feeds an attack arm that joint-diagonalizes and demixes to recover sources, and a probe arm that whitens the rows, computes per-row negentropy, and sums to J in bits without running the separation attack.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <rect x="0"    y="40" width="330" height="420" class="zone-band zone-band-client"/>
+        <rect x="330"  y="40" width="270" height="420" class="zone-band zone-band-crypto"/>
+        <rect x="600"  y="40" width="720" height="420" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">tokens · runs model → KV rows</text>
+        <text x="350" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="350" y="78" class="zone-sublabel">feature-mix M / token-mix / row-mix κ(A)</text>
+        <text x="620" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="620" y="78" class="zone-sublabel">observes mixed rows U′ · two independent arms</text>
+        <line x1="330" y1="40" x2="330" y2="460" class="boundary"/>
+        <line x1="600" y1="40" x2="600" y2="460" class="boundary"/>
+        <text x="604" y="456" class="boundary-label">release (U′ crosses to adversary)</text>
+
+        <rect x="20" y="205" width="140" height="70" class="box box-strong box-client"/>
+        <text x="34" y="229" class="box-label">token rows</text>
+        <text x="34" y="247" class="box-sub">the secret sources</text>
+        <rect x="182" y="205" width="130" height="70" class="box box-client"/>
+        <text x="196" y="229" class="box-label">model → KV</text>
+        <text x="196" y="247" class="box-mono">key / value rows</text>
+
+        <rect x="348" y="198" width="234" height="88" class="box box-strong box-crypto"/>
+        <text x="362" y="222" class="box-label">channel transform</text>
+        <text x="362" y="240" class="box-mono">U′ = M · U  (feature-mix)</text>
+        <text x="362" y="260" class="box-sub">load-bearing channel swept</text>
+        <text x="362" y="278" class="box-sub">token-mix / mask inert</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="630" y="120" width="220" height="66" class="box box-gpu"/>
+        <text x="644" y="144" class="box-label">attack arm — JADE</text>
+        <text x="644" y="162" class="box-sub">joint-diagonalization</text>
+        <text x="644" y="178" class="box-mono">demix → sources</text>
+        <rect x="910" y="120" width="200" height="66" class="box box-strong box-gpu box-warn"/>
+        <text x="924" y="144" class="box-label warn">recovered sources</text>
+        <text x="924" y="162" class="box-sub">recovery p95 vs floor</text>
+
+        <!-- PROBE ARM -->
+        <rect x="630" y="250" width="140" height="80" class="box box-gpu"/>
+        <text x="644" y="274" class="box-label">① whiten rows</text>
+        <text x="644" y="292" class="box-sub">cov → identity</text>
+        <text x="644" y="310" class="box-mono">remove 2nd order</text>
+        <rect x="792" y="250" width="150" height="80" class="box box-gpu"/>
+        <text x="806" y="274" class="box-label">② per-row J(u)</text>
+        <text x="806" y="292" class="box-mono">[EG(u)−EG(ν)]²</text>
+        <text x="806" y="310" class="box-sub">non-Gaussianity</text>
+        <rect x="964" y="244" width="332" height="96" class="box box-strong box-gpu"/>
+        <text x="978" y="268" class="box-label">③ probe J — no separation attack</text>
+        <text x="978" y="288" class="box-mono">J = Σ rows J(u)  (bits)</text>
+        <text x="978" y="308" class="box-sub">genuine margin vs random-demix floor</text>
+        <text x="978" y="328" class="box-sub">ranks channel families</text>
+
+        <!-- ARROWS -->
+        <path d="M160 240 L182 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="160" y="233" class="arrow-label secret">rows</text>
+        <path d="M312 240 L348 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="316" y="233" class="arrow-label secret">U</text>
+        <path d="M582 222 C612 222 612 153 630 153" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="588" y="150" class="arrow-label masked">U′ released</text>
+        <path d="M582 252 C612 252 612 290 630 290" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="588" y="302" class="arrow-label masked">U′</text>
+        <path d="M850 153 L910 153" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="862" y="146" class="arrow-label warn">sources</text>
+        <path d="M770 290 L792 290" class="arrow" marker-end="url(#ah)"/>
+        <text x="772" y="283" class="arrow-label">whitened</text>
+        <path d="M942 290 L964 290" class="arrow" marker-end="url(#ah)"/>
+        <text x="944" y="283" class="arrow-label">J(u)</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · what it bounds</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> An independent-component separability resource: how much non-Gaussian structure the joint-diagonalization attack has to exploit. Higher <code>J</code> means more separable.</p>
+      <p><strong>Surface.</strong> The key/value cache rows (key, query, value, output projections) and the residual rows, presented as an observation stack. It is defined per layer and per channel kind.</p>
+      <p><strong>What it bounds.</strong> It tracks the blind-source-separation margin: the recovery a joint-diagonalization demix achieves above a matched random-demix floor. It ranks channel families by separability; it is not a within-channel oracle.</p>
+    </div>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · where it tracks · where it is mismatched</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> <code>J</code> is a function of the whitened-row moments only. It never runs the joint-diagonalization demix and never sees the recovered sources, so it can be computed with the separation attack deleted.</p>
+      <p><strong>Where it tracks recovery.</strong> On the plaintext key/value accumulation baseline the genuine margin against the random-demix floor is ordered by channel kind, and <code>J</code> tracks it at ρ = +0.92 across the nine layer-by-kind cells. Under KV-Cloak only the channels containing the feature mix drive recovery to the floor and collapse the negentropy probe (about 1045 bits to 1.5 bits); <code>J</code> tracks recovery at ρ = +0.71 aggregate over 270 cells and +0.77 channel-mean, identifying the feature mix as the load-bearing channel. See the <a href="kv-accumulation.html#results">source-separation</a> and <a href="kv-cloak.html#results">KV-Cloak</a> pages.</p>
+      <p><strong>Where it is mismatched (the probe-not-matched arm).</strong> Under orthogonal GELO the loop is weak: ρ(J, genuine margin) = 0.51 at shield fraction 0 and 0.29 over all 45 cells, both below the 0.6 bar. There the leak is the published feature Gram (relative error 2.5e-16 at κ=1), a channel the whitened-row negentropy does not read. This is diagnosed as a likely probe mismatch, not a refutation; a feature-Gram-matched probe and a stronger separation suite are the queued follow-up. It is the probe-not-matched arm of the <a href="synthesis.html#findings">probe-failure dichotomy</a>.</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">clean model · no defense · by channel kind</div>
+    </header>
+    <p class="lede">The reading on the clean (identity-transform) key/value stack, by channel kind, so the reader sees the baseline separability resource before any channel transform applies. Values are the family mean over layers 0, 12, and 20.</p>
+    <table class="spec">
+      <thead><tr><th>clean channel (Qwen3-4B), identity transform</th><th class="num">J (bits, probe, family mean)</th><th class="num">genuine margin readout</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td>residual rows</td><td class="num accent">280.3</td><td class="num">margin 0.068</td><td>most non-Gaussian, most separable</td></tr>
+        <tr><td>key/query/value/output</td><td class="num">47.0</td><td class="num">margin 0.024</td><td>intermediate separability resource</td></tr>
+        <tr><td>key/query</td><td class="num">3.56</td><td class="num">margin 0.005 (L12 −0.003)</td><td>near-Gaussian; not separable</td></tr>
+      </tbody>
+    </table>
+    <p class="prose src-note" style="font-size:13px;opacity:.75;">Source: <code>refine-logs/kv-accumulation/RESULTS.md</code> and <code>c2_robustness.json</code> (plaintext identity baseline, Qwen3-4B, family means over layers 0/12/20). On plaintext there is no hidden mixing to invert; the genuine margin against the matched random-demix floor is the recovery readout, and ρ(J, genuine margin) = +0.92 across the nine layer-by-kind cells. The probe value and the margin order by kind together (kq below key/query/value/output below residual).</p>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator (this repo)</h5>
+      <ul>
+        <li><code>src/talens/measures/bss_separability.py</code> · the probe (also the shared spectral capacity diagnostic)</li>
+        <li>model-free unit test: queued (the estimator is exercised through the source-separation evaluations)</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/kv-bss-subspace-floor-and-negentropy-probe.md</code></li>
+        <li><code>research-wiki/claims/kv-cloak-channel-decoupling-feature-mix-loadbearing.md</code></li>
+        <li><code>research-wiki/claims/gelo-orthogonal-gram-leak-rowmix-defeats-bss.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="kv-accumulation.html">source separation</a> · tracks genuine margin</li>
+        <li><a href="kv-cloak.html">KV-Cloak</a> · feature mix load-bearing</li>
+        <li><a href="resid-gelo.html">GELO</a> · probe mismatch (weak loop)</li>
+        <li><a href="synthesis.html#ov-kv-accum">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: capacity-matched predictive V-information (V_cap)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a class="current" href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Capacity-matched V-info<br><em>— probe <code>V_cap</code></em></h1>
+      <p class="subtitle">The accuracy and bits of a capacity-bounded token-identity reader on a class-prior null. Capacity-matching repairs the estimator so its shuffle-control floor is well-posed, and the bounded reader accuracy tracks inversion recovery where the representation is the bottleneck.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → bits</div>
+    </header>
+    <p class="lede">The token-identity reader. For a released residual-stream vector <code>X = resid_post[L] ∈ ℝ^d</code> whose secret is the token identity behind it:</p>
+    <div class="prose">
+      <ol>
+        <li>Standardize <code>X</code> on training statistics (mean and variance from the train split only).</li>
+        <li>Reduce to <code>dim &lt; n_val</code> by a train-only principal-component projection (covariance eigendecomposition: the capacity-matching step, and the single change from the original failing estimator).</li>
+        <li>Fit a calibrated linear-softmax classifier over the token-identity classes.</li>
+        <li>Read out two quantities: <strong>reader accuracy</strong>, the bounded top-1 recovery over the token-identity classes (the robust primary readout); and <strong>reader information in bits</strong>, the predictive V-information (the log-probability the reader assigns the true token minus the prior log-probability) reported as selectivity (real minus label-shuffled control).</li>
+      </ol>
+      <p>It never reads the embedding table: it predicts a class label, not a vector. That is what makes it attack-independent with respect to the embedding-inversion attack. The estimator is <code>src/talens/measures/vinfo_capacity.py</code>; it is checked in <code>tests/test_vinfo_capacity.py</code>.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: released residual, attack arm (→ recovery) and probe arm (standardize → PCA dim&lt;n → softmax → accuracy + bits)</span>
+        <span>navy = data owner · plum = defense locus · slate = adversary/analyst · amber = leak · joined by Spearman(accuracy, recovery)</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 480" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="The released residual feeds an attack arm that inverts to recovered token and a probe arm that standardizes, reduces dimension below the validation count, fits a softmax reader, and reports accuracy plus bits without reading the embedding table.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <rect x="0"    y="40" width="340" height="420" class="zone-band zone-band-client"/>
+        <rect x="340"  y="40" width="250" height="420" class="zone-band zone-band-crypto"/>
+        <rect x="590"  y="40" width="730" height="420" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">token behind X · runs model → resid_post[L]</text>
+        <text x="360" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="360" y="78" class="zone-sublabel">at-layer noise / input-DP · parameter</text>
+        <text x="610" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="610" y="78" class="zone-sublabel">observes X′ · two independent arms</text>
+        <line x1="340" y1="40" x2="340" y2="460" class="boundary"/>
+        <line x1="590" y1="40" x2="590" y2="460" class="boundary"/>
+        <text x="594" y="456" class="boundary-label">release (X′ crosses to adversary)</text>
+
+        <rect x="20" y="205" width="140" height="70" class="box box-strong box-client"/>
+        <text x="34" y="229" class="box-label">token id</text>
+        <text x="34" y="247" class="box-sub">the secret class</text>
+        <rect x="182" y="205" width="138" height="70" class="box box-client"/>
+        <text x="196" y="229" class="box-label">model → X</text>
+        <text x="196" y="247" class="box-mono">resid_post[L]</text>
+
+        <rect x="358" y="200" width="214" height="84" class="box box-strong box-crypto"/>
+        <text x="372" y="224" class="box-label">defense</text>
+        <text x="372" y="242" class="box-mono">X′ = defense(X)</text>
+        <text x="372" y="262" class="box-sub">privacy parameter swept</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="620" y="120" width="200" height="64" class="box box-gpu"/>
+        <text x="634" y="144" class="box-label">attack arm — inverter</text>
+        <text x="634" y="162" class="box-sub">ridge inversion → embedding</text>
+        <rect x="880" y="120" width="190" height="64" class="box box-strong box-gpu box-warn"/>
+        <text x="894" y="144" class="box-label warn">recovered token</text>
+        <text x="894" y="162" class="box-sub">recovery rate (TTRSR)</text>
+
+        <!-- PROBE ARM -->
+        <rect x="620" y="248" width="130" height="78" class="box box-gpu"/>
+        <text x="634" y="272" class="box-label">① standardize</text>
+        <text x="634" y="290" class="box-sub">train stats</text>
+        <text x="634" y="308" class="box-mono">+ PCA dim &lt; n</text>
+        <rect x="772" y="248" width="130" height="78" class="box box-gpu"/>
+        <text x="786" y="272" class="box-label">② softmax</text>
+        <text x="786" y="290" class="box-sub">token classes</text>
+        <text x="786" y="308" class="box-mono">calibrated fit</text>
+        <rect x="924" y="240" width="372" height="98" class="box box-strong box-gpu"/>
+        <text x="938" y="264" class="box-label">③ probe V_cap — no embedding table</text>
+        <text x="938" y="284" class="box-mono">reader accuracy ∈ [0,1]  (primary)</text>
+        <text x="938" y="304" class="box-mono">V-information (bits, selectivity)  (auxiliary)</text>
+        <text x="938" y="324" class="box-sub">predicts a class label, not a vector</text>
+
+        <!-- ARROWS -->
+        <path d="M160 240 L182 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="160" y="233" class="arrow-label secret">token</text>
+        <path d="M320 240 L358 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="324" y="233" class="arrow-label secret">X</text>
+        <path d="M572 222 C600 222 600 152 620 152" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="578" y="150" class="arrow-label masked">X′ released</text>
+        <path d="M572 250 C600 250 600 287 620 287" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="578" y="299" class="arrow-label masked">X′</text>
+        <path d="M820 152 L880 152" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="832" y="145" class="arrow-label warn">token</text>
+        <path d="M750 287 L772 287" class="arrow" marker-end="url(#ah)"/>
+        <text x="752" y="280" class="arrow-label">features</text>
+        <path d="M902 287 L924 287" class="arrow" marker-end="url(#ah)"/>
+        <text x="904" y="280" class="arrow-label">logits</text>
+      </svg>
+    </div>
+    <p class="prose" style="font-size:13px;opacity:.8;">The probe and the attack run as independent arms from the same released vector. Their outputs are compared only after the fact, by the rank correlation Spearman(reader accuracy, recovery); the probe never reads the attack output.</p>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · what it bounds</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> V-information (predictive, capacity-bounded), reported as bounded reader accuracy with auxiliary bits. The capacity bound (dimension below the validation count) is what makes the estimator well-posed when feature dimension exceeds the validation sample.</p>
+      <p><strong>Surface.</strong> Residual-stream vectors <code>resid_post[L]</code>, and at layer 0 the noised input embedding. It is layer-defined, so it has a per-layer reading.</p>
+      <p><strong>What it bounds.</strong> The capacity-bounded reader accuracy is a realizable lower bound on token-identity decodability for a reader of that capacity; the bits selectivity estimates the predictive V-information of the token identity given the representation.</p>
+    </div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:18px 0 8px;">Estimator repair — capacity matching (layer 12, gemma-2-2b, single seed)</h4>
+    <div class="prose"><p>The original reader failed as a bits estimator: with more features than validation points it interpolated, and its information on a label-shuffled control fell to roughly −50 bits at every depth, an artifact rather than a leakage signal. Reducing the feature dimension below the validation count bounds that control near −1 bit at every depth, at about 0.57 times the cost.</p></div>
+    <table class="spec">
+      <thead><tr><th>reader family</th><th class="num">real information (bits)</th><th class="num">shuffle floor (bits)</th><th class="num">cost vs original</th></tr></thead>
+      <tbody>
+        <tr><td>original (full dimension)</td><td class="num">4.96</td><td class="num warn">−49.7</td><td class="num">1×</td></tr>
+        <tr><td><strong>PCA softmax (selected)</strong></td><td class="num accent">5.39</td><td class="num accent">−1.9</td><td class="num">0.57×</td></tr>
+        <tr><td>random-projection softmax</td><td class="num">5.17</td><td class="num">−3.9</td><td class="num">0.42×</td></tr>
+        <tr><td>Gaussian class-conditional</td><td class="num">−12.0</td><td class="num">−32.6</td><td class="num">0.15×</td></tr>
+      </tbody>
+    </table>
+    <p class="prose">The repaired floor holds at every depth: the reduced reader's shuffle floor is −1.25 / −1.23 / −1.24 / −1.27 bits at layers 0 / 5 / 12 / 20, against the original reader's −44.9 / −50.2 / −51.4 / −48.1.</p>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · where it tracks · where it decouples</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> It never reads the embedding table: it predicts a class label, not a vector. Its correlation with a retrieval-style reader is 0.66 to 0.76, below the redundancy threshold. The one change from the failing version (dimensionality reduction) adds no attack information.</p>
+      <p><strong>Accuracy-primary, bits-auxiliary.</strong> The bits have no lower bound over readers (a single confidently-wrong assignment sends the quantity to negative infinity), so they are fragile; bounded accuracy stays in [0,1] and is the object that tracks the attack. Report the bits as auxiliary.</p>
+      <p><strong>Where it tracks recovery.</strong> Under at-layer representation-space defenses (principal-component-subspace ablation, isotropic hidden-state noise) the bounded reader accuracy tracks the ridge inversion attack at Spearman ρ 0.80 to 1.00 at every depth: the positive, attack-predictive regime. This tracking evidence, with the input-DP results, lives on the <a href="resid-dp-attacks.html#results">differential-privacy page</a>.</p>
+      <p><strong>Where it decouples (the canonical example).</strong> Under propagated input-layer differential privacy the tracking attenuates monotonically with depth (ρ +0.96 at layer 0 to −0.21 at layer 20), while <a href="probe-club.html"><code>CLUB</code></a> attenuates in parallel but stays positive (+0.96 to +0.29). Identity stays decodable while reconstruction does not. This is the matched-probe program's canonical decoupling example; the claim node <code>depth-decoupling-input-dp</code> and the <a href="resid-dp-attacks.html#results">differential-privacy results</a> own the measured tables.</p>
+    </div>
+
+    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:18px 0 8px;">Why the repair works — three propositions</h4>
+    <div class="prose">
+      <p><strong>Lemma 1.</strong> The probe's information in bits is the log-probability the reader assigns the true token minus the prior log-probability. Because a probability can approach zero, this quantity has no lower bound over readers: a single confidently-wrong assignment sends it to negative infinity. Accuracy, an indicator average, stays in the unit interval, so accuracy cannot blow up while the bits can.</p>
+      <p><strong>Proposition 2.</strong> With more features than validation points the data is separable, and an unregularized log-loss fit interpolates (training probabilities approach 1). On a shuffled control the confident prediction disagrees with the permuted label on at least one point, the assigned probability there approaches zero, and the empirical control information (a finite average with one diverging term) falls without bound. This is the mechanism of the observed −50-bit floor, not a derivation of its exact value.</p>
+      <p><strong>Proposition 3.</strong> If the reader's logits are bounded by a cap fixed independently of the feature dimension, every class probability is at least a positive softmax floor, so the information is bounded below by a finite, dimension-independent constant. Dimensionality reduction does not enter this bound directly; it is the practical device that keeps the fit out of the interpolation regime so a modest logit cap is attainable, which is why the repair tracks the dimension rather than the regularization strength.</p>
+      <p>Full proof: <code>research-wiki/claims/capacity-matched-pvi.md</code> (estimator lemma verified).</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">clean model · no defense · across layers</div>
+    </header>
+    <p class="lede">The reader accuracy on the clean residual stream across depth, beside the inversion recovery there, so the reader sees the baseline before any privacy parameter moves.</p>
+    <table class="spec">
+      <thead><tr><th>clean residual (Qwen3-4B), layer</th><th class="num">V_cap reader acc (probe)</th><th class="num">ridge recovery readout</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td>layer 0</td><td class="num accent">0.939</td><td class="num">recovery 0.69</td><td>highest reader accuracy near the input</td></tr>
+        <tr><td>layer 32</td><td class="num">0.685</td><td class="num">recovery 0.39</td><td>token identity still decodable at depth</td></tr>
+        <tr><td>depth sweep (nine depths)</td><td class="num">—</td><td class="num">ρ(reader acc, best recovery) = +0.85</td><td>tracks across depth; CLUB +0.78</td></tr>
+      </tbody>
+    </table>
+    <p class="prose src-note" style="font-size:13px;opacity:.75;">Source: <code>refine-logs/resid-depth-inversion/RESULTS_STANDARDIZED.md</code> (depth sweep, Qwen3-4B, plaintext). The recovery columns are the attack's clean-model output for comparison, not part of the probe.</p>
+  </section>
+
+  <!-- §05 SCOPE -->
+  <section id="scope">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Scope and limits</h2>
+      <div class="section-meta">what the evidence does and does not cover</div>
+    </header>
+    <div class="prose">
+      <p>The estimator-repair evidence is a single model (gemma-2-2b), a single seed, seven privacy points per layer, with no confidence intervals. The Gaussian class-conditional reader stays miscalibrated even after dimensionality reduction: capacity matching is necessary but not sufficient, the reader must also be calibrated. The bits readout is calibration-sensitive and reported as auxiliary. Named next steps: multiple seeds with intervals, cross-model replication, sensitivity at a smaller reduced dimension, and a calibration diagnostic on the bits-fragile cells.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator &amp; test</h5>
+      <ul>
+        <li><code>src/talens/measures/vinfo_capacity.py</code> · the probe</li>
+        <li><code>tests/test_vinfo_capacity.py</code> · model-free</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/capacity-matched-pvi.md</code> · estimator lemma (verified)</li>
+        <li><code>research-wiki/claims/depth-decoupling-input-dp.md</code> · decoupling example</li>
+        <li><code>research-wiki/claims/depth-inversion-certificate.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="resid-dp-attacks.html#results">differential privacy</a> · tracks then decouples</li>
+        <li><a href="resid-depth-inversion.html">depth inversion</a> · tracks across depth</li>
+        <li><a href="synthesis.html#ov-vcap">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>Hewitt et al. · conditional V-information (2021)</li>
+        <li>Soudry et al. · implicit bias of gradient descent (2018)</li>
+        <li>Lyu &amp; Li · multiclass max-margin (2020)</li>
+        <li>LMs are Injective · <a href="https://arxiv.org/abs/2510.15511">arXiv 2510.15511</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe: shared spectral capacity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+          <a href="probe-ig.html">Gaussian MI ceiling (I_G)</a>
+          <a href="probe-club.html">variational MI bound (CLUB)</a>
+          <a href="probe-vcap.html">capacity-matched V-info (V_cap)</a>
+          <a href="probe-j.html">negentropy separability (J)</a>
+          <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a>
+          <a href="probe-sdl.html">surplus description length (SDL)</a>
+          <a class="current" href="probe-shared-spectral-capacity.html">shared spectral capacity</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Shared spectral capacity<br><em>— key/value diagnostic</em></h1>
+      <p class="subtitle">A secondary key/value diagnostic for the joint-diagonalization accumulation channel: the spectral capacity of the averaged row covariance across an observation stack against an empirical noise floor. It is not the Gaussian channel-capacity MI ceiling, a different channel and a different quantity.</p>
+      <span class="rev">probe reference · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 ALGORITHM -->
+  <section id="algorithm">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Algorithm</h2>
+      <div class="section-meta">inputs → transforms → bits</div>
+    </header>
+    <p class="lede">The accumulation attack averages many key/value observations to expose shared structure. This diagnostic measures the capacity of that averaged covariance against the floor the averaging leaves behind.</p>
+    <div class="prose">
+      <ol>
+        <li>Take a stack of <code>T</code> key/value observations and form the averaged row covariance <code>C̄ = (1/T) Σₜ UₜUₜᵀ / d</code>.</li>
+        <li>Eigendecompose <code>C̄</code> to its eigenvalues <code>λ₁ ≥ … ≥ λ_d</code>.</li>
+        <li>Set the noise floor <code>σ²</code> to the median of the lower-half eigenvalues, an empirical floor for the averaged stack.</li>
+        <li>Sum the per-mode capacity above that floor, <code>½ Σᵢ log₂(1 + λᵢ/σ²)</code>, to the shared spectral capacity in bits.</li>
+      </ol>
+      <p>The form is the same water-filling sum as the <a href="probe-ig.html"><code>I_G</code></a> ceiling, but the channel and the floor are different (see §02). The estimator lives in <code>src/talens/measures/bss_separability.py</code> beside the <a href="probe-j.html">whitened-row negentropy</a> probe; it is reported only as a key/value secondary diagnostic.</p>
+    </div>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — measurement loop: averaged KV stack, attack arm (accumulation → recovery) and probe arm (averaged covariance vs floor → bits)</span>
+        <span>navy = data owner · plum = defense locus (feature-mix) · slate = adversary/analyst · amber = leak · secondary to J, NOT I_G</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 480" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="A stack of key value observations is released; the attack arm accumulates over the stack to recover sources while the probe arm forms the averaged row covariance, sets an empirical noise floor at the median lower eigenvalue, and sums the per-mode capacity above it in bits.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <rect x="0"    y="40" width="330" height="420" class="zone-band zone-band-client"/>
+        <rect x="330"  y="40" width="260" height="420" class="zone-band zone-band-crypto"/>
+        <rect x="590"  y="40" width="730" height="420" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">tokens · runs model → KV rows</text>
+        <text x="350" y="62" class="zone-label">Defense (external Transform)</text>
+        <text x="350" y="78" class="zone-sublabel">feature-mix M · channel swept</text>
+        <text x="610" y="62" class="zone-label">Adversary / analyst — untrusted (WEIGHTS-PUB)</text>
+        <text x="610" y="78" class="zone-sublabel">observes stack of T rows · two arms</text>
+        <line x1="330" y1="40" x2="330" y2="460" class="boundary"/>
+        <line x1="590" y1="40" x2="590" y2="460" class="boundary"/>
+        <text x="594" y="456" class="boundary-label">release (T observations cross)</text>
+
+        <rect x="20" y="205" width="140" height="70" class="box box-strong box-client"/>
+        <text x="34" y="229" class="box-label">token rows</text>
+        <text x="34" y="247" class="box-sub">the secret sources</text>
+        <rect x="182" y="205" width="130" height="70" class="box box-client"/>
+        <text x="196" y="229" class="box-label">model → KV</text>
+        <text x="196" y="247" class="box-mono">stack of T</text>
+
+        <rect x="348" y="200" width="224" height="84" class="box box-strong box-crypto"/>
+        <text x="362" y="224" class="box-label">channel transform</text>
+        <text x="362" y="242" class="box-mono">U′ₜ = M · Uₜ</text>
+        <text x="362" y="262" class="box-sub">feature-mix swept</text>
+
+        <!-- ATTACK ARM -->
+        <rect x="620" y="120" width="210" height="64" class="box box-gpu"/>
+        <text x="634" y="144" class="box-label">attack arm — accumulation</text>
+        <text x="634" y="162" class="box-sub">average over T → demix</text>
+        <rect x="890" y="120" width="190" height="64" class="box box-strong box-gpu box-warn"/>
+        <text x="904" y="144" class="box-label warn">recovered sources</text>
+        <text x="904" y="162" class="box-sub">recovery vs floor</text>
+
+        <!-- PROBE ARM -->
+        <rect x="620" y="248" width="150" height="80" class="box box-gpu"/>
+        <text x="634" y="272" class="box-label">① averaged cov</text>
+        <text x="634" y="290" class="box-mono">C̄ = (1/T) Σ UₜUₜᵀ/d</text>
+        <text x="634" y="308" class="box-sub">+ floor σ² = median λ</text>
+        <rect x="792" y="248" width="504" height="80" class="box box-strong box-gpu"/>
+        <text x="806" y="272" class="box-label">② probe shared spectral capacity — no demix</text>
+        <text x="806" y="292" class="box-mono">½ Σᵢ log₂(1 + λᵢ/σ²)  (bits)</text>
+        <text x="806" y="312" class="box-sub">secondary diagnostic · ranks accumulation channels</text>
+
+        <!-- ARROWS -->
+        <path d="M160 240 L182 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="160" y="233" class="arrow-label secret">rows</text>
+        <path d="M312 240 L348 240" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="316" y="233" class="arrow-label secret">U</text>
+        <path d="M572 222 C600 222 600 152 620 152" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="578" y="150" class="arrow-label masked">T obs released</text>
+        <path d="M572 252 C600 252 600 288 620 288" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="578" y="300" class="arrow-label masked">stack</text>
+        <path d="M830 152 L890 152" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="842" y="145" class="arrow-label warn">sources</text>
+        <path d="M770 288 L792 288" class="arrow" marker-end="url(#ah)"/>
+        <text x="772" y="281" class="arrow-label">λᵢ</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- §02 METHOD -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">what it estimates · which surface · not I_G</div>
+    </header>
+    <div class="prose">
+      <p><strong>Kind.</strong> A secondary spectral diagnostic for the key/value accumulation channel, not a converse on text leakage. It indexes how much shared structure survives averaging over the observation stack.</p>
+      <p><strong>Surface.</strong> The joint-diagonalization accumulation channel on key/value rows. It accompanies the <a href="probe-j.html">whitened-row negentropy</a> probe on the key/value pages and is reported beside it, never in its place.</p>
+      <p><strong>Not the Gaussian MI ceiling.</strong> It shares the water-filling form <code>½ Σᵢ log₂(1 + λᵢ/σ²)</code> with <a href="probe-ig.html"><code>I_G</code></a>, but the channel and floor differ: here the covariance is the averaged row covariance <code>C̄</code> over a stack of <code>T</code> observations, and <code>σ²</code> is the empirical median of the lower-half eigenvalues, not a defense noise variance. <code>I_G</code> is a converse on embedding-inversion text leakage; this is an accumulation-channel diagnostic. The two are different measures and must not be conflated, as the <a href="probes-registry.html#distinction">registry</a> sets out.</p>
+    </div>
+  </section>
+
+  <!-- §03 RATIONALE -->
+  <section id="rationale">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Rationale</h2>
+      <div class="section-meta">why attack-independent · its secondary role</div>
+    </header>
+    <div class="prose">
+      <p><strong>Attack-independent.</strong> The capacity is computed from the averaged covariance spectrum and an empirical floor; it never runs the demix and never reads the recovered sources.</p>
+      <p><strong>Secondary role.</strong> The matched primary probe for the source-separation channel is the <a href="probe-j.html">whitened-row negentropy</a> <code>J</code>, which tracks the genuine separation margin. The shared spectral capacity reports a complementary view of how much shared spectral structure the accumulation has to work with: useful for ranking accumulation channels, not as a converse on text recovery. Under KV-Cloak it moves with the channel transform (about 18 bits on the identity channel, about 21 bits with the feature mix only, about 16 bits with the full defense), beside the negentropy probe's collapse on the feature-mix channels.</p>
+    </div>
+  </section>
+
+  <!-- §04 PLAINTEXT REFERENCE -->
+  <section id="plaintext">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Plaintext reference</h2>
+      <div class="section-meta">queued — no clean-model across-layers reading on disk</div>
+    </header>
+    <p class="lede">A clean-model, across-layers baseline is not yet on disk: this diagnostic was measured only at layer 0 on the KV-Cloak channel sweep, not as a clean-model depth sweep.</p>
+    <div class="prose">
+      <p><strong>On disk now:</strong> the layer-0 KV-Cloak channel sweep reads the shared spectral capacity at 18.24 bits on the identity (clean) channel, 20.94 bits with the feature mix only, and 16.32 bits with the full defense, in <code>refine-logs/kv-cloak/RESULTS.md</code>. There is no clean-model across-layers sweep.</p>
+      <p><strong>Queued onto the leakage–utility measurement (Task 7):</strong> a small clean-model plaintext-across-layers emission of the shared spectral capacity by layer and channel kind, so this page can show a baseline reading beside the negentropy probe. This page is backfilled after that single GPU run; no GPU run is launched from the probe-page phase. The queued item is recorded in <code>refine-logs/probe-pages/queued-for-utility.md</code>.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Estimator (this repo)</h5>
+      <ul>
+        <li><code>src/talens/measures/bss_separability.py</code> · the diagnostic (with the J probe)</li>
+        <li>model-free unit test: queued (computed alongside the BSS evaluations)</li>
+        <li><a href="probes-registry.html">probe registry</a> · canonical name</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claims (this repo)</h5>
+      <ul>
+        <li><code>research-wiki/claims/kv-cloak-channel-decoupling-feature-mix-loadbearing.md</code></li>
+        <li><code>research-wiki/claims/kv-bss-subspace-floor-and-negentropy-probe.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Where it is used</h5>
+      <ul>
+        <li><a href="kv-cloak.html">KV-Cloak</a> · beside the negentropy probe</li>
+        <li><a href="kv-accumulation.html">source separation</a> · accumulation channel</li>
+        <li><a href="synthesis.html#ov-kv-cloak">cross-surface synthesis row</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
