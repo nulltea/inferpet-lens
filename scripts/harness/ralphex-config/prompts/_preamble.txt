@@ -69,6 +69,13 @@ STEP 3 — STALL HANDLING + ESCALATION
   (You run headless and CANNOT block for a reply; the human resolves later by editing the plan.)
 
 STEP 4 — GATE, THEN COMPLETE (the only place a phase may be marked done)
+- GATE-FILE LOCATION (critical — a mismatch here silently stalls the campaign): the gate reads the
+  exact path in `<gate-spec>`, which is `refine-logs/<surface>/REVIEW_STATE.json`. But `/auto-review-loop`
+  writes its verdict to `review-stage/REVIEW_STATE.json` by default. So BEFORE running gate_check, make
+  the verdict file exist at the gate path:
+    mkdir -p refine-logs/<surface> && cp review-stage/REVIEW_STATE.json refine-logs/<surface>/REVIEW_STATE.json
+  (For the `theory` recipe the same applies — the proof loop's /auto-review-loop verdict still lands in
+  review-stage/; copy it to the gate path.)
 - Run the gate (inspects the ARIS cross-model verdict file — one YOU did not write):
     bash scripts/harness/gate_check.sh <gate-spec>
 - If gate_check EXITS 0:
