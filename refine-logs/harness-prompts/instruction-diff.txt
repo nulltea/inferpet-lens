@@ -1,0 +1,25 @@
+Instruction-preservation check — task.txt monolith -> recipe-keyed split (2026-06-24)
+
+Method: every non-comment line of task.txt.monolith.bak checked for presence in the union of
+_preamble.txt + consolidate.txt + full.txt + experiment.txt + theory.txt.
+
+Exact line-match flagged 4 lines as differing; ALL are line-wrapping/rewording of two paragraphs
+that ARE preserved (verified by whitespace-normalized fragment search):
+  - STEP 0 "RECOVER PRIOR CONTEXT" re-attach paragraph -> reworded into _preamble.txt STEP 0
+    (now gated "if your recipe uses durable runs (full/experiment)"). Fragments PRESENT:
+      "re-attach to any in-flight run by calling"
+      "it returns the finished result or blocks on the running one"
+      "Do NOT restart the phase from scratch or relaunch a"
+      "reuse code/artifacts already written"
+  - SAFETY NET paragraph -> verbatim in full.txt + experiment.txt. Fragment PRESENT:
+      "warm-RESUMEs this same session next iteration (it does NOT cold-restart)"
+
+Net instruction loss: NONE.
+
+GPU-mechanics scoping (the point of the split):
+  consolidate.txt / theory.txt : 0 GPU-mechanics lines (clean — no run_in_rocm/DURABLE RUNS/PERF GATE block)
+  full.txt / experiment.txt     : full GPU MECHANICS block present
+  _preamble.txt                 : 1 conditional run_step.sh mention in STEP 0 recovery (gated to durable-run recipes)
+
+Assembled per-recipe prompts written to refine-logs/harness-prompts/assembled/<recipe>.txt
+(= _preamble.txt + <recipe>.txt, the effective prompt the executor follows).

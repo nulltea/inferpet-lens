@@ -16,10 +16,18 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 cd "$repo"
 
-# Ctrl-C / SIGTERM = STOP the campaign cleanly. Without this, an interrupt kills ralphex, the
-# loop falls through to its no-progress branch, and the in-progress phase gets wrongly stamped
-# "[x] SKIPPED-gate-not-met". Exit before that logic so the phase stays "[ ]" for next run.
-on_interrupt() { echo; echo "[run_campaign] interrupted — stopping; in-progress phase left as [ ]"; exit 130; }
+# Ctrl-C / SIGTERM = STOP the campaign RELIABLY. ralphex catches SIGINT and exits "normally", so a
+# foreground pipeline would let this loop relaunch it. Instead ralphex runs BACKGROUNDED in its own
+# process group (see the loop) and we `wait` on it; this trap sets STOP and kills that group plus any
+# ralphex-spawned claude executor (which lives in its own group). The loop checks STOP and exits, so
+# the in-progress phase stays "[ ]" (not skip-stamped).
+STOP=0
+on_interrupt() {
+  STOP=1
+  [ -n "${rlx_pid:-}" ] && kill -TERM "$rlx_pid" 2>/dev/null      # ralphex (its real PID)
+  pkill -TERM -f 'claude --dangerously-skip-permissions --output-format stream-json' 2>/dev/null  # its executor (own group)
+  echo; echo "[run_campaign] stop requested — halting (in-progress phase left as [ ])"
+}
 trap on_interrupt INT TERM
 
 plan="${1:?usage: run_campaign.sh <plan-file> [max_iterations]}"
@@ -30,6 +38,12 @@ ralphex_bin="${RALPHEX_BIN:-ralphex}"
 
 export ARIS_REPO="${ARIS_REPO:-/home/timo/repos/Auto-claude-code-research-in-sleep}"
 export PATH="$HOME/.local/bin:$PATH"
+
+# Warm-resume on a live detached run (ralphex >= talens resume patch): when a task iteration ends
+# cleanly but a run_step.sh run is still in flight (refine-logs/*/runs/*/run.pid alive, no run.exit),
+# ralphex re-invokes `claude --resume <session-id>` instead of cold-restarting the phase — so a
+# deliberate pause-while-waiting keeps the warm session (no context reload, no redone work).
+export RALPHEX_RESUME_ON_LIVE_RUN=1
 
 # Strip Warp "warpify" env so the headless ralphex-spawned claudes don't trigger the
 # claude-code-warp PostToolUse hook (no controlling TTY -> it blocks ~600s/tool until
@@ -56,6 +70,7 @@ fi
 consec=0
 round=0
 while :; do
+  [ "$STOP" = 1 ] && { echo "[run_campaign] stop requested — halting"; exit 130; }
   open_before="$(count_open)"
   if [ "$open_before" -eq 0 ]; then
     bash "$here/notify_telegram.sh" complete "campaign '$plan': all phases resolved"
@@ -65,11 +80,15 @@ while :; do
   round=$((round+1))
   echo "[run_campaign] round $round: $open_before phase(s) open; launching ralphex"
   out="$(mktemp)"
-  # ralphex hardcodes a "YY-MM-DD HH:MM:SS" prefix (pkg/progress/progress.go, no flag in v1.5.1);
-  # strip the date to time-only for readability. -u = unbuffered so streaming stays real-time.
-  "$ralphex_bin" "$plan" --tasks-only --config-dir "$cfg" --max-iterations "$max_iter" 2>&1 \
-    | sed -uE 's/\[[0-9]{2}-[0-9]{2}-[0-9]{2} ([0-9]{2}:[0-9]{2}:[0-9]{2})\]/[\1]/g' \
-    | tee "$out"
+  # Run ralphex BACKGROUNDED so the trap can kill it and the loop can refuse to relaunch on STOP.
+  # Process substitution keeps $! == ralphex's real PID (a pipe would give the last cmd's). The
+  # sub strips ralphex's hardcoded "YY-MM-DD HH:MM:SS" date prefix to time-only (-u = real-time).
+  "$ralphex_bin" "$plan" --tasks-only --config-dir "$cfg" --max-iterations "$max_iter" \
+    > >(sed -uE 's/\[[0-9]{2}-[0-9]{2}-[0-9]{2} ([0-9]{2}:[0-9]{2}:[0-9]{2})\]/[\1]/g' | tee "$out") 2>&1 &
+  rlx_pid=$!
+  wait "$rlx_pid"
+  if [ "$STOP" = 1 ]; then rm -f "$out"; echo "[run_campaign] halted by stop request (phase left as [ ])"; exit 130; fi
+  sleep 0.4   # let the output process-sub flush the tail (incl. any ALL_TASKS_DONE marker) into $out
   grep -q '<<<RALPHEX:ALL_TASKS_DONE>>>' "$out" && { rm -f "$out"; \
     bash "$here/notify_telegram.sh" complete "campaign '$plan': ALL_TASKS_DONE"; \
     echo "[run_campaign] ALL_TASKS_DONE"; exit 0; }

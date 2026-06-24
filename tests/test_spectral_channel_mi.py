@@ -8,7 +8,11 @@ import math
 import numpy as np
 import pytest
 
-from talens.measures.spectral_channel_mi import spectral_channel_mi, _invert_gamma
+from talens.measures.spectral_channel_mi import (
+    spectral_channel_mi,
+    spectral_channel_mi_diag,
+    _invert_gamma,
+)
 
 
 def _random_cov(d, seed=0, scale=1.0):
@@ -79,6 +83,30 @@ def test_E0_matrix_path_matches_cov_path():
     a = spectral_channel_mi(E0=E0, sigma=0.4, center=True)["i_g_bits"]
     b = spectral_channel_mi(cov=cov, sigma=0.4)["i_g_bits"]
     assert a == pytest.approx(b, rel=1e-6)
+
+
+def test_diag_reduces_to_isotropic():
+    cov = _random_cov(12, seed=11)
+    sigma = 0.37
+    iso = spectral_channel_mi(cov=cov, sigma=sigma)["i_g_bits"]
+    dg = spectral_channel_mi_diag(cov, np.full(12, sigma * sigma))["i_g_bits"]
+    assert dg == pytest.approx(iso, rel=1e-9)
+
+
+def test_diag_matches_logdet_formula():
+    cov = _random_cov(8, seed=12)
+    v = np.linspace(0.1, 0.9, 8)
+    D = np.diag(v)
+    # I_G = ½ log2 det(I + D^{-1} Σ)
+    expect = 0.5 * np.log2(np.linalg.det(np.eye(8) + np.linalg.solve(D, cov)))
+    got = spectral_channel_mi_diag(cov, v)["i_g_bits"]
+    assert got == pytest.approx(float(expect), rel=1e-8)
+
+
+def test_diag_rejects_nonpositive_variance():
+    cov = _random_cov(5, seed=13)
+    with pytest.raises(ValueError):
+        spectral_channel_mi_diag(cov, np.array([1.0, 1.0, 0.0, 1.0, 1.0]))
 
 
 def test_invert_gamma_monotone_and_endpoints():

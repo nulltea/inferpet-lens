@@ -1,11 +1,14 @@
 {
-  "round": 2,
-  "threadId": "019ef899-15fa-7d63-bde0-2a942c1c4980",
+  "round": 1,
+  "threadId": "019efae6-eec0-7013-a791-18845004fe10",
   "status": "completed",
   "difficulty": "medium",
-  "last_score": 8.5,
-  "last_verdict": "ready",
+  "reviewer_model": "gpt-5.5",
+  "target": "docs/plans/campaign-C-report-hardening.md",
+  "last_score": 8.0,
+  "last_verdict": "almost",
   "pending_experiments": [],
-  "timestamp": "2026-06-24T07:57:24",
-  "summary": "resid-split / PriPert surface: round1 7/almost (honesty fixes flagged), round2 8.5/ready after applying them. Probe attack-independent confirmed; numbers match raw sweep; proved-vs-empirical boundary honest; slack converse not inflated; multi-seed/model + adversarial-delta = disclosed follow-ups."
+  "positive_assessment": true,
+  "summary": "campaign-C plan READY (8/10, almost) on round 1. 13 self-contained tasks, parseable, dependencies acyclic. 6 plan-text weaknesses all fixed inline: Task4/Task6 completion rules (no circular dep on Task7), Task7 split into priority-ordered subdeliverables + named leakage_utility.json contract for Task12, Task1 acceptance made file-checkable, Task8 per-claim proof-check artifact, Task13 B2-mandatory/B1-optional.",
+  "timestamp": "2026-06-24T16:30:00"
 }

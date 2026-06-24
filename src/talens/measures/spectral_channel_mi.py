@@ -193,3 +193,78 @@ def spectral_channel_mi(
         rd_pertoken_floor=rd_floor,
     )
     return out
+
+
+def spectral_channel_mi_diag(
+    cov: np.ndarray,
+    noise_var: np.ndarray,
+    *,
+    H_X: float | None = None,
+    H_e0: float | None = None,
+    n_tokens: int | None = None,
+    vocab: int | None = None,
+) -> dict[str, Any]:
+    """Spectral channel-MI for an **anisotropic (diagonal)** Gaussian channel.
+
+    Generalizes :func:`spectral_channel_mi` from ``N(0,σ²I)`` to ``N(0,D)`` with
+    ``D = diag(noise_var)`` (per-coordinate variances ``σ²₁..σ²_d`` in the SAME basis
+    as ``cov``). The Gaussian-channel MI ceiling on ``I(e_0;Y)`` is
+
+        ``I_G = ½ log₂ det(I + D^{-1/2} Σ D^{-1/2}) = ½ Σ_i log₂(1 + μ_i)``
+
+    where ``μ_i`` are the eigenvalues of the whitened covariance ``D^{-1/2} Σ D^{-1/2}``.
+    Reduces exactly to the isotropic ``½Σ log₂(1+λ_i/σ²)`` when ``noise_var`` is constant.
+    Geometry-only / attack-independent: depends solely on ``(Σ, D)``. ``d_eff`` counts
+    modes with ``μ_i ≥ 1`` (water-filling: noise-variance-relative signal modes).
+
+    Inputs: ``cov`` (``d×d`` symmetric PSD), ``noise_var`` (length-``d`` strictly positive).
+    Optional ``H_X, H_e0, n_tokens, vocab`` enable the same Fano / rate–distortion ceilings.
+    """
+    C = np.ascontiguousarray(cov, dtype=np.float64)
+    if C.ndim != 2 or C.shape[0] != C.shape[1]:
+        raise ValueError("cov must be a square d×d matrix")
+    if not np.allclose(C, C.T, rtol=1e-8, atol=1e-10):
+        raise ValueError("cov must be symmetric")
+    C = 0.5 * (C + C.T)
+    d = C.shape[0]
+    v = np.ascontiguousarray(noise_var, dtype=np.float64).reshape(-1)
+    if v.size != d:
+        raise ValueError("noise_var must have length d == cov.shape[0]")
+    if not np.all(np.isfinite(v)) or float(np.min(v)) <= 0.0:
+        raise ValueError("noise_var must be finite and strictly positive")
+    if not np.all(np.isfinite(C)):
+        raise ValueError("covariance contains NaN or Inf")
+
+    inv_sqrt = 1.0 / np.sqrt(v)
+    W = (inv_sqrt[:, None] * C) * inv_sqrt[None, :]  # D^{-1/2} Σ D^{-1/2}
+    W = 0.5 * (W + W.T)
+    if _HAS_TORCH and torch.cuda.is_available():
+        mu = torch.linalg.eigvalsh(torch.from_numpy(W).cuda()).cpu().numpy()
+    else:
+        mu = np.linalg.eigvalsh(W)
+    mu = np.maximum(mu, 0.0)[::-1].astype(np.float64)  # descending, non-negative
+
+    t = 0.5 * np.log1p(mu) / _LOG2  # per-mode bits ½log2(1+μ)
+    i_g = float(t.sum())
+    d_eff = int((mu >= 1.0).sum())
+
+    accessible = min(float(H_e0), i_g) if H_e0 is not None else i_g
+    fano = None
+    if H_X is not None and H_X > 0:
+        fano = min(1.0, (accessible + 1.0) / float(H_X))
+    rd_floor = None
+    if H_X is not None and n_tokens and vocab and vocab > 1:
+        tau = max(0.0, (float(H_X) - accessible)) / float(n_tokens)
+        rd_floor = _invert_gamma(tau, int(vocab))
+
+    return {
+        "d": int(d),
+        "i_g_bits": i_g,
+        "t_i": t,
+        "whitened_eigenvalues": mu,
+        "d_eff": d_eff,
+        "distortion_total": float(v.sum()),
+        "accessible_bit_ceiling": accessible,
+        "fano_exact_ceiling": fano,
+        "rd_pertoken_floor": rd_floor,
+    }

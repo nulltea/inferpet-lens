@@ -80,3 +80,6 @@ _Append-only timeline._
 - `2026-06-24T07:40:53Z` add_claim: updated claim:pripert-spectral-converse-slack-comonotone-tracking [status=verified] prov=refine-logs/resid-split/PROOF_CHECK_STATE.json
 - `2026-06-24T07:40:53Z` add_experiment: added exp:b-r4-split [verdict=yes confidence=medium]
 - `2026-06-24T07:42:15Z` b-r4-split: PriPert spectral converse — claim verified (proof L1-L3 PASS), exp verdict yes; C2 positive measurement loop, C3 slack converse
+- `2026-06-24T09:15:55Z` add_claim: updated claim:sgt-channel-mi-shape-blind-metric-bound-vec2text [status=verified] prov=refine-logs/embed-sgt/proof/PROOF_AUDIT.json
+- `2026-06-24T09:15:55Z` add_experiment: updated exp:embed-sgt-channel-mi-shape-blindness [verdict=partial confidence=high]
+- `2026-06-24T09:18:52Z` result-to-claim: exp:embed-sgt-channel-mi-shape-blindness verdict=partial; claim:sgt-channel-mi-shape-blind-metric-bound-vec2text verified (proof PASS)

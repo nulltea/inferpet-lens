@@ -87,7 +87,17 @@ run_id: b-e1-sgt
 gate: review refine-logs/embed-sgt/REVIEW_STATE.json
 spawn-depth: 0
 objective: implement the Stained Glass Transform (learned heteroscedastic Gaussian with MI-budget loss, arXiv 2506.09452) on the input/pooled embedding; sweep the MI-budget α; chart Vec2Text/Rep2Text-embedding recovery vs the directly-comparable spectral channel-MI probe (the cleanest MI-probe-predicts-attack test).
-- [ ] run-phase: b-e1-sgt
+- [x] run-phase: b-e1-sgt
+
+### Task 11: matched read-subspace probe + shape-aware attack for embed-sgt
+recipe: full
+gpu: true
+surface: embed-sgt-v2
+run_id: embed-sgt-followup-1
+gate: review refine-logs/embed-sgt-v2/REVIEW_STATE.json
+spawn-depth: 1
+objective: the scalar channel-MI converse I_G is shape-blind on SGT — across matched-budget noise shapes Spearman(recovery,I_G)=0.48 (<0.6) while relCos=0.97 and -D_tot=0.95 (claim:sgt-channel-mi-shape-blind-metric-bound-vec2text). Proven non-matched-probe (L2 allocation-blindness, structural) but the weak-attack arm is open. Test BOTH: (a) a matched read-subspace / effective-distortion probe (read-subspace SNR weighted by the decoder's read directions, or a 𝒱-information probe under Vec2Text's hypothesis class) — does it re-correlate with recovery across shapes where I_G failed?; (b) a shape-aware stronger attack (whiten the released embedding by D before the pretrained corrector, or retrain a per-shape corrector) — does it re-saturate I_G on tail_dump and re-correlate recovery with the MI budget? Separates non-matched-probe from weak-attack. Do NOT self-spawn further (spawn-depth cap 2).
+- [ ] run-phase: embed-sgt-followup-1
 
 ### Task 8: attention-scores — cover-invariance lemma + check
 recipe: full

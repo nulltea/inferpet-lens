@@ -20,7 +20,8 @@
   <div class="topnav">
     <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
     <span class="links">
-      <a href="index.html" class="current">index</a>
+      <a class="current" href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
       <a href="metric-std.html">metric</a>
       <div class="navgroup">
         <span class="navgroup-label">residual</span>
@@ -29,6 +30,8 @@
           <a href="resid-dp-attacks.html">under differential privacy</a>
           <a href="resid-rep2text.html">Rep2Text inversion</a>
           <a href="resid-depth-inversion.html">depth inversion</a>
+          <a href="resid-gelo.html">GELO defense</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
         </div>
       </div>
       <div class="navgroup">
@@ -36,6 +39,7 @@
         <div class="navgroup-menu">
           <a href="vec2text.html">Vec2Text inversion</a>
           <a href="bnn-attack.html">Bayes-NN bounds</a>
+          <a href="embed-sgt.html">Stained Glass defense</a>
         </div>
       </div>
       <div class="navgroup">
@@ -71,7 +75,7 @@
       <p><strong>Threat model (public weights).</strong> The default anchor is <code>WEIGHTS-PUB</code>: the adversary knows the model weights and the embedding table, so norms, Gram matrices, and attention scores are known functions of the secret, and the adversary can synthesize unlimited training pairs at any defense parameter. Comparisons between admissible attacks are therefore fair. Per-page deviations are stated in that page.</p>
       <p><strong>Probe is not the attack.</strong> A probe is an independent measure that correlates with attack recovery, never the attack reporting its own bits. A measure that could not be computed without running the attack is the attack in disguise, and any correlation it shows is circular. The probes here are geometry-only or channel-matched: a capacity-matched token-identity reader, a spectral channel mutual-information ceiling, geometry-only error bounds.</p>
       <p><strong>One metric, two axes.</strong> Every measure reports on one comparable scale, <strong>bits</strong>, beside a per-secret human readout: token-identity perplexity and top-k, text token-F1 and ROUGE, permutation recovery-rate and rank correlation, embedding token-F1 and cosine, membership AUC. The reporting layer that enforces this convention is documented under <a href="metric-std.html">the metric convention</a>.</p>
-      <p><strong>How to read this site.</strong> The cards below group by released surface: the residual stream, the pooled or per-position embedding, and the permuted embedding table. Each links a page that runs the loop end to end. Two cross-cutting pages follow: the reporting foundation every page shares, and a cryptographic zero-leakage reference that bounds the leakage scale from below.</p>
+      <p><strong>How to read this site.</strong> The cards below group by released surface: the residual stream, the pooled or per-position embedding, the key/value cache, and the permuted embedding table. Each links a page that runs the loop end to end. The <a href="synthesis.html">cross-surface synthesis</a> places all thirteen loops on one standardized table; two further cross-cutting pages give the reporting foundation every page shares and a cryptographic zero-leakage reference that bounds the leakage scale from below.</p>
     </div>
   </section>
 
@@ -83,6 +87,18 @@
       <div class="section-meta">one attack × matched probe × defense per page</div>
     </header>
     <div class="cgrid">
+
+      <div class="card">
+        <span class="tag crypto">cross-cutting</span>
+        <h3>Cross-surface synthesis</h3>
+        <p class="one">Every surface, attack, matched probe, and defense on one standardized table, with the bits-to-recovery correlation as the comparable axis.</p>
+        <dl>
+          <dt>scope</dt><dd>all thirteen executed loops side by side</dd>
+          <dt>axis</dt><dd>rank correlation between probe bits and attack recovery across each sweep, success bar 0.6</dd>
+          <dt>finding</dt><dd>the probe tracks recovery on nine of thirteen surfaces; the four that do not each resolve to a probe not matched to the load-bearing channel or to a vacuous capacity probe against an extraction-limited attack</dd>
+          <dt>read</dt><dd><a href="synthesis.html">cross-surface synthesis →</a></dd>
+        </dl>
+      </div>
 
       <div class="card">
         <span class="tag gpu">residual</span>
@@ -124,6 +140,45 @@
       </div>
 
       <div class="card">
+        <span class="tag gpu">residual</span>
+        <h3>Rep2Text inversion</h3>
+        <p class="one">A single last-token residual is decoded back to full text by an adapter into a frozen decoder.</p>
+        <dl>
+          <dt>secret</dt><dd>source text behind one last-token residual hidden state at layer 10</dd>
+          <dt>probe</dt><dd>spectral channel mutual-information capacity ceiling</dd>
+          <dt>attack</dt><dd>trained adapter into a frozen language-model decoder</dd>
+          <dt>finding</dt><dd>recovery grows with sequence length rather than decaying; the capacity ceiling exceeds the sequence entropy by a wide margin, so the capacity probe is vacuous across the operating range; recovery is extraction-limited, not capacity-limited</dd>
+          <dt>read</dt><dd><a href="resid-rep2text.html">Rep2Text inversion →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag client">residual · defense</span>
+        <h3>GELO defense</h3>
+        <p class="one">Fresh per-prompt row mixing with optional shield rows, against a source-separation adversary.</p>
+        <dl>
+          <dt>secret</dt><dd>the per-row activation behind a freshly mixed residual feeding attention</dd>
+          <dt>probe</dt><dd>whitened-row negentropy</dd>
+          <dt>attack</dt><dd>joint-diagonalization source separation and amortized ridge inversion</dd>
+          <dt>finding</dt><dd>fresh row mixing defeats per-row source separation and amortized inversion, but an orthogonal mixing exposes the exact feature Gram; the row-negentropy probe does not track the separation margin (0.29 to 0.51), which locates the leak in a feature-Gram channel the probe does not read</dd>
+          <dt>read</dt><dd><a href="resid-gelo.html">GELO defense →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag client">residual · defense</span>
+        <h3>Split inference (PriPert)</h3>
+        <p class="one">A split activation is sparsified and perturbed before it crosses the trust boundary.</p>
+        <dl>
+          <dt>secret</dt><dd>token identity behind a split-layer residual activation</dd>
+          <dt>probe</dt><dd>spectral channel mutual-information and a Fano recovery ceiling</dd>
+          <dt>attack</dt><dd>ridge and learned two-layer inverters</dd>
+          <dt>finding</dt><dd>the perturbation budget is the load-bearing parameter, collapsing recovery by a moderate budget; the matched measure tracks recovery at rank correlation 0.958 including the learned inverter, with no probe-attack gap; the information-theoretic converse is valid but slack</dd>
+          <dt>read</dt><dd><a href="resid-split.html">split inference →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
         <span class="tag tee">embedding</span>
         <h3>Vec2Text inversion</h3>
         <p class="one">Recover source text from a released sentence embedding with a faithful pretrained corrector.</p>
@@ -150,6 +205,19 @@
       </div>
 
       <div class="card">
+        <span class="tag tee">embedding · defense</span>
+        <h3>Stained Glass defense</h3>
+        <p class="one">Learned heteroscedastic noise shaped to a mutual-information budget, against embedding inversion.</p>
+        <dl>
+          <dt>secret</dt><dd>source text behind a pooled sentence embedding</dd>
+          <dt>probe</dt><dd>spectral channel mutual-information generalized to a diagonal noise covariance</dd>
+          <dt>attack</dt><dd>pretrained Vec2Text corrector</dd>
+          <dt>finding</dt><dd>within a fixed noise shape the capacity ceiling predicts recovery perfectly, but across noise shapes at a matched budget it is shape-blind (rank correlation 0.48) while read-subspace distortion predicts recovery at 0.97; a valid converse that is not a matched predictor</dd>
+          <dt>read</dt><dd><a href="embed-sgt.html">Stained Glass defense →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
         <span class="tag storage">permutation</span>
         <h3>Permutation cover</h3>
         <p class="one">An embedding table is hidden by permuting feature columns and adding noise; the adversary must re-identify each obfuscated row.</p>
@@ -172,6 +240,19 @@
           <dt>attack</dt><dd>joint-diagonalization separators (single-observation and across stacked observations), graded against a matched random-demixing floor</dd>
           <dt>finding</dt><dd>every demixing returns a basis of one fixed subspace, so the raw recovery score (0.776) is subspace membership, not separation; the genuine margin is 0.027 and flat in the observation count; the negentropy probe tracks the genuine margin at 0.92 while anticorrelating with the raw score</dd>
           <dt>read</dt><dd><a href="kv-accumulation.html">source separation →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag storage">KV / QKV · defense</span>
+        <h3>KV-Cloak decoupling</h3>
+        <p class="one">A key/value cache obfuscated by feature mixing, token mixing, and an additive mask.</p>
+        <dl>
+          <dt>secret</dt><dd>the per-row activation behind the obfuscated key/value cache</dd>
+          <dt>probe</dt><dd>whitened-row negentropy</dd>
+          <dt>attack</dt><dd>joint-diagonalization source separation, single and accumulated across observations</dd>
+          <dt>finding</dt><dd>the feature mix is the only channel that reduces source-separation recovery; token mixing and block size are recovery-irrelevant; the probe ranks defense families rather than acting as a within-channel oracle</dd>
+          <dt>read</dt><dd><a href="kv-cloak.html">KV-Cloak decoupling →</a></dd>
         </dl>
       </div>
 
@@ -255,12 +336,14 @@
     <div>
       <h5>Surfaces</h5>
       <ul>
+        <li><a href="synthesis.html">cross-surface synthesis</a></li>
         <li><a href="resid-capacity-pvi.html">capacity-matched leakage</a></li>
         <li><a href="resid-dp-attacks.html">residual under differential privacy</a></li>
         <li><a href="resid-rep2text.html">Rep2Text residual inversion</a></li>
         <li><a href="resid-depth-inversion.html">depth inversion</a></li>
-        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
-        <li><a href="kv-accumulation.html">KV/QKV source separation</a></li>
+        <li><a href="resid-gelo.html">GELO defense</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
+        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a> · <a href="embed-sgt.html">Stained Glass</a></li>
+        <li><a href="kv-accumulation.html">KV/QKV source separation</a> · <a href="kv-cloak.html">KV-Cloak</a></li>
         <li><a href="perm-cover.html">permutation cover</a> · <a href="defenses-existing.html">implemented defenses</a></li>
         <li><a href="metric-std.html">the metric convention</a></li>
       </ul>

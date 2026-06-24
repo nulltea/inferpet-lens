@@ -1,0 +1,19 @@
+# RECIPE BODY: consolidate  (no GPU — documentation / harvest / proof-of-existing)
+# This is your STEP 2. Execute these steps in order, then return to the preamble's STEP 3 / STEP 4.
+
+— recipe `consolidate` (Block A pilot: harvest EXISTING spikes/results on this surface) —
+  a. Inventory this surface's spikes/results (refine-logs/, scripts/spikes/, research-wiki/).
+  b. Standardize every reported number to the metric convention: bits canonical + per-secret
+     readout (use/extend the src/talens reporting layer). No "1/100 of a bit" bare numbers.
+  c. /result-to-claim — judge what each result actually supports. /experiment-audit — integrity
+     (no fake ground truth, no probe==attack, no phantom results).
+  d. KEEPER (jury says a claim holds): write research-wiki/claims/<slug>.md IN FULL, then
+     /proof-writer → /proof-checker (proof inline in the claim file); write the experiment log to
+     research-wiki/experiments/; /research-wiki to register; /novelty-check if claiming novelty.
+  e. DEAD-END (jury says pivot/insufficient): write a short negative-result log to
+     research-wiki/experiments/ (what was tried, why it fails, what supersedes it). This is a
+     first-class deliverable — do NOT manufacture a claim.
+  f. Build docs/html/<surface>.html per docs/html/STYLE.md (+ /figure-spec or /paper-figure), then
+     CLEAN IT UP (mandatory): /humanize then /proofread then /term-audit on that file (they edit
+     prose only); re-open it to confirm it still renders.
+  g. /auto-review-loop to its positive STOP (this writes the gate file).

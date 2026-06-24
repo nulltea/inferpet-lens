@@ -1,0 +1,48 @@
+# RECIPE BODY: full  (GPU — ONE new surface×attack[×defense], experiment→theory→report)
+# This is your STEP 2. OBEY the GPU MECHANICS block first, then run the recipe steps, then return
+# to the preamble's STEP 3 / STEP 4.
+
+GPU MECHANICS (full / experiment only — read and obey before ANY GPU command)
+GPU RULE (hard): every command touching real Qwen3 activations / capture / probes / attacks MUST
+be wrapped in `scripts/run_in_rocm.sh`. One GPU process at a time — never launch a second GPU
+container; kill stray containers first. `/run-experiment` stays in LOCAL mode (wraps run_in_rocm.sh);
+run sweep points SERIALLY (no /experiment-queue fan-out). Write all artifacts under
+refine-logs/<surface>/; never overwrite another surface.
+DURABLE RUNS (critical): launch EVERY pilot/experiment/heavy command through the resumable wrapper:
+    TALENS_SURFACE=<surface> scripts/harness/run_step.sh <name> -- <cmd...>
+e.g. `TALENS_SURFACE=<surface> scripts/harness/run_step.sh pilot -- scripts/run_in_rocm.sh python3 ...`.
+The wrapper runs the command DETACHED (it survives even if this session dies), NEVER duplicates a run
+that is already active or finished (one-GPU-safe), and BLOCKS streaming the run's log until it
+completes, returning the real exit code. NEVER background a run yourself and then end your turn to
+"wait for it": ending your turn terminates this session and the loop restarts the phase in a fresh,
+memory-less session. If you ARE a fresh session re-entering a phase, just call run_step.sh with the
+SAME <name> again — it re-attaches to the in-flight run or returns the finished result (resume, do not
+relaunch). Run logs/results live under refine-logs/<surface>/runs/<name>/.
+SAFETY NET (do not rely on it): the harness now detects when a turn ends with a run_step.sh run still
+in flight and warm-RESUMEs this same session next iteration (it does NOT cold-restart), so an
+accidental turn-end while waiting is recoverable. Still prefer the blocking run_step.sh call above —
+the net costs an extra iteration; the blocking call costs nothing.
+PERF GATE (before ANY GPU run): refine the run plan with `/auto-review-loop` against
+`scripts/harness/perf_gate.md` until it returns ready (optimal scope + max GPU utilization).
+
+— recipe `full` (Block B: ONE new surface×attack[×defense], experiment→theory→report) —
+  a. PERF GATE, then /experiment-plan → /experiment-bridge (implement + run the sweep, GPU-wrapped,
+     serial) → /result-to-claim → /experiment-audit.
+  b. Report all numbers as bits canonical + per-secret readout, swept plaintext→defense-parameter.
+  c. CORRELATES (probe tracks recovery across the sweep): /proof-writer → /proof-checker; write
+     research-wiki/claims/<slug>.md IN FULL (proof inline); /research-wiki; /novelty-check.
+  d. DOES NOT CORRELATE: that IS the finding. In theory, bound/explain the gap; decide weak-attack
+     vs non-matched-probe; write the experiment log; and APPEND a new follow-up to {{PLAN_FILE}}:
+        ### Task <next>: <stronger-attack|matched-probe> for <surface>
+        recipe: full
+        gpu: true
+        surface: <surface>-v2
+        run_id: <surface>-followup-1
+        gate: review refine-logs/<surface>-v2/REVIEW_STATE.json
+        objective: <the candidate fix X>
+        spawn-depth: <parent depth + 1>     # STOP self-spawning at spawn-depth 2
+        - [ ] run-phase: <surface>-followup-1
+     Do NOT append if this phase's own `spawn-depth` is already >=2 (cap runaway self-extension).
+  e. Build docs/html/<surface>.html per docs/html/STYLE.md (+ figures), then CLEAN IT UP (mandatory):
+     /humanize then /proofread then /term-audit on that file (prose only); re-open to confirm render.
+  f. /auto-review-loop to its positive STOP.

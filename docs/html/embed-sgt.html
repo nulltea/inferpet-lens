@@ -1,0 +1,337 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — Stained Glass embedding defense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<script>window.MathJax={tex:{inlineMath:[['$','$']],displayMath:[['$$','$$']]}};</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+          <a href="resid-gelo.html">GELO defense</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+          <a class="current" href="embed-sgt.html">Stained Glass defense</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+          <a href="kv-cloak.html">KV-Cloak decoupling</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Stained Glass embedding defense<br><em>— a valid mutual-information ceiling that does not rank noise shapes</em></h1>
+      <p class="subtitle">A sentence-embedding inversion adversary observes a pooled embedding released
+      under the Stained Glass Transform, which adds learned anisotropic Gaussian noise. A geometry-only
+      channel mutual-information measure, computed without the attack, predicts text recovery perfectly
+      as the noise scale rises within a single noise shape (rank correlation 1.0). Holding that measure
+      fixed and varying only the noise shape breaks the prediction: at an identical 826.8 bits the
+      recovered token-F1 spans 0.048 to 0.566, and across the twelve noisy settings the measure
+      correlates with recovery at only 0.48, while released-embedding cosine correlates at 0.97. The measure is a
+      correct converse on every shape but is blind to which directions the noise occupies, and the
+      deployed inverter is governed by that occupancy. The reason is proved, not asserted.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the defense, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      A pooled sentence embedding is a compact, invertible summary of its input text. Releasing one to
+      an untrusted server invites a reconstruction attack: a pretrained iterative corrector can recover
+      much of the original text from the vector alone. The Stained Glass Transform
+      (<a href="https://arxiv.org/abs/2506.09452">arXiv 2506.09452</a>) defends the release by adding
+      learned heteroscedastic Gaussian noise, with a training loss that caps the mutual information
+      between the clean and released vectors. The defense therefore claims an information budget,
+      and the natural question is whether that budget predicts how much text the attack recovers.
+    </p>
+    <p class="prose">
+      A companion study already established that a geometry-only channel mutual-information measure is a
+      complete predictor of this attack under isotropic noise: across a privacy sweep it tracks recovery
+      at rank correlation 1.0. The Stained Glass Transform differs from isotropic noise in exactly one
+      respect, the noise shape, which is anisotropic by design. This isolates a clean test. Construct
+      several noise shapes that all spend the same number of bits, and ask whether recovery is the same
+      across them. If it is, the scalar budget is a complete matched predictor. If it is not, the budget
+      is a valid ceiling but not a predictor, and the result identifies what the attack actually
+      responds to.
+    </p>
+    <p class="prose">
+      The answer is that recovery is not the same. At a matched budget of 826.8 bits the recovered
+      token-F1 is 0.048 for an adversarial tail-loaded shape, 0.433 for isotropic noise, and 0.566 for
+      the utility-optimal shape the defense itself selects. Across the twelve noisy settings the budget correlates
+      with recovery at 0.48, below the 0.6 threshold, while the cosine between the clean and released
+      embeddings correlates at 0.97 and the total noise energy at 0.95. The budget is shape-blind. This
+      page reports the sweep and proves why a correct mutual-information converse fails to order the
+      noise shapes a fixed inverter actually distinguishes.
+    </p>
+  </section>
+
+  <!-- ═════ § 2 PRELIMINARIES ═════ -->
+  <section id="preliminaries">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Surface and threat model</h2>
+      <div class="section-meta">what is released, what is known, how recovery is graded</div>
+    </header>
+    <table class="spec">
+      <tbody>
+        <tr><th>surface</th><td>pooled sentence embedding, 768 dimensions, mean-pooled from a frozen GTR encoder</td></tr>
+        <tr><th>secret</th><td>the input token sequence behind the embedding; graded recovery target is the text</td></tr>
+        <tr><th>threat model</th><td>the adversary holds the public encoder and runs a pretrained inverter; it observes only the released noisy embedding</td></tr>
+        <tr><th>defense</th><td>release the clean embedding plus zero-mean Gaussian noise with a diagonal covariance; the per-coordinate variances are the defense parameters</td></tr>
+        <tr><th>attack</th><td>a pretrained iterative corrector that refines a candidate text against the observed embedding (Morris et al. 2023), used unchanged across all settings</td></tr>
+        <tr><th>recovery readout</th><td>token-F1 against the true text, plus exact-match rate, positional token accuracy, and the cosine between the clean and released embeddings; 96 held-out texts per setting</td></tr>
+        <tr><th>measure (bits)</th><td>spectral channel mutual information of the Gaussian release channel, computed from the embedding covariance and the noise covariance alone, with no attack</td></tr>
+      </tbody>
+    </table>
+    <p class="prose">
+      The measure is the Gaussian-channel mutual information between the clean and released vectors,
+      $I_G=\tfrac12\log_2\det(I+D^{-1/2}\Sigma D^{-1/2})$, where $\Sigma$ is the embedding covariance and
+      $D$ the diagonal noise covariance. It is a closed-form function of the two covariances and never
+      sees the attack, so it qualifies as an attack-independent measure rather than the attack reporting
+      its own success. It generalizes the isotropic-noise measure of the companion study to an arbitrary
+      diagonal noise covariance.
+    </p>
+  </section>
+
+  <!-- ═════ § 3 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Matched-budget noise shapes</h2>
+      <div class="section-meta">three allocations of the same number of bits</div>
+    </header>
+    <p class="prose">
+      Work in the basis where the embedding covariance is diagonal with eigenvalues
+      $\lambda_1\ge\dots\ge\lambda_d$, the principal directions of the embedding ranked by signal energy.
+      A noise shape assigns a variance $v_i$ to each principal direction, and the budget is
+      $I_G=\tfrac12\sum_i\log_2(1+\lambda_i/v_i)$. The total distortion, equal to the expected squared
+      noise norm, is $\sum_i v_i$. For each target budget the sweep constructs three shapes by bisection,
+      all hitting the same budget to within numerical precision:
+    </p>
+    <table class="spec">
+      <tbody>
+        <tr><th>isotropic</th><td>equal variance on every direction; the noise model of the companion isotropic study</td></tr>
+        <tr><th>utility-optimal</th><td>the variance allocation that minimizes total distortion at the fixed budget, computed in closed form by reverse water-filling; this is the allocation the Stained Glass training loss converges to</td></tr>
+        <tr><th>tail-loaded</th><td>an adversarial shape that places its noise on the low-energy tail directions, spending almost no budget there while injecting large total distortion; a worst case at matched budget</td></tr>
+      </tbody>
+    </table>
+    <p class="prose">
+      The budget targets are 826.8, 434.1, 196.0, and 71.4 bits, spanning the range of the companion
+      study, plus the clean embedding with only a fixed-norm clip applied. Each of the twelve noisy
+      settings and the clean setting is inverted on the same 96 held-out texts. The construction is
+      verified independently: across the three shapes at each budget the measure agrees to within
+      $2.3\times10^{-13}$ bits, so any difference in recovery is a difference between equally-informative
+      releases, not a difference in the budget.
+    </p>
+  </section>
+
+  <!-- ═════ § 4 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Recovery across budget and shape</h2>
+      <div class="section-meta">token-F1, and the released-embedding cosine beside it</div>
+    </header>
+    <p class="prose">
+      The table reports recovered token-F1 at each budget and shape. Reading down a column, recovery
+      falls monotonically as the budget falls. Reading across a row, at a fixed budget, recovery varies
+      by up to an order of magnitude between shapes.
+    </p>
+    <table class="spec">
+      <thead><tr><th>budget (bits)</th><th>isotropic</th><th>utility-optimal</th><th>tail-loaded</th></tr></thead>
+      <tbody>
+        <tr><td>826.8</td><td>0.433</td><td>0.566</td><td>0.048</td></tr>
+        <tr><td>434.1</td><td>0.262</td><td>0.418</td><td>0.065</td></tr>
+        <tr><td>196.0</td><td>0.170</td><td>0.271</td><td>0.063</td></tr>
+        <tr><td>71.4</td><td>0.100</td><td>0.159</td><td>0.059</td></tr>
+      </tbody>
+    </table>
+    <p class="prose">
+      The clean embedding, with no noise, recovers at token-F1 0.842. The released-embedding cosine
+      explains the row spread directly. At 826.8 bits the cosines are 0.957, 0.964, and 0.023 for the
+      isotropic, utility-optimal, and tail-loaded shapes, and the total distortions are 0.11, 0.09, and
+      2419. The tail-loaded shape preserves the budget by spending its bits on directions the encoder
+      barely uses, but it pays an enormous total distortion to do so, and that distortion is what the
+      inverter responds to.
+    </p>
+    <table class="spec">
+      <thead><tr><th>rank correlation with token-F1, across the twelve noisy settings</th><th>value</th></tr></thead>
+      <tbody>
+        <tr><td>channel mutual information (the budget)</td><td>0.48</td></tr>
+        <tr><td>released-embedding cosine</td><td>0.97</td></tr>
+        <tr><td>negative total distortion</td><td>0.95</td></tr>
+        <tr><td>budget restricted to the top signal directions</td><td>0.19</td></tr>
+        <tr><td>within isotropic shape only (budget vs token-F1)</td><td>1.00</td></tr>
+        <tr><td>within utility-optimal shape only (budget vs token-F1)</td><td>1.00</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 5 FINDINGS ═════ -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">a complete predictor within a shape, blind across shapes</div>
+    </header>
+    <p class="prose">
+      <strong>Within a fixed noise shape the budget is a perfect predictor.</strong> Down the isotropic
+      and utility-optimal columns the rank correlation between budget and recovery is 1.0. This
+      reproduces the isotropic result of the companion study and confirms that nothing about the
+      generalized measure or the attack is broken.
+    </p>
+    <p class="prose">
+      <strong>Across noise shapes at a matched budget the prediction fails.</strong> At 826.8 bits the
+      recovered token-F1 ranges from 0.048 to 0.566, and across the twelve noisy settings the budget
+      correlates with recovery at 0.48, below the 0.6 threshold (including the clean anchor as infinite
+      budget moves this only to 0.59). Restricting the budget to the top signal directions
+      does not repair it (0.19). What does correlate is the released-embedding cosine (0.97) and the
+      negative total distortion (0.95): recovery is governed by how close the released vector stays to
+      the clean one, not by the number of bits.
+    </p>
+    <p class="prose">
+      <strong>The utility-optimal defense is also the most invertible.</strong> The shape the Stained
+      Glass loss selects has lower total distortion and higher released cosine than isotropic noise at
+      every budget, which is the privacy-utility advantage the defense claims. The same property
+      makes it the easiest to invert: it recovers at 0.566 against 0.433 for isotropic noise at 826.8
+      bits. Minimizing distortion at a fixed budget keeps the directions the inverter reads clean, so the
+      utility the defense preserves is utility for the attacker as well.
+    </p>
+  </section>
+
+  <!-- ═════ § 6 THEORY ═════ -->
+  <section id="theory">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Why a valid ceiling is not a predictor</h2>
+      <div class="section-meta">three lemmas, verified</div>
+    </header>
+    <p class="prose">
+      The gap is explained, not merely observed. Three lemmas separate what the measure proves from what
+      it cannot. The first two are independent of any model of the attack; the third uses one explicit
+      assumption about the inverter.
+    </p>
+    <p class="prose">
+      <strong>Lemma 1: the measure is a valid converse and falls monotonically within a shape.</strong>
+      For the Gaussian release channel the measure equals the mutual information between the clean and
+      released vectors, and for a non-Gaussian embedding with the same covariance it is an upper bound,
+      because the Gaussian maximizes entropy at fixed covariance. Treating the input text as the discrete
+      secret and chaining text to clean embedding to released embedding, the data-processing inequality
+      and Fano's inequality bound the exact-reconstruction error from below by a quantity that grows as
+      the budget falls. Along a single shape scaled by an overall noise level, the budget is strictly
+      decreasing, so the ceiling falls monotonically. This is the ceiling the within-shape correlation
+      of 1.0 tracks.
+    </p>
+    <p class="prose">
+      <strong>Lemma 2: the measure cannot see which directions carry the noise.</strong> The set of
+      noise covariances that spend a fixed budget is a surface of one less dimension than the space of
+      covariances, and over that surface the total distortion ranges from a finite minimum to unbounded.
+      The minimum is the reverse water-filling allocation, which is the utility-optimal shape; the
+      unbounded direction is the tail-loaded family, which meets the budget on tail directions while its
+      total distortion grows without limit. The measure depends only on the ratios of signal energy to
+      noise energy per direction, so two allocations that place the same noise on different directions
+      have the same budget. A scalar that is constant across these allocations cannot order them by
+      anything that depends on which directions are noisy. This is the structural reason the budget is
+      shape-blind, and it holds for any inverter.
+    </p>
+    <p class="prose">
+      <strong>Lemma 3: a distance-bounded inverter responds to distortion, not to the budget.</strong>
+      Model the fixed inverter as responding to the cosine distance of the released vector: its recovery
+      degradation is bounded by a constant times the expected cosine distortion. That distortion is in
+      turn bounded by a constant times the total noise energy. At a fixed budget the utility-optimal
+      shape minimizes total energy, so it minimizes the recovery-loss ceiling, while the tail-loaded
+      shape drives the energy and the cosine loss to their extremes. The predictor matched to this
+      inverter is therefore the total distortion or the released cosine, which the data confirm at rank
+      correlations of 0.95 and 0.97. This step rests on the distance-bounded inverter assumption, stated
+      explicitly and corroborated by the 0.97 correlation rather than derived from the attack internals.
+    </p>
+    <p class="prose">
+      All three lemmas were verified by an independent adversarial proof review across two rounds, with
+      the Fano step restricted to exact reconstruction, the minimizer established by a convex
+      reformulation, the cosine bound corrected to a global constant, and the headline restricted to the
+      two claims the proof supports. The full proof is recorded with the claim.
+    </p>
+  </section>
+
+  <!-- ═════ § 7 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">what is settled, what is open</div>
+    </header>
+    <p class="prose">
+      The measure is a correct ceiling and a perfect within-shape predictor, and it is blind to the
+      noise shape. The blindness is structural: a single number summarizing the per-direction
+      signal-to-noise ratios cannot encode where the noise sits, and the deployed inverter is governed by
+      exactly that. The matched predictor for this attack is the released cosine or the total distortion,
+      which is the right quantity to report alongside the budget when assessing a Stained Glass defense.
+    </p>
+    <p class="prose">
+      The scope is deliberately narrow. The study covers one released surface, one frozen encoder, and
+      one pretrained inverter held fixed across all settings, at 96 held-out texts per setting and a
+      single noise realization per cell. The reported recoveries and rank correlations are point
+      estimates without resampling intervals, and the tail-loaded shape is an extreme matched-budget
+      construction chosen as a worst case rather than a continuum. These do not affect the structural
+      result, which is a statement about the measure and holds for any inverter, but they bound the
+      empirical claims to this surface and this attack.
+    </p>
+    <p class="prose">
+      One question remains open. The tail-loaded shape preserves the budget, which means the information
+      the measure certifies is still present, retained in the low-energy directions the fixed inverter does
+      not read. A shape-aware inverter, one that whitens the released vector by the known noise covariance
+      before correcting or that is retrained per shape, might recover that information and restore the
+      correlation with the budget. Whether such an inverter exists separates two readings of the result:
+      that the measure is the wrong predictor for this fixed attack, which is proved, or that the attack
+      is too weak to reach the certified ceiling, which is not settled here. The next study builds a
+      read-subspace measure matched to the inverter and a shape-aware inverter to decide between them.
+    </p>
+  </section>
+
+  <footer class="colophon">
+    transformer-attacks-lens · information-theoretic study of confidential-inference attacks ·
+    embedding surface · Stained Glass Transform
+  </footer>
+
+</div></body></html>

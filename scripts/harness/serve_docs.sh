@@ -51,7 +51,15 @@ with socketserver.TCPServer(('127.0.0.1',$port),H) as s: s.serve_forever()" >/tm
     echo "serving at: $scheme://$(hostname_ts)$sfx/   (open /index.html)"
     ;;
   stop)
-    tailscale serve "--$scheme=$pub_port" off 2>/dev/null || tailscale serve reset 2>/dev/null || true
+    # Refuse to guess the port. 'stop' with no arg used to default to 443; the
+    # off-then-`reset` fallback below then wiped ALL tailnet Service serves
+    # (postmortem 2026-06-23). Require the exact published port.
+    [ -z "${2:-}" ] && { echo "refuse: 'stop' requires an explicit port, e.g. 'serve_docs.sh stop 8099' (or 'stop 443 https'). Not guessing — guessing 443 previously wiped every Service serve." >&2; exit 2; }
+    # Targeted teardown ONLY. Never fall back to `tailscale serve reset`: reset
+    # clears all node AND service serve config, not just this docs mapping.
+    if ! tailscale serve "--$scheme=$pub_port" off; then
+      echo "WARNING: 'tailscale serve --$scheme=$pub_port off' failed (nothing to turn off, or an error). Leaving all other serve config untouched." >&2
+    fi
     p="$(port_pid)"; if [ -n "$p" ]; then kill "$p" 2>/dev/null; echo "stopped local http server (pid $p) + cleared $scheme=$pub_port"; else echo "no local http server on $port (cleared $scheme=$pub_port)"; fi
     rm -f "$pidf" 2>/dev/null
     ;;

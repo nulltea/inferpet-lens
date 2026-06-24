@@ -1,0 +1,6 @@
+# RECIPE BODY: theory  (no GPU — pure proof of a stated claim)
+# This is your STEP 2. Execute these steps in order, then return to the preamble's STEP 3 / STEP 4.
+
+— recipe `theory` (pure proof of a stated claim) —
+  /formula-derivation (optional) → /proof-writer → /proof-checker (let it loop to PASS) → write
+  the VERIFIED proof IN FULL into research-wiki/claims/<slug>.md → /auto-review-loop.

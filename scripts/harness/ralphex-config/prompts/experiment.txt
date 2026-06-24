@@ -1,0 +1,30 @@
+# RECIPE BODY: experiment  (GPU — pure data, no claim/report this phase)
+# This is your STEP 2. OBEY the GPU MECHANICS block first, then run the recipe steps, then return
+# to the preamble's STEP 3 / STEP 4.
+
+GPU MECHANICS (full / experiment only — read and obey before ANY GPU command)
+GPU RULE (hard): every command touching real Qwen3 activations / capture / probes / attacks MUST
+be wrapped in `scripts/run_in_rocm.sh`. One GPU process at a time — never launch a second GPU
+container; kill stray containers first. `/run-experiment` stays in LOCAL mode (wraps run_in_rocm.sh);
+run sweep points SERIALLY (no /experiment-queue fan-out). Write all artifacts under
+refine-logs/<surface>/; never overwrite another surface.
+DURABLE RUNS (critical): launch EVERY pilot/experiment/heavy command through the resumable wrapper:
+    TALENS_SURFACE=<surface> scripts/harness/run_step.sh <name> -- <cmd...>
+e.g. `TALENS_SURFACE=<surface> scripts/harness/run_step.sh pilot -- scripts/run_in_rocm.sh python3 ...`.
+The wrapper runs the command DETACHED (it survives even if this session dies), NEVER duplicates a run
+that is already active or finished (one-GPU-safe), and BLOCKS streaming the run's log until it
+completes, returning the real exit code. NEVER background a run yourself and then end your turn to
+"wait for it": ending your turn terminates this session and the loop restarts the phase in a fresh,
+memory-less session. If you ARE a fresh session re-entering a phase, just call run_step.sh with the
+SAME <name> again — it re-attaches to the in-flight run or returns the finished result (resume, do not
+relaunch). Run logs/results live under refine-logs/<surface>/runs/<name>/.
+SAFETY NET (do not rely on it): the harness now detects when a turn ends with a run_step.sh run still
+in flight and warm-RESUMEs this same session next iteration (it does NOT cold-restart), so an
+accidental turn-end while waiting is recoverable. Still prefer the blocking run_step.sh call above —
+the net costs an extra iteration; the blocking call costs nothing.
+PERF GATE (before ANY GPU run): refine the run plan with `/auto-review-loop` against
+`scripts/harness/perf_gate.md` until it returns ready (optimal scope + max GPU utilization).
+
+— recipe `experiment` (pure data, no claim/report this phase) —
+  PERF GATE → /experiment-plan → /experiment-bridge → /result-to-claim → /experiment-audit →
+  /auto-review-loop.

@@ -1,0 +1,13 @@
+{
+  "round": 3,
+  "threadId": "019ef8f1-4c27-72a3-9c5b-5bcf0cdd28b5",
+  "status": "completed",
+  "difficulty": "medium",
+  "reviewer_model": "gpt-5.5",
+  "last_score": 8.0,
+  "last_verdict": "ready",
+  "pending_experiments": [],
+  "positive_assessment": true,
+  "summary": "embed-sgt negative-result report READY (8/10). I_G valid converse + within-shape monotone (Spearman 1.0) but shape-blind across noise shapes at matched budget (Spearman 0.48 over 12 noisy settings); recovery tracks relCos 0.97 / -D_tot 0.95. Faithful to data, honestly scoped, theory L1-L3 proof PASS, integrity PASS, weak-attack arm left open (spawn-depth-1 follow-up Task 11).",
+  "timestamp": "2026-06-24T00:00:00"
+}

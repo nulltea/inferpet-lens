@@ -30,8 +30,7 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
 - [paper:ding2021_planted_matching_problem] The planted matching problem: Sharp threshold and infinite-order phase transition
 - [paper:dong2025_depth_gives_false] Depth Gives a False Sense of Privacy: LLM Internal States Inversion
 - [paper:fan2019_spectral_graph_matching] Spectral Graph Matching and Regularized Quadratic Relaxations I: The Gaussian Model
-## Recent Relationships (78 total)
-  exp:b6-strong-decoder --supports--> claim:bayes-gap-diagnosis
+## Recent Relationships (79 total)
   exp:resid-capacity-pvi --supports--> claim:capacity-matched-pvi
   exp:resid-capacity-pvi --supports--> claim:depth-decoupling-input-dp
   exp:spectral-mi-probe-eval --supports--> claim:spectral-channel-mi-embedding-inversion
@@ -41,4 +40,5 @@ mi-monotone-gaussian, perm-llr-threshold, restore-correlation.
   exp:defenses-existing-leakage-utility --supports--> claim:defense-channel-selectivity-mechanism-dependent
   claim:defense-channel-selectivity-mechanism-dependent --supports--> claim:depth-decoupling-input-dp
   exp:b-kv1-accumulation-bss --supports--> claim:kv-bss-subspace-floor-and-negentropy-probe
-  exp:b-kv2-cloak-channel-decoupling --supports--> claim:kv-cloak-ch
+  exp:b-kv2-cloak-channel-decoupling --supports--> claim:kv-cloak-channel-decoupling-feature-mix-loadbearing
+  claim:kv-cloak-channe

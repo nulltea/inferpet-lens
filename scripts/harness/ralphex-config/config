@@ -3,6 +3,16 @@
 # Precedence: CLI flags > local .ralphex/ > this --config-dir > embedded defaults.
 # NOTE: no inline comments; full-line # comments only.
 
+# --- recipe-keyed task prompts (per-task-type prompt selection) ---
+# ralphex loads ONE task prompt by fixed filename: prompts/task.txt. That file is now a tiny
+# DISPATCHER (not the full instructions): every iteration it reads the FIRST unchecked phase's
+# `recipe:` field and routes the executor to prompts/_preamble.txt + prompts/<recipe>.txt, so the
+# executor loads only its own recipe body (consolidate|full|experiment|theory) and never the other
+# three. The heavy GPU/DURABLE-RUNS/PERF-GATE mechanics block lives ONLY in full.txt + experiment.txt,
+# so consolidate/theory phases run a much smaller, focused prompt. The original single-file prompt is
+# preserved at prompts/task.txt.monolith.bak. ralphex ignores the extra prompt files (it loads only
+# the fixed names), so no further ralphex config is required for this scheme.
+
 # --- executor: default Claude Code, autonomous ---
 # (defaults to: claude --dangerously-skip-permissions --output-format stream-json --verbose)
 # task_model: pinned to Opus 4.8 (heavy research executor); jury stays Codex gpt-5.5 (cross-model).
@@ -15,9 +25,13 @@ codex_enabled = false
 finalize_enabled = false
 
 # --- retry / timing (Q8 transient retry = 1; hung-process guards) ---
+# idle_timeout headroom: a long blocking run_step.sh attach is silent on the stream-json channel
+# (tool output is buffered, not streamed), so a single quiet GPU run can approach the idle window.
+# 90m covers the longest expected single run; warm-resume (RALPHEX_RESUME_ON_LIVE_RUN) is the real
+# safety net if it ever does fire mid-wait, so this is defense-in-depth, not the primary guard.
 task_retry_count = 1
 session_timeout = 6h
-idle_timeout = 45m
+idle_timeout = 90m
 
 # --- 5-hour usage-window handling: WAIT it out, don't fail ---
 # Without wait_on_limit (>0) a usage-limit message falls through to fatal-error behavior and the

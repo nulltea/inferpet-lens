@@ -71,7 +71,7 @@ Use these exact section **titles** (academic noun phrases), in order. NEVER coll
 |----|------------------|----------|
 | `introduction` | **Introduction** | the problem, the threat model in one line, and the headline finding with its key number; expands the subtitle. Active voice. |
 | `preliminaries` | **Preliminaries** | `.spec` glossary table: surface, secret, threat model, measures, attacks. Terms only. |
-| `method` | **Method** | the measurement procedure (past tense, reproducible) AND a **MANDATORY** `.diagram-frame` SVG figure of the surface→attack→probe pipeline (build via `/figure-spec`). A Method section without its figure is incomplete. |
+| `method` | **Method** | the measurement procedure (past tense, reproducible) AND a **MANDATORY** `.diagram-frame` SVG figure of the surface→attack→probe pipeline, built to the depth rules in **`DIAGRAM-STYLE.md`** (research the paper figure first; trust-zone bands + boundary; numbered algorithmic/training sequence; BOTH loop arms — attack→recovery and probe→bits; defense-parameter locus). Author via `/figure-spec` (static) or D3 (interactive, per `DIAGRAM-STYLE.md`). A Method section without its figure, or with a shallow three-box flow, is incomplete. |
 | `measures` | **Leakage Measures** | each probe, why it is attack-independent, what it bounds (bits). |
 | `results` | **Results** | bits + per-secret readout `.spec` tables; the bits-vs-recovery relationship across the sweep. Data only, no interpretation. |
 | `findings` | **Findings** | the claims as paper statements with scientific confidence; cite the claim node by name in the footer, not by internal id/verdict in prose. |
@@ -111,7 +111,8 @@ footer, not its internal id or verdict in prose.
 - **`.diagram-frame` + `.diagram-cap`** — **SVG figures/diagrams only** (never tables). A deterministic
   SVG from `/figure-spec` (architecture/flow) or a `/paper-figure` plot (bits-vs-recovery curve)
   embedded inline; caption in `.diagram-cap`. Reuse the trust-zone palette classes (`.box-tee`
-  terracotta, `.box-gpu` slate, `.arrow-*`) for split-TEE/GPU diagrams.
+  terracotta, `.box-gpu` slate, `.arrow-*`) for split-TEE/GPU diagrams. **Method-diagram depth rules,
+  the full palette vocabulary, and the interactive-D3 step-through pattern: `DIAGRAM-STYLE.md`.**
 - **`.prose` / `.lede`** — narrative; `.lede` for the section's opening emphasis line.
 - **`.cgrid`** — card grid for parallel items (e.g. condition C0/C1/C2 comparisons).
 
