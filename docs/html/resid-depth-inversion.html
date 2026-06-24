@@ -1,0 +1,340 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — depth inversion of the residual stream</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label current">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html" class="current">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+          <a href="kv-cloak.html">KV-Cloak decoupling</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Depth inversion<br><em>— recovery persists with depth</em></h1>
+      <p class="subtitle">A token-recovery attack on the residual stream of a 4-billion-parameter
+      model recovers input-token identity at every sampled depth, from the first block to the last,
+      with no collapse in deep layers. A learned nonlinear inverter exceeds a linear baseline at the
+      deepest layer. Two attack-independent information measures, a capacity-matched token-identity
+      reader and a mutual-information upper bound, track recovery across depth, so an attack-free
+      measure predicts how far the attack succeeds.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the attack, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      A common intuition holds that deep internal states of a language model are safe to expose
+      because successive nonlinear blocks scramble the input beyond recovery. Dong et al.
+      (<a href="https://arxiv.org/abs/2507.16372">arXiv 2507.16372</a>) challenge this for full
+      hidden states. This report tests the residual stream of Qwen3-4B across depth and asks the
+      question this project asks of every surface: does an attack-independent information measure
+      predict how well an inversion attack recovers the secret?
+    </p>
+    <div class="prose">
+      <p>The secret is the input-token identity at each position, the surface is the residual
+      activation after a transformer block, and the threat model is that the adversary holds the
+      public model weights and embedding table but not the target text. An inverter maps a residual
+      vector to a predicted token by cosine match against the public embedding table. Recovery is the
+      top-1 retrieval rate after subtracting a label-shuffle floor, so only generalizing recovery
+      counts. The train and test token vocabularies are disjoint, which removes any credit from
+      memorizing seen tokens.</p>
+      <p>The headline has three parts. Recovery does not vanish with depth: the best inverter holds a
+      shuffle-subtracted selectivity between 0.39 and 0.69 at all nine sampled depths, and every
+      confidence interval excludes zero. A learned two-layer inverter beats a linear ridge inverter at
+      the deepest layer, where the ridge alone would understate the leak. And the capacity-matched
+      token-identity reader tracks recovery across depth at a rank correlation of +0.85, with a
+      mutual-information upper bound tracking at +0.78, placing this surface in the regime where an
+      attack-independent measure predicts the attack.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 PRELIMINARIES ═════ -->
+  <section id="preliminaries">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Preliminaries</h2>
+      <div class="section-meta">surface, secret, threat model, measures, attacks</div>
+    </header>
+    <table class="spec">
+      <tbody>
+        <tr><th>surface</th><td>residual activation after a transformer block, one vector per token position, sampled every 4 blocks from block 0 to block 32 of Qwen3-4B</td></tr>
+        <tr><th>secret</th><td>input-token identity at the position; graded recovery target is the token embedding</td></tr>
+        <tr><th>threat model</th><td>adversary holds public weights and the embedding table, not the target text (norms, Grams, and retrieval are known functions of the secret)</td></tr>
+        <tr><th>recovery readout</th><td>token-table retrieval top-1 rate, reported as selectivity = real minus label-shuffle floor; bootstrap 95% intervals over the 413 vocab-disjoint test rows per layer</td></tr>
+        <tr><th>inverters</th><td>cosine nearest-neighbour over training activations (memorization baseline); linear ridge; learned two-layer perceptron</td></tr>
+        <tr><th>measures (bits)</th><td>capacity-matched token-identity reader accuracy (a V-information reader over token classes); contrastive mutual-information upper bound</td></tr>
+        <tr><th>split / control</th><td>train and test token vocabularies disjoint; label-shuffle control fixes the frequency floor</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 3 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">capture, inverters, controls, probes</div>
+    </header>
+    <div class="prose">
+      <p>Residual activations were captured for 512 prompts at nine depths, giving 9469 token
+      positions per layer. Positions were split by token vocabulary into disjoint train and test sets,
+      3373 training and 413 test rows per layer, so a memorizing inverter cannot win on seen tokens.
+      Three inverters were fit per layer: a cosine nearest-neighbour baseline that scores by direct
+      match to the nearest training activation, a linear ridge map from residual to embedding, and a
+      learned two-layer perceptron. Each predicted embedding was matched by cosine similarity to the
+      public embedding table, and top-1 retrieval was scored against the true token.</p>
+      <p>The label-shuffle control permutes the position-to-token pairing, breaking the link between
+      activation and token and leaving only the frequency prior. Its accuracy is the floor, and
+      reported recovery is real minus shuffle. The nearest-neighbour baseline measures pure
+      memorization and is zero by construction under the vocabulary-disjoint split. Two
+      attack-independent measures were computed on the same activations: a capacity-matched reader that
+      classifies token identity from the residual using token classes rather than the embedding table
+      the attack retrieves against, and a contrastive mutual-information upper bound between residual
+      and embedding. Neither measure runs the attack or reads the retrieval target, so any agreement
+      with recovery is not mechanical.</p>
+    </div>
+    <div class="diagram-frame">
+      <svg viewBox="0 0 760 250" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="13">
+        <!-- secret -->
+        <rect x="20" y="100" width="120" height="48" rx="6" class="box-tee" fill="none" stroke-width="1.6"/>
+        <text x="80" y="121" text-anchor="middle">token id</text>
+        <text x="80" y="138" text-anchor="middle" font-size="11">(secret)</text>
+        <!-- forward map -->
+        <path d="M140 124 H188" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+        <text x="164" y="116" text-anchor="middle" font-size="10">f_ℓ</text>
+        <rect x="188" y="96" width="150" height="56" rx="6" class="box-gpu" fill="none" stroke-width="1.6"/>
+        <text x="263" y="118" text-anchor="middle">residual h_ℓ</text>
+        <text x="263" y="135" text-anchor="middle" font-size="11">depth ℓ = 0…32</text>
+        <!-- attack branch -->
+        <path d="M338 110 H392" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+        <rect x="392" y="40" width="180" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="482" y="62" text-anchor="middle">inverter g</text>
+        <text x="482" y="79" text-anchor="middle" font-size="10.5">cosine-NN · ridge · MLP</text>
+        <text x="482" y="95" text-anchor="middle" font-size="10.5">→ embedding retrieval</text>
+        <path d="M572 72 H622" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+        <rect x="622" y="44" width="118" height="56" rx="6" class="box-tee" fill="none" stroke-width="1.6"/>
+        <text x="681" y="66" text-anchor="middle" font-size="11.5">recovery</text>
+        <text x="681" y="83" text-anchor="middle" font-size="10.5">selectivity</text>
+        <!-- probe branch -->
+        <path d="M338 138 H392" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+        <rect x="392" y="150" width="180" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <text x="482" y="172" text-anchor="middle">probe (attack-free)</text>
+        <text x="482" y="189" text-anchor="middle" font-size="10.5">capacity-matched reader</text>
+        <text x="482" y="205" text-anchor="middle" font-size="10.5">+ MI upper bound</text>
+        <path d="M572 182 H622" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+        <rect x="622" y="154" width="118" height="56" rx="6" class="box-tee" fill="none" stroke-width="1.6"/>
+        <text x="681" y="176" text-anchor="middle" font-size="11.5">bits</text>
+        <text x="681" y="193" text-anchor="middle" font-size="10.5">+ readout</text>
+        <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="currentColor"/></marker></defs>
+      </svg>
+    </div>
+    <div class="diagram-cap">The surface is one residual vector at depth ℓ. The attack branch (solid)
+    maps it to a token by retrieval against the public embedding table and scores shuffle-subtracted
+    selectivity. The probe branch (dashed) reads token-identity information from the same vector
+    without the embedding table or the attack, and reports reader accuracy and a rank-only mutual-information upper-bound score. The measurement loop asks whether the
+    two branches agree across depth.</div>
+  </section>
+
+  <!-- ═════ § 4 LEAKAGE MEASURES ═════ -->
+  <section id="measures">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Leakage measures</h2>
+      <div class="section-meta">why they are attack-independent</div>
+    </header>
+    <div class="prose">
+      <p>The capacity-matched reader classifies token identity from the residual through a fixed-width
+      reduction followed by a softmax over token classes. It reads token classes, never the embedding
+      table that the inverter retrieves against, and its dimension budget is matched so the reported
+      accuracy is comparable across depths. Its label-shuffle floor is 0.001 to 0.005 at every depth,
+      confirming the reader carries no label leakage of its own. The mutual-information upper bound is a
+      contrastive estimator between residual and embedding; it estimates a bound on shared information
+      and does not optimize the retrieval objective. Because neither quantity can be computed by running
+      the attack, a correlation between either measure and recovery is evidence that the measure
+      predicts the attack, not that it restates it.</p>
+      <p>Two scope notes keep the independence honest. The reader uses a row split over a shared, capped
+      set of frequent token classes rather than the attack's vocabulary-disjoint split, so its accuracy
+      and the attack's selectivity are not computed on identical partitions. The mutual-information
+      bound is an estimator in embedding space, separate from retrieval but adjacent to the attack's
+      target, and its absolute bit values are an upper-bound score read for rank order across depth, not
+      a token-identity leakage count. The token-identity bit certificate comes only from the Fano lemma
+      in the analysis.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 5 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">recovery by depth, the deepest-layer gap, measure tracking</div>
+    </header>
+    <div class="prose">
+      <p>Recovery is flat and non-monotone across depth and never collapses. The best inverter holds
+      selectivity between 0.39 and 0.69 at all nine depths, and every interval excludes zero, with the
+      lowest at the deepest layer. The memorization baseline is exactly zero everywhere, so the
+      recovery is generalizing token inversion, not recall of seen tokens.</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>depth (block)</th><th>ridge selectivity [95%]</th><th>learned MLP selectivity</th><th>nearest-neighbour floor</th><th>reader accuracy</th><th>MI upper-bound (bits, rank only)</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>0.685 [0.639, 0.731]</td><td>0.639</td><td>0.000</td><td>0.939</td><td>3426</td></tr>
+        <tr><td>4</td><td>0.598 [0.550, 0.646]</td><td>0.651</td><td>0.000</td><td>0.861</td><td>3381</td></tr>
+        <tr><td>8</td><td>0.588 [0.540, 0.637]</td><td>0.581</td><td>0.000</td><td>0.797</td><td>3003</td></tr>
+        <tr><td>12</td><td>0.593 [0.547, 0.639]</td><td>0.586</td><td>0.000</td><td>0.732</td><td>2824</td></tr>
+        <tr><td>16</td><td>0.533 [0.482, 0.581]</td><td>0.494</td><td>0.000</td><td>0.691</td><td>2792</td></tr>
+        <tr><td>20</td><td>0.504 [0.455, 0.552]</td><td>0.523</td><td>0.000</td><td>0.708</td><td>2891</td></tr>
+        <tr><td>24</td><td>0.603 [0.552, 0.649]</td><td>0.576</td><td>0.000</td><td>0.769</td><td>3062</td></tr>
+        <tr><td>28</td><td>0.540 [0.492, 0.588]</td><td>0.571</td><td>0.000</td><td>0.753</td><td>3043</td></tr>
+        <tr><td>32</td><td>0.390 [0.341, 0.438]</td><td><strong>0.542 [0.494, 0.591]</strong></td><td>0.000</td><td>0.685</td><td>2970</td></tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>The learned and linear inverters are close through the middle of the network, but at the
+      deepest layer the learned inverter reaches 0.542 while the linear inverter falls to 0.390, a gap
+      of 0.153, and their confidence intervals are disjoint. Elsewhere the two overlap. The linear
+      inverter's late-layer drop is therefore an artifact of the linear map, not a property of the
+      representation: a nonlinear inverter recovers what the linear one misses at the final layer.</p>
+      <p>Both attack-independent measures move with recovery across depth. The capacity-matched reader
+      accuracy tracks the best inverter at a rank correlation of +0.85, and tracks the linear and
+      learned inverters separately at +0.80 and +0.83. The mutual-information upper bound tracks the
+      best inverter at +0.78. With nine depths, a rank correlation of +0.85 has a permutation p-value below 0.01.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 6 FINDINGS ═════ -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">claims, grounds, scope</div>
+    </header>
+    <div class="prose">
+      <p><strong>Depth does not confer privacy on this residual stream (Supported).</strong> The best
+      inverter's vocabulary-disjoint selectivity stays between 0.39 and 0.69 at every sampled depth,
+      every interval excludes zero, and the memorization floor is zero, so the recovery is genuine and
+      survives to the deepest layer. This reproduces the hidden-state finding of Dong et al.
+      (arXiv 2507.16372) on Qwen3-4B. Scope: one model, one corpus, one seed, and the intervals are over
+      test rows, not seeds.</p>
+      <p><strong>A learned inverter beats a linear one at the deepest layer (Supported).</strong> At the
+      final layer the learned inverter reaches 0.542 against the linear 0.390 with disjoint intervals;
+      the two are comparable elsewhere. A study that used only a linear inverter would report a
+      late-layer privacy gain that does not exist. Scope: single seed, so the gap is not yet robust to
+      seed variation.</p>
+      <p><strong>An attack-independent measure predicts recovery across depth (Supported).</strong> The
+      capacity-matched reader tracks recovery at +0.85 and the mutual-information bound at +0.78 across
+      the nine depths, with negligible label leakage in the reader. This is the positive regime of the
+      measurement loop: a measure that cannot run the attack still ranks the attack's success by depth.
+      Scope: single seed, nine depth points.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 ANALYSIS ═════ -->
+  <section id="analysis">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Analysis</h2>
+      <div class="section-meta">the certificate that turns recovery into information</div>
+    </header>
+    <div class="prose">
+      <p>Recovery does more than describe the surface; it bounds information. Treat the inverter
+      as an estimator of the token from the residual. Because the inverter is fixed before it sees a
+      test token, the token, the residual, and the prediction form a Markov chain, and Fano's
+      inequality bounds the conditional entropy of the token given the residual by a function of the
+      retrieval error and the pool size. Rearranged, the raw retrieval accuracy gives a lower bound on
+      the mutual information between residual and token:
+      <code>I(token; residual) ≥ H(token) − H_b(1 − a) − (1 − a)·log(K − 1)</code>,
+      where <code>a</code> is the retrieval accuracy, <code>K</code> the candidate-pool size, and
+      <code>H_b</code> the binary entropy.</p>
+      <p>This bound is strictly positive once the raw accuracy exceeds a threshold that sits strictly
+      above the chance rate <code>1/K</code>, because Fano's bound is slack at chance. The two roles are
+      distinct. The shuffle-subtracted selectivity does the operational work: the vocabulary-disjoint
+      split removes the memorization route to accuracy and the label-shuffle control removes the
+      frequency route, so a positive selectivity attributes signal to the residual itself and shows that
+      a depth at which selectivity stays bounded away from zero cannot be a depth at which the residual
+      is irreversible to the token, which holds at every sampled depth here. The positive bound in bits
+      at each depth is the stronger statement; it uses the raw accuracy and additionally requires the
+      candidate-pool size and a lower bound on the token entropy, and that per-depth bit count is a
+      remaining follow-up. The lemma, including its corrected threshold and conservative finite-sample
+      form, is stated and proved in full alongside this report.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 8 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">contrast with noise, scope, follow-up</div>
+    </header>
+    <div class="prose">
+      <p>On plaintext residuals the attack-independent measure tracks recovery across depth. This is the
+      opposite of the behaviour under input-layer differential privacy, where the same family of measures
+      decouples from the attack as noise propagates deeper and the rank correlation even reverses sign at
+      depth 20. The two results are complementary: depth alone does not hurt the measure-attack link, but
+      propagated input noise does, because noise reshapes embedding geometry before it erases token
+      identity. The deepest-layer result also resolves an earlier open question, where a trained
+      perceptron lost to a linear inverter at depth under noise. On plaintext depth the learned inverter
+      is at least competitive and wins at the final layer.</p>
+      <p>Scope. The findings are for one model, one corpus, and one seed, with intervals over test rows
+      rather than seeds, and the depth grid samples every fourth block. The white-box per-sample
+      optimization attack of Dong et al. is out of scope for this per-position retrieval pipeline. The
+      learned inverter is the tractable amortized stand-in and already exceeds the linear baseline at
+      depth. The certificate lemma is general. Converting it into a per-depth bit count, replicating
+      across seeds and models, and adding a stronger inverter are the remaining follow-ups.</p>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <p>Reproduces and extends Dong et al., "Depth Gives a False Sense of Privacy: LLM Internal States
+    Inversion" (<a href="https://arxiv.org/abs/2507.16372">arXiv 2507.16372</a>). Certificate lemma
+    after Fano's inequality. Qwen3-4B residual stream, nine depths, vocabulary-disjoint split with a
+    label-shuffle control.</p>
+  </footer>
+
+</div></body></html>

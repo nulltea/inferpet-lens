@@ -72,3 +72,6 @@ _Append-only timeline._
 - `2026-06-24T01:45:06Z` proof-checker+result-to-claim: claim:kv-cloak-channel-decoupling verified; exp:b-kv2-cloak-channel-decoupling supports
 - `2026-06-24T01:45:23Z` add_experiment: updated exp:b-kv2-cloak-channel-decoupling [verdict=yes confidence=medium]
 - `2026-06-24T03:35:00Z` result-to-claim+proof: exp:b-r1-rep2text-capacity-nonbinding verdict=partial; claim:rep2text-capacity-nonbinding-extraction-limited proof PASS
+- `2026-06-24T05:19:13Z` add_claim: skipped existing claim depth-inversion-certificate.md (slug dedup)
+- `2026-06-24T05:19:13Z` add_experiment: added exp:resid-depth-inversion-sweep [verdict=partial confidence=medium]
+- `2026-06-24T05:19:21Z` Task4 resid-depth-inversion: registered claim:depth-inversion-certificate (proof-checker PASS) + exp:resid-depth-inversion-sweep, supports edge

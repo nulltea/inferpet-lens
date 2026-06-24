@@ -119,4 +119,7 @@ def evaluate_inversion(
         ),
         "embedding_cosine_similarity": float(cos.mean().item()),
         "predicted_ids_top1": pred_ids[:, 0].cpu(),
+        # per-row top-1 correctness — lets callers bootstrap a CI on recovery /
+        # selectivity over test rows without re-fitting the inverter.
+        "top1_hits": hits[:, 0].to(torch.uint8).cpu().numpy(),
     }

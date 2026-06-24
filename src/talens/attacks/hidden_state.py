@@ -15,7 +15,7 @@ import torch
 from ..capture.types import CaptureSet
 from ..metrics import AttackResult, classify_risk_level
 from ..transforms import Identity, Transform
-from ._inversion import ridge_inversion
+from ._inversion import INVERTERS, ridge_inversion
 
 
 def run(
@@ -36,9 +36,13 @@ def run(
     control: str = "none",
     control_seed: int = 20260616,
     attack_name: str = "hidden_state_inversion",
+    inverter: str = "ridge",
+    inverter_kwargs: dict | None = None,
     xy: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> AttackResult:
     transform = transform or Identity()
+    if inverter not in INVERTERS:
+        raise ValueError(f"unknown inverter {inverter!r}; choose from {sorted(INVERTERS)}")
     # n_train=None → full row-split: a huge request makes the splitter
     # auto-scale to 70/15/15 of all available rows (the aloepri row-split).
     # The old fixed 1024 under-trained the inverter on ~9k-row corpora and
@@ -48,7 +52,7 @@ def run(
     # ``xy`` lets the caller pass an already-stacked (X, y) so the operand
     # flattening isn't repeated (the orchestrator stacks once per block).
     X, y = xy if xy is not None else capture.stack(kind, layer, transform=transform)[:2]
-    metrics = ridge_inversion(
+    metrics = INVERTERS[inverter](
         X,
         y,
         embed_table,
@@ -62,6 +66,7 @@ def run(
         split_mode=split_mode,
         control=control,
         control_seed=control_seed,
+        **(inverter_kwargs or {}),
     )
     if metrics is None:
         return AttackResult(

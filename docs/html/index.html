@@ -28,6 +28,7 @@
           <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
           <a href="resid-dp-attacks.html">under differential privacy</a>
           <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
         </div>
       </div>
       <div class="navgroup">
@@ -106,6 +107,19 @@
           <dt>attack</dt><dd>ridge baseline against an information-efficient decoder</dd>
           <dt>finding</dt><dd>under propagated input-layer differential privacy a ridge attack decorrelates from the probe; an information-efficient attack re-correlates, exact nearest-neighbour at the input layer and a channel-aware decoder at depth; the gap is attack efficiency, not probe failure, and is absent under at-layer noise</dd>
           <dt>read</dt><dd><a href="resid-dp-attacks.html">residual under differential privacy →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag gpu">residual</span>
+        <h3>Depth inversion</h3>
+        <p class="one">Token identity survives in the residual stream at every depth, and an attack-independent measure ranks how well the attack recovers it.</p>
+        <dl>
+          <dt>secret</dt><dd>input-token identity behind a residual hidden state at depth</dd>
+          <dt>probe</dt><dd>capacity-matched token-identity reader and a contrastive mutual-information upper bound</dd>
+          <dt>attack</dt><dd>cosine nearest-neighbour, linear ridge, and learned two-layer inverters with embedding retrieval</dd>
+          <dt>finding</dt><dd>shuffle-subtracted recovery stays between 0.39 and 0.69 at all nine sampled depths with the memorization floor at zero; a learned inverter beats the linear one at the final layer; the reader tracks recovery across depth at rank correlation 0.85, and a Fano certificate turns recovery into an information lower bound</dd>
+          <dt>read</dt><dd><a href="resid-depth-inversion.html">depth inversion →</a></dd>
         </dl>
       </div>
 
@@ -244,6 +258,7 @@
         <li><a href="resid-capacity-pvi.html">capacity-matched leakage</a></li>
         <li><a href="resid-dp-attacks.html">residual under differential privacy</a></li>
         <li><a href="resid-rep2text.html">Rep2Text residual inversion</a></li>
+        <li><a href="resid-depth-inversion.html">depth inversion</a></li>
         <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
         <li><a href="kv-accumulation.html">KV/QKV source separation</a></li>
         <li><a href="perm-cover.html">permutation cover</a> · <a href="defenses-existing.html">implemented defenses</a></li>

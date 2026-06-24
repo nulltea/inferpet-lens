@@ -57,7 +57,7 @@ run_id: b-r2-depth-inversion
 gate: review refine-logs/resid-depth-inversion/REVIEW_STATE.json
 spawn-depth: 0
 objective: implement the depth hidden-state inversion (arXiv 2507.16372) and the aloepri learned/baseline inverters (nn cosine-NN, isa deep-layer ridge, ima_paper_like 2-layer transformer); recovery vs depth; probe-vs-recovery across layers.
-- [ ] run-phase: b-r2-depth-inversion
+- [x] run-phase: b-r2-depth-inversion
 
 ### Task 5: residual — GELO defense + sweep
 recipe: full
