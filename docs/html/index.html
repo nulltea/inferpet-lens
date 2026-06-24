@@ -22,16 +22,11 @@
     <span class="links">
       <a class="current" href="index.html">index</a>
       <a href="synthesis.html">synthesis</a>
-      <a href="metric-std.html">metric</a>
       <div class="navgroup">
         <span class="navgroup-label">residual</span>
         <div class="navgroup-menu">
-          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
-          <a href="resid-dp-attacks.html">under differential privacy</a>
           <a href="resid-rep2text.html">Rep2Text inversion</a>
           <a href="resid-depth-inversion.html">depth inversion</a>
-          <a href="resid-gelo.html">GELO defense</a>
-          <a href="resid-split.html">split inference (PriPert)</a>
         </div>
       </div>
       <div class="navgroup">
@@ -39,18 +34,25 @@
         <div class="navgroup-menu">
           <a href="vec2text.html">Vec2Text inversion</a>
           <a href="bnn-attack.html">Bayes-NN bounds</a>
-          <a href="embed-sgt.html">Stained Glass defense</a>
         </div>
       </div>
       <div class="navgroup">
         <span class="navgroup-label">KV / QKV</span>
         <div class="navgroup-menu">
           <a href="kv-accumulation.html">source separation</a>
-          <a href="kv-cloak.html">KV-Cloak decoupling</a>
         </div>
       </div>
-      <a href="perm-cover.html">permutation</a>
-      <a href="defenses-existing.html">defenses</a>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -74,7 +76,7 @@
     <div class="prose">
       <p><strong>Threat model (public weights).</strong> The default anchor is <code>WEIGHTS-PUB</code>: the adversary knows the model weights and the embedding table, so norms, Gram matrices, and attention scores are known functions of the secret, and the adversary can synthesize unlimited training pairs at any defense parameter. Comparisons between admissible attacks are therefore fair. Per-page deviations are stated in that page.</p>
       <p><strong>Probe is not the attack.</strong> A probe is an independent measure that correlates with attack recovery, never the attack reporting its own bits. A measure that could not be computed without running the attack is the attack in disguise, and any correlation it shows is circular. The probes here are geometry-only or channel-matched: a capacity-matched token-identity reader, a spectral channel mutual-information ceiling, geometry-only error bounds.</p>
-      <p><strong>One metric, two axes.</strong> Every measure reports on one comparable scale, <strong>bits</strong>, beside a per-secret human readout: token-identity perplexity and top-k, text token-F1 and ROUGE, permutation recovery-rate and rank correlation, embedding token-F1 and cosine, membership AUC. The reporting layer that enforces this convention is documented under <a href="metric-std.html">the metric convention</a>.</p>
+      <p><strong>One metric, two axes.</strong> Every measure reports on one comparable scale, <strong>bits</strong>, beside a per-secret human readout: token-identity perplexity and top-k, text token-F1 and ROUGE, permutation recovery-rate and rank correlation, embedding token-F1 and cosine, membership AUC. The reporting layer (<code>src/talens/report.py</code>) enforces this convention across all eight measure families.</p>
       <p><strong>How to read this site.</strong> The cards below group by released surface: the residual stream, the pooled or per-position embedding, the key/value cache, and the permuted embedding table. Each links a page that runs the loop end to end. The <a href="synthesis.html">cross-surface synthesis</a> places all thirteen loops on one standardized table; two further cross-cutting pages give the reporting foundation every page shares and a cryptographic zero-leakage reference that bounds the leakage scale from below.</p>
     </div>
   </section>
@@ -97,19 +99,6 @@
           <dt>axis</dt><dd>rank correlation between probe bits and attack recovery across each sweep, success bar 0.6</dd>
           <dt>finding</dt><dd>the probe tracks recovery on nine of thirteen surfaces; the four that do not each resolve to a probe not matched to the load-bearing channel or to a vacuous capacity probe against an extraction-limited attack</dd>
           <dt>read</dt><dd><a href="synthesis.html">cross-surface synthesis →</a></dd>
-        </dl>
-      </div>
-
-      <div class="card">
-        <span class="tag gpu">residual</span>
-        <h3>Capacity-matched leakage</h3>
-        <p class="one">An attack-independent reader predicts the token behind a hidden state without ever reading the embedding table.</p>
-        <dl>
-          <dt>secret</dt><dd>token identity behind a residual hidden state</dd>
-          <dt>probe</dt><dd>capacity-matched class predictive V-information (PVI), feature dimension below the validation count</dd>
-          <dt>attack</dt><dd>embedding-inversion classifier</dd>
-          <dt>finding</dt><dd>reader accuracy tracks the attack at rank correlation 0.80 to 1.00 under representation-space defenses; under input-layer differential privacy the two diverge with depth, and the divergence localizes what the defense protects</dd>
-          <dt>read</dt><dd><a href="resid-capacity-pvi.html">capacity-matched leakage →</a></dd>
         </dl>
       </div>
 
@@ -256,19 +245,6 @@
         </dl>
       </div>
 
-      <div class="card">
-        <span class="tag client">defenses</span>
-        <h3>Implemented defenses</h3>
-        <p class="one">Two deployed defenses swept from plaintext through their privacy parameter, graded for leakage against recovery.</p>
-        <dl>
-          <dt>defenses</dt><dd>learned additive noise at a split activation; static invertible obfuscation of the embedding table</dd>
-          <dt>probe</dt><dd>mutual-information probe per channel</dd>
-          <dt>attack</dt><dd>permutation matcher and token-identity reader</dd>
-          <dt>finding</dt><dd>additive noise is channel-selective, driving permutation recovery from 1.00 to 0.04 while token identity stays at or above 0.45 at every depth; the probe tracks recovery within a defense family, but the bits-to-recovery calibration does not transfer across families</dd>
-          <dt>read</dt><dd><a href="defenses-existing.html">implemented defenses →</a></dd>
-        </dl>
-      </div>
-
     </div>
   </section>
 
@@ -280,8 +256,7 @@
       <div class="section-meta">the shared metric layer</div>
     </header>
     <div class="prose">
-      <p>Every surface page renders its sweep on one convention: a canonical bits column beside a per-secret human readout. The reporting layer supplies a single canonical-bits extractor across the eight measure families, a formatter that keeps small bit values legible, and one standardized leakage row that carries both axes. It is cross-surface infrastructure rather than a surface, so it is documented separately rather than as a card above.</p>
-      <p><a href="metric-std.html">The metric convention and reporting layer →</a></p>
+      <p>Every surface page renders its sweep on one convention: a canonical bits column beside a per-secret human readout. The reporting layer supplies a single canonical-bits extractor across the eight measure families, a formatter that keeps small bit values legible, and one standardized leakage row that carries both axes. It is cross-surface infrastructure rather than a surface, implemented in <code>src/talens/report.py</code>.</p>
     </div>
   </section>
 
@@ -337,15 +312,11 @@
       <h5>Surfaces</h5>
       <ul>
         <li><a href="synthesis.html">cross-surface synthesis</a></li>
-        <li><a href="resid-capacity-pvi.html">capacity-matched leakage</a></li>
-        <li><a href="resid-dp-attacks.html">residual under differential privacy</a></li>
-        <li><a href="resid-rep2text.html">Rep2Text residual inversion</a></li>
-        <li><a href="resid-depth-inversion.html">depth inversion</a></li>
-        <li><a href="resid-gelo.html">GELO defense</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
-        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a> · <a href="embed-sgt.html">Stained Glass</a></li>
-        <li><a href="kv-accumulation.html">KV/QKV source separation</a> · <a href="kv-cloak.html">KV-Cloak</a></li>
-        <li><a href="perm-cover.html">permutation cover</a> · <a href="defenses-existing.html">implemented defenses</a></li>
-        <li><a href="metric-std.html">the metric convention</a></li>
+        <li><em>attacks</em> · <a href="resid-rep2text.html">Rep2Text inversion</a> · <a href="resid-depth-inversion.html">depth inversion</a></li>
+        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
+        <li><a href="kv-accumulation.html">KV/QKV source separation</a></li>
+        <li><em>defenses</em> · <a href="resid-dp-attacks.html">differential privacy</a> · <a href="resid-gelo.html">GELO</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
+        <li><a href="embed-sgt.html">Stained Glass</a> · <a href="kv-cloak.html">KV-Cloak</a> · <a href="perm-cover.html">permutation cover</a></li>
       </ul>
     </div>
     <div>

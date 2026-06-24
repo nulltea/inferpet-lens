@@ -39,26 +39,6 @@ already written (`docs/html/DIAGRAM-STYLE.md`); the harness drop-off fix is alre
 
 ---
 
-### Task 1: harness — recipe-keyed task prompts (split the monolith)
-recipe: consolidate
-gpu: false
-surface: harness-prompts
-run_id: c1-harness-prompts
-gate: review refine-logs/harness-prompts/REVIEW_STATE.json
-objective: split the single ~150-line scripts/harness/ralphex-config/prompts/task.txt into a shared preamble plus one body per recipe, and have the harness assemble preamble+the-matching-body by peeking the next phase's recipe — so each phase loads only the mechanics it actually uses.
-
-problem: the one prompt carries all four recipe bodies (consolidate/full/experiment/theory) AND all harness mechanics every phase. The heaviest blocks — perf gate, run_step durable runs, one-GPU rules, watchdog tuning — apply ONLY to the GPU recipes (full/experiment); a consolidate/theory phase never touches them, yet must read past them. A single large prompt with mostly-irrelevant content risks degrading model performance per phase. This is a PREREQ: it improves every subsequent phase of this very campaign, and has no content dependency, so it runs first.
-
-decision — recipe-keyed, shared-preamble + per-recipe body, harness assembles by recipe:
-- `prompts/_preamble.txt` — recipe-agnostic spine: STEP 0 phase-select + recipe parse + prior-context recovery, STEP 1 heartbeat/watchdog, STEP 3 stall/escalation, STEP 4 gate+complete, HARD RULES, the external-cadence doctrine header.
-- `prompts/consolidate.txt`, `prompts/full.txt`, `prompts/experiment.txt`, `prompts/theory.txt` — ONLY that recipe's STEP 2 body. The GPU mechanics block (perf gate, run_step, one-GPU, durable-runs, safety-net) lives only in `full.txt` and `experiment.txt`.
-- Harness selection: a pre-pass greps the FIRST unchecked `### Task` block for its `recipe:` value (the same first-unchecked rule STEP 0 uses, so no chicken-and-egg) and assembles the effective prompt = `_preamble.txt` + `<recipe>.txt`. Implement in `scripts/harness/run_campaign.sh` (or the ralphex-config templating it drives); keep the assembled prompt logged for debuggability.
-- Preserve EVERY current instruction verbatim across the split (no behavior change) — this is a refactor, not a rewrite. The `{{PLAN_FILE}} {{PROGRESS_FILE}} {{GOAL}} {{DEFAULT_BRANCH}}` variables stay.
-
-steps: (a) carve task.txt into `_preamble.txt` + 4 recipe bodies under `scripts/harness/ralphex-config/prompts/`, line-for-line preserving content; (b) add the recipe-peek + assemble logic to the harness launcher; (c) dry-run the assembly for each of the four recipes, write each assembled prompt to `refine-logs/harness-prompts/assembled/<recipe>.txt`, and diff the consolidate/full assembled output against the relevant slices of the old task.txt, writing the diffs to `refine-logs/harness-prompts/instruction-diff.txt` to prove no instruction was dropped; (d) keep the old task.txt as `task.txt.monolith.bak` for one campaign.
-acceptance: the four assembled prompts exist at `refine-logs/harness-prompts/assembled/*.txt` and each contains the preamble + exactly one recipe body; a consolidate/theory assembly contains NO GPU/perf-gate/run_step block (grep-checkable); the harness peeks recipe and assembles correctly for all four recipes (dry-run logs present); `refine-logs/harness-prompts/instruction-diff.txt` shows every monolith instruction line accounted for (no net deletions). The cross-model verdict on completeness is the gate's job (this phase's `/auto-review-loop` writes `refine-logs/harness-prompts/REVIEW_STATE.json`); acceptance here is the presence + grep/diff checks above, not a self-asserted "confirmed".
-- [x] run-phase: c1-harness-prompts  DONE-manually-2026-06-24 (applied + verified this session; see "Completed this session")
-
 ### Task 2: probe registry — canonical names + symbols, used verbatim everywhere
 recipe: consolidate
 gpu: false
@@ -81,8 +61,10 @@ decision — the canonical registry (write it once, then use verbatim):
 | `SDL` | surplus description length | MDL/SDL |
 | — | shared spectral capacity | KV secondary diagnostic (NOT `I_G` — call out the distinction) |
 
-steps: (a) write the registry as a section of `metric-std.html` (or a dedicated probes-registry page) — each row = symbol, canonical name, quantity, one-line "what it bounds / why attack-independent", and the source `src/talens/measures/*` module; (b) sweep every `docs/html/*.html` and replace each probe mention with the canonical name + symbol (lead with the name, keep the symbol for table headers); (c) reconcile synthesis.html's existing probe-glossary paragraph to point at / match the registry.
-acceptance: every probe mention in `docs/html/` uses a registry name+symbol verbatim (grep audit); the registry page/section exists and is in the topnav + index; synthesis.html glossary defers to the registry; no page still says "spectral channel-MI" as an umbrella or conflates `I_G` with shared-spectral-capacity.
+NAV TAXONOMY (set by the 2026-06-24 restructure): the topnav is now `index · synthesis · residual · embedding · KV/QKV · defenses`, where the surface groups (residual/embedding/KV) hold ATTACKS ONLY and `defenses` is a flat cross-surface group. `metric-std.html` and `defenses-existing.html` were REMOVED; the bits+readout convention now lives only in `src/talens/report.py`. Probe/registry pages therefore get their OWN new nav group `probes` (parallel to `defenses`), NOT a slot under a surface group and NOT a revived metric page.
+
+steps: (a) write the registry as a dedicated `probes`-registry page (do NOT recreate metric-std.html) — each row = symbol, canonical name, quantity, one-line "what it bounds / why attack-independent", and the source `src/talens/measures/*` module; add a new `probes` navgroup to the canonical topnav and put the registry page in it; (b) sweep every `docs/html/*.html` and replace each probe mention with the canonical name + symbol (lead with the name, keep the symbol for table headers); (c) reconcile synthesis.html's existing probe-glossary paragraph to point at / match the registry (the `metric-std` link was already removed in the restructure).
+acceptance: every probe mention in `docs/html/` uses a registry name+symbol verbatim (grep audit); the dedicated registry page exists under a new `probes` navgroup + index; synthesis.html glossary defers to the registry; no page still says "spectral channel-MI" as an umbrella or conflates `I_G` with shared-spectral-capacity.
 - [ ] run-phase: c2-probe-registry
 
 ### Task 3: restructure resid-capacity-pvi — it is the V_cap probe, not a surface
@@ -98,10 +80,10 @@ problem: `resid-capacity-pvi.html` mixes two unrelated things under a fake "surf
 decision — SPLIT (grilled 2026-06-24):
 - The estimator-repair methodology and the accuracy-vs-bits rationale move to the `V_cap` probe page (created in Task 4 — this task hands that content over; do NOT build the probe page here, just stage the content and cross-link).
 - The measured input-DP sweep tables + the depth-decoupling finding move into `resid-dp-attacks.html`. The claim node `claim:depth-decoupling-input-dp` stays as-is and is cited from the DP surface page (and from the `V_cap` probe page's Rationale as the canonical decoupling example).
-- `resid-capacity-pvi.html` is RETIRED as a surface: remove it from the residual navgroup and the index; replace the nav/index entry with the forthcoming `V_cap` probe-page link. Keep the old file as a stub that redirects/links to the two destinations (do not 404 existing links).
+- `resid-capacity-pvi.html` is RETIRED as a surface. NAV/INDEX DROP IS ALREADY DONE (2026-06-24 restructure): it was removed from the residual navgroup and the index card+footer; the file stays on disk, off-nav. This task's remaining work is the CONTENT split + stub (below); when the `V_cap` probe page exists (Task 4), point the stub at it. Keep the old file reachable as a stub linking the two destinations (do not 404 the synthesis.html row that still references it).
 
 steps: (a) move the input-DP measured tables (the at-layer ablation table, the input-DP-by-depth table, the per-ε table) + the depth-decoupling prose into `resid-dp-attacks.html`, reconciling with whatever DP content already lives there (de-duplicate, single source of truth); (b) stage the estimator-repair + rationale + the three propositions for the `V_cap` probe page (write to refine-logs/capacity-pvi-restructure/ as the handoff content Task 4 consumes); (c) retire `resid-capacity-pvi.html` (stub + nav/index edits using the Task-2 `V_cap` name); (d) verify no measured number is lost in the move (diff the relocated tables against the source) and the claim node is cited from its new home; (e) cleanup pass (/humanize → /proofread → /term-audit) on the edited `resid-dp-attacks.html`.
-acceptance: the input-DP tables + depth-decoupling finding appear exactly once, on `resid-dp-attacks.html`, with no number changed (diff shown); `resid-capacity-pvi.html` no longer presents itself as a surface (retired/stub) and is gone from the residual navgroup + index; the V_cap methodology content is staged for Task 4; `claim:depth-decoupling-input-dp` is cited from its new home; cleanup pass run.
+acceptance: the input-DP tables + depth-decoupling finding appear exactly once, on `resid-dp-attacks.html`, with no number changed (diff shown); `resid-capacity-pvi.html` no longer presents itself as a surface (retired/stub) and is gone from the residual navgroup + index (already true since the 2026-06-24 restructure); the V_cap methodology content is staged for Task 4; `claim:depth-decoupling-input-dp` is cited from its new home; cleanup pass run.
 - [ ] run-phase: c3-capacity-pvi-restructure
 
 ### Task 4: per-probe pages — Algorithm / Method / Rationale + plaintext reference (one per registered probe)
@@ -121,7 +103,7 @@ each page has exactly these sections:
 - Plaintext reference (issue 2) — one measured reference on a CLEAN model (no attack, no defense), across layers where the probe is layer-defined, so the reader sees the probe's baseline reading. Source order (grilled 2026-06-24, keeps Task 4 GPU-free): (1) use the on-disk plaintext-across-layers number where present — `CLUB` (36-layer control sweep, results-chronicles 2026-06-17), `V_cap` (depth sweep), `J` (KV plaintext baseline, layer×kind), `I_G` (embedding), Bhattacharyya–Fano (bnn pool); (2) if none exists, DO NOT run GPU here — queue a small plaintext-probe-bits emission onto Task 7's GPU run (likely needed for `SDL` — MDL was off in the control sweep — and `shared-spectral-capacity`) and backfill the page after Task 7.
 
 diagrams: MUST follow docs/html/DIAGRAM-STYLE.md (research the source paper figure first; trust-zone/surface boundaries; the computation sequence; D3 interactivity per the R2 triggers). depends on Task 2 (canonical names), Task 3 (V_cap staged content), and the shipped DIAGRAM-STYLE.md.
-acceptance: 7 probe pages exist, each with Algorithm/Method/Rationale + a plaintext-reference block (real number from disk, or an explicit "queued onto Task 7" placeholder for SDL / shared-spectral-capacity) + at least one compliant `.diagram-frame`; all wired into topnav + index; each cross-links its claim node and its synthesis.html row; the V_cap page carries the relocated estimator-repair methodology; the list of queued-onto-Task-7 emissions is written to refine-logs/probe-pages/queued-for-utility.md; cleanup pass (/humanize → /proofread → /term-audit) run.
+acceptance: 7 probe pages exist, each with Algorithm/Method/Rationale + a plaintext-reference block (real number from disk, or an explicit "queued onto Task 7" placeholder for SDL / shared-spectral-capacity) + at least one compliant `.diagram-frame`; all wired into the new `probes` navgroup (created in Task 2, parallel to `defenses`) + index; each cross-links its claim node and its synthesis.html row; the V_cap page carries the relocated estimator-repair methodology; the list of queued-onto-Task-7 emissions is written to refine-logs/probe-pages/queued-for-utility.md; cleanup pass (/humanize → /proofread → /term-audit) run.
 - [ ] run-phase: c4-probe-pages
 
 ### Task 5: redo the shallow/missing method diagrams to DIAGRAM-STYLE.md
@@ -153,7 +135,7 @@ run_id: c6-readout-metrics
 gate: review refine-logs/readout-metrics/REVIEW_STATE.json
 objective: make the HTML tables reasoning-legible by rendering a per-secret human readout (perplexity / token-F1 / cosine / recovery-rate / AUC) beside every bits value, on synthesis.html and every per-report table — closing the gap where bits move by 1/10 or 1/100 and the reader cannot tell what that means.
 
-problem: the metric convention (metric-std.html) and `src/talens/report.py` ALREADY define bits + per-secret readout (incl. the sub-0.1-bit millibit fix), but most surface tables still show bare bits. Differences of fractions of a bit between sweep points are illegible without the paired native-units readout.
+problem: the bits + per-secret readout convention ALREADY exists in `src/talens/report.py` (incl. the sub-0.1-bit millibit fix) — note the metric-std.html page that documented it was REMOVED in the 2026-06-24 restructure — but most surface tables still show bare bits. Differences of fractions of a bit between sweep points are illegible without the paired native-units readout.
 
 decision — no-GPU render pass (grilled 2026-06-24). Source each readout in this order: (1) already in `refine-logs/<surface>/runs/*.json` → use it; (2) derivable by the model-free `talens.report` layer from stored measure dicts → recompute (no GPU); (3) genuinely needs the model and is not stored (e.g. a probe's predictive-distribution perplexity) → DO NOT run GPU here; queue it onto Task 7's GPU run and backfill. Apply the metric-std legibility contract verbatim: bits canonical (millibits below 0.1 bit), `bits_kind` tag preserved, `n/a` distinct from measured zero. COMPLETION RULE (no hidden circular dependency on Task 7): this phase is DONE when every bits column carries EITHER a real readout from source-order (1)/(2) OR an explicit "queued onto Task 7" placeholder for source-order (3); final replacement of placeholders is owned by Task 7. This phase must not wait on Task 7.
 
@@ -285,6 +267,18 @@ acceptance: B2 cross-family matrix on synthesis + resid-split from on-disk data;
 ---
 
 ## Completed this session (context, NOT ralphex phases)
+
+**HTML nav restructure — DONE manually 2026-06-24 (pre-campaign-C).** Topnav rewritten across all 14
+pages to `index · synthesis · residual · embedding · KV/QKV · defenses`: surface groups now hold
+ATTACKS ONLY (residual = Rep2Text inversion, depth inversion; embedding = Vec2Text, Bayes-NN; KV/QKV =
+source separation), `defenses` is a new flat cross-surface group (differential privacy, GELO, split
+inference (PriPert), Stained Glass, KV-Cloak, permutation cover). REMOVED `metric-std.html` (no
+dedicated metric page — convention lives in `src/talens/report.py`) and `defenses-existing.html`
+(redundant with synthesis.html); fixed all inbound body links in index/synthesis. `perm-cover` moved
+under defenses. `resid-capacity-pvi.html` dropped from nav + index (off-nav, file kept for Task 3);
+its only remaining link is the synthesis.html overview row. This shifts the nav taxonomy Tasks 2/3/4/6
+build on: probe pages get a NEW `probes` navgroup (parallel to defenses), the registry is a dedicated
+page (not metric-std), and the capacity-pvi nav-drop is already done.
 
 **Task 1 (recipe-keyed task prompts) — DONE manually 2026-06-24 (verified).** Split
 `prompts/task.txt` (the ~150-line monolith) into a shared `_preamble.txt` + four recipe bodies

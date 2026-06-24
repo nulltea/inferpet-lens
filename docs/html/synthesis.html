@@ -21,16 +21,11 @@
     <span class="links">
       <a href="index.html">index</a>
       <a class="current" href="synthesis.html">synthesis</a>
-      <a href="metric-std.html">metric</a>
       <div class="navgroup">
         <span class="navgroup-label">residual</span>
         <div class="navgroup-menu">
-          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
-          <a href="resid-dp-attacks.html">under differential privacy</a>
           <a href="resid-rep2text.html">Rep2Text inversion</a>
           <a href="resid-depth-inversion.html">depth inversion</a>
-          <a href="resid-gelo.html">GELO defense</a>
-          <a href="resid-split.html">split inference (PriPert)</a>
         </div>
       </div>
       <div class="navgroup">
@@ -38,18 +33,25 @@
         <div class="navgroup-menu">
           <a href="vec2text.html">Vec2Text inversion</a>
           <a href="bnn-attack.html">Bayes-NN bounds</a>
-          <a href="embed-sgt.html">Stained Glass defense</a>
         </div>
       </div>
       <div class="navgroup">
         <span class="navgroup-label">KV / QKV</span>
         <div class="navgroup-menu">
           <a href="kv-accumulation.html">source separation</a>
-          <a href="kv-cloak.html">KV-Cloak decoupling</a>
         </div>
       </div>
-      <a href="perm-cover.html">permutation</a>
-      <a href="defenses-existing.html">defenses</a>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -91,10 +93,10 @@
       </thead>
       <tbody>
         <tr><td><a href="resid-capacity-pvi.html">capacity-matched PVI</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td>capacity-matched PVI; CLUB</td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
-        <tr><td><a href="resid-dp-attacks.html">under differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td>CLUB; capacity-matched PVI</td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
+        <tr><td><a href="resid-dp-attacks.html">differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td>CLUB; capacity-matched PVI</td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
         <tr><td><a href="resid-depth-inversion.html">depth inversion</a></td><td>cosine-NN, ridge, learned mlp2</td><td>none · depth L0–L32</td><td>capacity-matched PVI; CLUB</td><td class="num">+0.85</td><td>tracks; depth ≠ privacy</td></tr>
         <tr><td><a href="resid-rep2text.html">Rep2Text inversion</a></td><td>adapter to frozen decoder</td><td>none · length; noise σ</td><td>spectral channel-MI</td><td class="num">0.18 length (vacuous); 1.00 over σ</td><td>vacuous: capacity slack</td></tr>
-        <tr><td><a href="resid-gelo.html">GELO defense</a></td><td>JADE separation; amortized ridge</td><td>GELO row-mix · κ(A), shield</td><td>whitened-row negentropy</td><td class="num">0.29–0.51 (below 0.6)</td><td>weak loop; likely probe mismatch, stronger attack not ruled out</td></tr>
+        <tr><td><a href="resid-gelo.html">GELO</a></td><td>JADE separation; amortized ridge</td><td>GELO row-mix · κ(A), shield</td><td>whitened-row negentropy</td><td class="num">0.29–0.51 (below 0.6)</td><td>weak loop; likely probe mismatch, stronger attack not ruled out</td></tr>
         <tr><td><a href="resid-split.html">split inference (PriPert)</a></td><td>ridge, learned mlp2</td><td>PriPert sparsity; perturbation β</td><td>spectral channel-MI; Fano</td><td class="num">+0.958 (+0.915 learned)</td><td>tracks; converse slack</td></tr>
         <tr><td><a href="vec2text.html">Vec2Text inversion</a></td><td>pretrained corrector</td><td>Gaussian DP ε</td><td>spectral channel-MI</td><td class="num">+1.00 (F1), +0.71 (exact)</td><td>tracks; complete probe</td></tr>
         <tr><td><a href="bnn-attack.html">Bayes-NN bounds</a></td><td>nearest-neighbour MAP</td><td>Gaussian DP ε (L0)</td><td>union-Bhattacharyya + Fano bounds</td><td class="num">bracket 10/10; +0.94 lower bound</td><td>tracks; bounds bracket error</td></tr>
@@ -102,11 +104,11 @@
         <tr><td><a href="kv-accumulation.html">source separation</a></td><td>JADE joint-diagonalization</td><td>plaintext baseline (layer × kind; T-axis flat)</td><td>whitened-row negentropy</td><td class="num">+0.92 (genuine margin)</td><td>tracks genuine margin</td></tr>
         <tr><td><a href="kv-cloak.html">KV-Cloak decoupling</a></td><td>JADE, accumulation</td><td>KV-Cloak · channel, block, scale</td><td>whitened-row negentropy</td><td class="num">+0.71 (0.77 channel-mean)</td><td>feature mix load-bearing</td></tr>
         <tr><td><a href="perm-cover.html">permutation cover</a></td><td>full sorted-row vs 64-bin matcher</td><td>column permutation + noise α_e</td><td>CLUB on permutation signature</td><td class="num">+0.976</td><td>tracks; strong matcher wins</td></tr>
-        <tr><td><a href="defenses-existing.html">implemented defenses</a></td><td>permutation matcher; token reader</td><td>Shredder noise b; table obfuscation</td><td>CLUB</td><td class="num">0.39–0.81 within family</td><td>tracks within a family</td></tr>
+        <tr><td>implemented defenses</td><td>permutation matcher; token reader</td><td>Shredder noise b; table obfuscation</td><td>CLUB</td><td class="num">0.39–0.81 within family</td><td>tracks within a family</td></tr>
       </tbody>
     </table>
     <p class="prose">Verdict vocabulary: <strong>tracks</strong> (<code>ρ ≥ 0.6</code>, or bounds that bracket the error); <strong>attack-limited</strong> (a weak attack decorrelates, a stronger one re-correlates); <strong>probe not matched</strong> (the probe reads a channel other than the load-bearing leak); <strong>vacuous</strong> (capacity exceeds the secret entropy, so the probe is constant over the operating range).</p>
-    <p class="prose">The probe names above are distinct measures, not synonyms or subtypes of one another; the matched probe differs by surface (full registry: <a href="metric-std.html">the metric convention</a>). <strong>Spectral channel-MI</strong> is the closed-form Gaussian-channel ceiling <code>I_G = ½ Σᵢ log₂(1 + λᵢ/σ²)</code> computed from the embedding covariance spectrum and the noise variance, geometry-only with no attack. <strong>CLUB</strong> is a learned variational upper bound on the same mutual information. <strong>Capacity-matched PVI</strong> is the top-1 accuracy of a capacity-bounded token-identity reader. <strong>Whitened-row negentropy</strong> is the source-separation separability resource. The <strong>Bayes-NN bounds</strong> are a union-Bhattacharyya upper bound and a Fano lower bound on the decode error. The <strong>spectral capacity</strong> column in the KV-Cloak table is a separate shared-spectral-capacity diagnostic, not spectral channel-MI.</p>
+    <p class="prose">The probe names above are distinct measures, not synonyms or subtypes of one another; the matched probe differs by surface. <strong>Spectral channel-MI</strong> is the closed-form Gaussian-channel ceiling <code>I_G = ½ Σᵢ log₂(1 + λᵢ/σ²)</code> computed from the embedding covariance spectrum and the noise variance, geometry-only with no attack. <strong>CLUB</strong> is a learned variational upper bound on the same mutual information. <strong>Capacity-matched PVI</strong> is the top-1 accuracy of a capacity-bounded token-identity reader. <strong>Whitened-row negentropy</strong> is the source-separation separability resource. The <strong>Bayes-NN bounds</strong> are a union-Bhattacharyya upper bound and a Fano lower bound on the decode error. The <strong>spectral capacity</strong> column in the KV-Cloak table is a separate shared-spectral-capacity diagnostic, not spectral channel-MI.</p>
   </section>
 
   <!-- §03 MEASURED SWEEPS -->
@@ -428,15 +430,11 @@
     <div>
       <h5>Surfaces</h5>
       <ul>
-        <li><a href="resid-capacity-pvi.html">capacity-matched leakage</a></li>
-        <li><a href="resid-dp-attacks.html">residual under differential privacy</a></li>
-        <li><a href="resid-rep2text.html">Rep2Text residual inversion</a></li>
-        <li><a href="resid-depth-inversion.html">depth inversion</a></li>
-        <li><a href="resid-gelo.html">GELO defense</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
-        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a> · <a href="embed-sgt.html">Stained Glass</a></li>
-        <li><a href="kv-accumulation.html">KV/QKV source separation</a> · <a href="kv-cloak.html">KV-Cloak</a></li>
-        <li><a href="perm-cover.html">permutation cover</a> · <a href="defenses-existing.html">implemented defenses</a></li>
-        <li><a href="metric-std.html">the metric convention</a></li>
+        <li><em>attacks</em> · <a href="resid-rep2text.html">Rep2Text inversion</a> · <a href="resid-depth-inversion.html">depth inversion</a></li>
+        <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
+        <li><a href="kv-accumulation.html">KV/QKV source separation</a></li>
+        <li><em>defenses</em> · <a href="resid-dp-attacks.html">differential privacy</a> · <a href="resid-gelo.html">GELO</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
+        <li><a href="embed-sgt.html">Stained Glass</a> · <a href="kv-cloak.html">KV-Cloak</a> · <a href="perm-cover.html">permutation cover</a></li>
       </ul>
     </div>
     <div>
