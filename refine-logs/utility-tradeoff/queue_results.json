@@ -1,0 +1,215 @@
+{
+  "consumed": [
+    "refine-logs/probe-pages/queued-for-utility.md",
+    "refine-logs/readout-metrics/queued-for-utility.md"
+  ],
+  "emitted": {
+    "SDL_plaintext_per_layer": {
+      "status": "EMITTED (CPU from clean Qwen3 resid capture; no GPU needed)",
+      "source": "refine-logs/utility-tradeoff/plaintext_baselines.json -> sdl",
+      "backfill_target": "docs/html/probe-sdl.html \u00a704 Plaintext reference",
+      "rows": [
+        {
+          "probe": "SDL",
+          "layer": 0,
+          "n_rows": 257,
+          "d": 2560,
+          "sdl_real_bits": 8640.487263359437,
+          "sdl_shuffle_bits": -1587.2463258634625,
+          "sdl_selectivity_bits": 10227.733589222898,
+          "online_code_length_bits": 12698.101146620738,
+          "sec": 4.4
+        },
+        {
+          "probe": "SDL",
+          "layer": 8,
+          "n_rows": 257,
+          "d": 2560,
+          "sdl_real_bits": 1620.3758731080643,
+          "sdl_shuffle_bits": -3869.086264173189,
+          "sdl_selectivity_bits": 5489.4621372812535,
+          "online_code_length_bits": 6992.246882798541,
+          "sec": 3.9
+        },
+        {
+          "probe": "SDL",
+          "layer": 16,
+          "n_rows": 257,
+          "d": 2560,
+          "sdl_real_bits": 294.71337902882533,
+          "sdl_shuffle_bits": -15698.25172291177,
+          "sdl_selectivity_bits": 15992.965101940594,
+          "online_code_length_bits": 6588.660165629467,
+          "sec": 4.0
+        },
+        {
+          "probe": "SDL",
+          "layer": 24,
+          "n_rows": 257,
+          "d": 2560,
+          "sdl_real_bits": 299.40175309941696,
+          "sdl_shuffle_bits": 2232.6148681352934,
+          "sdl_selectivity_bits": -1933.2131150358764,
+          "online_code_length_bits": 6118.0609946685745,
+          "sec": 4.2
+        },
+        {
+          "probe": "SDL",
+          "layer": 32,
+          "n_rows": 257,
+          "d": 2560,
+          "sdl_real_bits": 882.2513175277936,
+          "sdl_shuffle_bits": -3128.688106024996,
+          "sdl_selectivity_bits": 4010.93942355279,
+          "online_code_length_bits": 6034.686138990892,
+          "sec": 4.1
+        }
+      ]
+    },
+    "shared_spectral_capacity_plaintext_per_layer_kind": {
+      "status": "EMITTED (CPU from clean Qwen3 k/v capture; no GPU needed)",
+      "source": "refine-logs/utility-tradeoff/plaintext_baselines.json -> shared_spectral_capacity",
+      "backfill_target": "docs/html/probe-shared-spectral-capacity.html \u00a704 Plaintext reference",
+      "rows": [
+        {
+          "probe": "shared-spectral-capacity",
+          "kind": "k",
+          "layer": 0,
+          "spectral_cap_bits_t1": 69.281648002747,
+          "cap_per_t": {
+            "1": 69.281648002747,
+            "2": 65.59747146563163,
+            "4": 68.43749251227423,
+            "8": 74.42370136676584,
+            "16": 79.16060520012046
+          },
+          "d_eff_per_t": {
+            "1": 48,
+            "2": 48,
+            "4": 48,
+            "8": 48,
+            "16": 48
+          },
+          "sec": 0.0
+        },
+        {
+          "probe": "shared-spectral-capacity",
+          "kind": "k",
+          "layer": 12,
+          "spectral_cap_bits_t1": 68.83283501462726,
+          "cap_per_t": {
+            "1": 68.83283501462726,
+            "2": 60.68128320149128,
+            "4": 55.708927667759156,
+            "8": 51.137334961921994,
+            "16": 48.10392942782697
+          },
+          "d_eff_per_t": {
+            "1": 48,
+            "2": 48,
+            "4": 48,
+            "8": 48,
+            "16": 48
+          },
+          "sec": 0.0
+        },
+        {
+          "probe": "shared-spectral-capacity",
+          "kind": "k",
+          "layer": 20,
+          "spectral_cap_bits_t1": 71.59093220380605,
+          "cap_per_t": {
+            "1": 71.59093220380605,
+            "2": 63.25107123803619,
+            "4": 57.91560075746936,
+            "8": 54.26131561019365,
+            "16": 52.353551864717765
+          },
+          "d_eff_per_t": {
+            "1": 48,
+            "2": 48,
+            "4": 48,
+            "8": 48,
+            "16": 48
+          },
+          "sec": 0.0
+        },
+        {
+          "probe": "shared-spectral-capacity",
+          "kind": "v",
+          "layer": 0,
+          "spectral_cap_bits_t1": 57.284165839677115,
+          "cap_per_t": {
+            "1": 57.284165839677115,
+            "2": 51.33014281958201,
+            "4": 46.40653354740975,
+            "8": 43.408536079655114,
+            "16": 40.820323553284226
+          },
+          "d_eff_per_t": {
+            "1": 48,
+            "2": 48,
+            "4": 48,
+            "8": 48,
+            "16": 48
+          },
+          "sec": 0.0
+        },
+        {
+          "probe": "shared-spectral-capacity",
+          "kind": "v",
+          "layer": 12,
+          "spectral_cap_bits_t1": 60.99094883803715,
+          "cap_per_t": {
+            "1": 60.99094883803715,
+            "2": 53.233431570801756,
+            "4": 48.72032171604752,
+            "8": 45.463210372206234,
+            "16": 43.39561363558612
+          },
+          "d_eff_per_t": {
+            "1": 48,
+            "2": 48,
+            "4": 48,
+            "8": 48,
+            "16": 48
+          },
+          "sec": 0.0
+        },
+        {
+          "probe": "shared-spectral-capacity",
+          "kind": "v",
+          "layer": 20,
+          "spectral_cap_bits_t1": 60.66034382253378,
+          "cap_per_t": {
+            "1": 60.66034382253378,
+            "2": 53.53971891637179,
+            "4": 48.180227489885695,
+            "8": 44.92397004622252,
+            "16": 42.55110860716139
+          },
+          "d_eff_per_t": {
+            "1": 48,
+            "2": 48,
+            "4": 48,
+            "8": 48,
+            "16": 48
+          },
+          "sec": 0.0
+        }
+      ]
+    },
+    "bnn_h_v_given_y_full_precision": {
+      "status": "BACKFILL FROM DISK (full-precision h_cond_bits already stored; the 0.00 was a 2dp DISPLAY rounding in the MD, not a missing value \u2014 no GPU needed)",
+      "source": "results/bnn_error_bounds_validation_dense.json",
+      "backfill_target": "docs/html/bnn-attack.html / synthesis.html H(V|Y) column (millibit render)",
+      "h_cond_bits_by_epsilon": {
+        "128.0": 0.00027136712445574585,
+        "96.0": 0.0022383716151197497,
+        "80.0": 0.02778538704743616,
+        "64.0": 0.3482286535275392,
+        "56.0": 0.958143432812796
+      }
+    }
+  }
+}
