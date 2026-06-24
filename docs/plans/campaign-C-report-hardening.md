@@ -135,7 +135,7 @@ backlog (7 pages) with what each diagram MUST show:
 
 rules (all in DIAGRAM-STYLE.md): R0 research the source paper figure first and adapt it; R1 mandatory depth (trust-zone bands + boundary, numbered train/infer sequence, both loop arms attack→recovery + probe→bits, defense-parameter locus, typed labeled arrows); R2 add D3 interactivity per the trigger rules via the /d3-viz skill. Vendor `docs/html/js/d3.v7.min.js` at the first interactive diagram. Use canonical probe names from Task 2.
 acceptance: each of the 7 pages has a compliant `.diagram-frame` passing the DIAGRAM-STYLE.md checklist (no 3-box flow, no unlabeled arrows, both loop arms present); bnn-attack.html on css/site.css with the canonical topnav; cleanup pass run.
-- [ ] run-phase: c5-method-diagrams
+- [x] run-phase: c5-method-diagrams
 
 ### Task 6: readout metrics — a legible per-secret readout beside every bits value
 recipe: consolidate

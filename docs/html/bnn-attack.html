@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=JetBrains+Mono:ital,wght@0,400..700;1,400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
 <style>
+  /* page-local — interactive-figure + BNN-palette classes not in the shared sheet */
   :root{
-    --paper:#ffffff; --paper-2:#f4f4f4; --paper-3:#e3e3e3;
-    --ink:#14181c; --ink-2:#3c434b; --ink-3:#6a7280; --rule:#14181c;
     --true:#b85a32; --true-soft:#ecd1c0;     /* true token — terracotta */
     --rival:#5a6573; --rival-soft:#dde0e5;    /* rival codeword — slate */
     --noise:#5e4a7a; --noise-soft:#d6cce2;    /* DP noise — plum */
@@ -18,47 +18,6 @@
     --bad:#a3460a; --bad-soft:#f0d9c4;        /* error — amber */
     --client:#2a5092;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
-  body{
-    font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;
-    font-size:13.5px;line-height:1.6;
-    background-image:radial-gradient(rgba(20,24,28,.03) 1px,transparent 1px);
-    background-size:4px 4px;
-  }
-  ::selection{background:var(--ink);color:var(--paper)}
-  a{color:var(--ink)}
-  .sheet{max-width:1100px;margin:0 auto;padding:24px 40px 96px;position:relative}
-  .crosshair{position:absolute;width:14px;height:14px}
-  .crosshair::before,.crosshair::after{content:"";position:absolute;background:var(--ink)}
-  .crosshair::before{left:6px;top:0;bottom:0;width:1px}
-  .crosshair::after{top:6px;left:0;right:0;height:1px}
-  .tl{top:24px;left:24px}.tr{top:24px;right:24px}.bl{bottom:24px;left:24px}.br{bottom:24px;right:24px}
-
-  .topnav{display:flex;align-items:baseline;justify-content:space-between;
-    padding:14px 0 16px;border-bottom:1px solid var(--ink);margin-bottom:30px;
-    font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
-  .brand{font-family:"Fraunces",serif;font-weight:560;font-size:18px;letter-spacing:-.01em;
-    text-transform:none;color:var(--ink)}
-  .brand .dot{color:var(--true)}
-
-  .masthead{margin-bottom:40px}
-  .title{font-family:"Fraunces",serif;font-weight:600;font-size:46px;line-height:1.02;
-    letter-spacing:-.02em;margin:0 0 14px}
-  .title em{font-style:italic;color:var(--true);font-weight:400}
-  .subtitle{font-size:14px;color:var(--ink-2);max-width:70ch;margin:0}
-  .colophon{margin-top:18px;font-size:11px;color:var(--ink-3);display:flex;gap:26px;flex-wrap:wrap}
-  .colophon b{color:var(--ink-2)}
-
-  section{margin:48px 0;scroll-margin-top:20px}
-  .section-head{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid var(--paper-3);
-    padding-bottom:8px;margin-bottom:18px}
-  .section-num{font-size:11px;color:var(--true);letter-spacing:.1em}
-  .section-title{font-family:"Fraunces",serif;font-weight:560;font-size:25px;margin:0;letter-spacing:-.01em}
-  .section-meta{margin-left:auto;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.12em}
-  .lede{font-size:15px;color:var(--ink);max-width:74ch}
-  p{max-width:74ch}
-  code{background:var(--paper-2);padding:1px 5px;border:1px solid var(--paper-3);font-size:12.5px}
   .accent{color:var(--true)}
   em.k{font-style:normal;font-weight:600}
 
@@ -80,6 +39,8 @@
   .ctl label{text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--ink-3)}
   .ctl input[type=range]{width:170px;accent-color:var(--noise)}
   .ctl .val{font-weight:600;color:var(--ink)}
+  .ctl-wide{min-width:210px}
+  .ctl-hint{font-size:10px;color:var(--ink-3)}
   .seg{display:inline-flex;border:1px solid var(--ink)}
   .seg button{font-family:inherit;font-size:11px;padding:5px 10px;background:var(--paper);border:0;
     border-right:1px solid var(--ink);cursor:pointer;color:var(--ink-2)}
@@ -92,25 +53,33 @@
   .ro.hl{border-color:var(--true)}
   .ro.hl .num{color:var(--true)}
   .twocanvas{display:grid;grid-template-columns:1.45fr 1fr;gap:16px}
-  @media(max-width:760px){.twocanvas{grid-template-columns:1fr}.title{font-size:34px}.sheet{padding:20px 18px 70px}}
+  @media(max-width:760px){.twocanvas{grid-template-columns:1fr}}
   .cap{font-size:11.5px;color:var(--ink-3);margin-top:8px;max-width:80ch}
 
-  table.spec{width:100%;border-collapse:collapse;margin:14px 0;font-size:12px}
-  table.spec th,table.spec td{border:1px solid var(--paper-3);padding:6px 9px;text-align:left;vertical-align:top}
-  table.spec th{background:var(--ink);color:var(--paper);font-weight:500;text-transform:uppercase;
-    letter-spacing:.08em;font-size:10px}
+  /* spec-table cells specific to this page (the shared sheet uses td.num) */
   table.spec td.n{font-variant-numeric:tabular-nums;text-align:right}
   table.spec tr.inside td.flag{color:var(--ok);font-weight:600}
 
-  .callout{border-left:3px solid var(--noise);background:var(--noise-soft);padding:12px 16px;margin:16px 0;
-    font-size:13px}
+  .callout{border-left:3px solid var(--noise);background:var(--noise-soft);padding:12px 16px;margin:16px 0;font-size:13px}
   .callout.aha{border-left-color:var(--true);background:var(--true-soft)}
   .key{font-family:"Fraunces",serif;font-style:italic;font-size:16px}
-  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--ink-2);margin:2px 0 12px}
+
+  /* override the shared grid .legend for the inline dot legend in Fig A */
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--ink-2);margin:2px 0 12px;
+    border:0;grid-template-columns:none}
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .dotmark{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .dotmark.is-true{background:var(--true)}
+  .dotmark.is-rival{background:var(--rival)}
+  .dotmark.is-ok{background:var(--ok)}
+  .dotmark.is-bad{background:var(--bad)}
+
   .foot{margin-top:60px;border-top:1px solid var(--ink);padding-top:14px;font-size:11px;color:var(--ink-3)}
   .mono-num{font-variant-numeric:tabular-nums}
+  /* static spec-table column widths + the confusable-pair bar (only the bar WIDTH is JS-computed) */
+  table.spec th.w21{width:21%}
+  table.spec th.w34{width:34%}
+  .bar{height:11px;background:var(--bad)}
 </style>
 </head>
 <body>
@@ -173,11 +142,13 @@
   </div>
 
   <header class="masthead">
-    <h1 class="title">The Bayes&#8209;NN attack<br><em>— why huge noise doesn't save you</em></h1>
+    <div>
+      <h1 class="title">The Bayes&#8209;NN attack<br><em>— why huge noise doesn't save you</em></h1>
     <p class="subtitle">A token is turned into an embedding, then differentially-private Gaussian noise is
       added before it leaves the trusted boundary. An adversary who knows the embedding table matches the
       noisy vector back to its nearest table entry. Despite noise <em>larger than the embedding itself</em>,
       this recovers the token almost perfectly. This page shows, interactively, why.</p>
+    </div>
     <div class="colophon">
       <div><b>attack</b>&nbsp; nearest-neighbour / MAP decode (BNN)</div>
       <div><b>surface</b>&nbsp; L0 embedding, input-DP</div>
@@ -209,6 +180,90 @@
     <p>The puzzle: at the privacy level <code>&#949;<sub>dp</sub>=64</code> the noise vector has length
       <code>&#8741;&#949;&#8741;&#8776;15</code> — about <b>3.6&times; the embedding's own length</b> (&#8776;4.15). Intuitively the
       signal is buried. Yet BNN recovers the token ~94% of the time. The next section shows why that intuition is wrong.</p>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 0 — pipeline · token → public embedding lookup → clip + DP release → nearest-neighbour (MAP) decode</span>
+        <span>navy = data owner (trusted; holds the public embedding table) · plum = DP mechanism · slate = adversary · amber = recovery · adapted from the §01 setup data-flow</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 440" role="img"
+           xmlns="http://www.w3.org/2000/svg"
+           aria-label="A token is looked up in a public embedding table, clipped and Gaussian-noised under DP, released, then matched to its nearest table entry; two geometry-only bounds bracket the decode error.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+
+        <!-- ZONES -->
+        <rect x="0"    y="40"  width="470" height="380" class="zone-band zone-band-client"/>
+        <rect x="470"  y="40"  width="260" height="380" class="zone-band zone-band-crypto"/>
+        <rect x="730"  y="40"  width="590" height="380" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+        <text x="20"  y="78" class="zone-sublabel">holds token v · runs L0 embedding lookup</text>
+        <text x="490" y="62" class="zone-label">DP mechanism (input-DP)</text>
+        <text x="490" y="78" class="zone-sublabel">clip(·, C≈4.15) + Gaussian noise · σ = C·z/ε</text>
+        <text x="750" y="62" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
+        <text x="750" y="78" class="zone-sublabel">has the public table {e_u} · runs nearest-neighbour decode</text>
+        <line x1="470" y1="40" x2="470" y2="420" class="boundary"/>
+        <line x1="730" y1="40" x2="730" y2="420" class="boundary"/>
+        <text x="734" y="416" class="boundary-label">release (only Y crosses to adversary)</text>
+
+        <!-- OWNER: token + public table -->
+        <rect x="20" y="150" width="190" height="72" class="box box-strong box-client"/>
+        <text x="34" y="174" class="box-label">① secret token v</text>
+        <text x="34" y="192" class="box-sub">one token id</text>
+        <text x="34" y="210" class="box-mono">K = 2048 vocab</text>
+
+        <rect x="240" y="142" width="200" height="92" class="box box-strong box-client"/>
+        <text x="254" y="166" class="box-label">② embedding lookup</text>
+        <text x="254" y="184" class="box-mono">e_v = table[v] ∈ ℝ^d</text>
+        <text x="254" y="202" class="box-sub">d = 2304 · table {e_u} PUBLIC</text>
+        <text x="254" y="222" class="box-sub">(open weights)</text>
+
+        <!-- DP mechanism -->
+        <rect x="490" y="138" width="220" height="100" class="box box-strong box-crypto"/>
+        <text x="504" y="162" class="box-label">③ clip + add DP noise</text>
+        <text x="504" y="180" class="box-mono">e_v ← clip(e_v, C)</text>
+        <text x="504" y="198" class="box-mono">Y = e_v + ε,  ε ∼ 𝒩(0, σ²I_d)</text>
+        <text x="504" y="218" class="box-sub">σ = C·z/ε_dp · smaller budget ε_dp → larger σ</text>
+
+        <!-- ADVERSARY: NN / MAP decode -->
+        <rect x="760" y="120" width="250" height="92" class="box box-strong box-gpu"/>
+        <text x="774" y="144" class="box-label">④ nearest-neighbour decode</text>
+        <text x="774" y="162" class="box-mono">v̂ = argmin_u ‖Y − e_u‖</text>
+        <text x="774" y="182" class="box-sub">MAP / Bayes-optimal under Gaussian noise</text>
+        <text x="774" y="200" class="box-sub">no training · no model · just the table</text>
+
+        <!-- recovered token (warn) -->
+        <rect x="1080" y="128" width="220" height="76" class="box box-strong box-gpu box-warn"/>
+        <text x="1094" y="152" class="box-label warn">recovered token v̂</text>
+        <text x="1094" y="170" class="box-sub">accuracy / decode-error rate</text>
+        <text x="1094" y="188" class="box-mono">≈ v at weak DP</text>
+
+        <!-- PROBE path: two-sided geometry-only bounds -->
+        <rect x="760" y="262" width="540" height="138" class="box box-gpu" style="opacity:.92;"/>
+        <text x="774" y="286" class="box-label">probe — Bhattacharyya–Fano error bounds (no attack · geometry-only)</text>
+        <text x="774" y="306" class="box-mono">upper: P_e ≤ Σ_{u≠v} exp(−‖e_v − e_u‖²/8σ²)   (union–Bhattacharyya)</text>
+        <text x="774" y="324" class="box-sub">dominated by the few close pairs ⇒ names WHERE leakage is</text>
+        <text x="774" y="346" class="box-mono">lower: P_e ≥ (H(V|Y) − 1) / log₂(K − 1)   (Fano)</text>
+        <text x="774" y="364" class="box-sub">H(V|Y) = log₂K − I(V;Y) · matching ambiguity, in bits</text>
+        <text x="774" y="386" class="box-sub">bracket the measured BNN error at every noise level (10/10)</text>
+
+        <!-- ARROWS -->
+        <path d="M210 186 L240 186" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="216" y="178" class="arrow-label secret">v</text>
+        <path d="M440 188 L490 188" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="446" y="180" class="arrow-label secret">e_v</text>
+        <path d="M710 178 L760 166" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="600" y="120" class="arrow-label masked">Y released</text>
+        <path d="M1010 166 L1080 166" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="1024" y="158" class="arrow-label warn">v̂</text>
+        <!-- probe arm: BRANCHES FROM the released Y at the boundary crossing (NOT the decode box) — channel geometry + σ feed the bounds, independently of the attack -->
+        <path d="M735 200 C760 230 775 248 790 262" class="arrow arrow-masked" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
+        <text x="700" y="250" class="arrow-label masked">Y, {e_u}, σ · no attack</text>
+      </svg>
+    </div>
   </section>
 
   <!-- §02 THE PARADOX -->
@@ -232,15 +287,15 @@
       <div class="fig-head"><span>Figure A — the decision plane</span><span class="tag">drag &#949;<sub>dp</sub>, d</span></div>
       <div class="fig-body">
         <div class="controls">
-          <div class="ctl" style="min-width:210px">
+          <div class="ctl ctl-wide">
             <label>privacy budget &#949;<sub>dp</sub> &nbsp;<span class="val" id="aEpsV"></span></label>
             <input type="range" id="aEps" min="-1" max="2.408" step="0.01" value="1.806">
-            <span style="font-size:10px;color:var(--ink-3)">0.1 &#9664; strong DP &nbsp;·&nbsp; weak DP &#9654; 256 &nbsp;(log)</span>
+            <span class="ctl-hint">0.1 &#9664; strong DP &nbsp;·&nbsp; weak DP &#9654; 256 &nbsp;(log)</span>
           </div>
           <div class="ctl">
             <label>dimension d &nbsp;<span class="val" id="aDimV"></span></label>
             <input type="range" id="aDim" min="2" max="4096" step="2" value="2304">
-            <span style="font-size:10px;color:var(--ink-3)">inflates only the perpendicular junk</span>
+            <span class="ctl-hint">inflates only the perpendicular junk</span>
           </div>
           <div class="ctl">
             <label>rival codeword</label>
@@ -248,15 +303,15 @@
               <button data-d="5.86" class="on">typical&nbsp;(&#8741;&#916;&#8741;=5.86)</button>
               <button data-d="0.70">morph. twin&nbsp;(0.70)</button>
             </div>
-            <span style="font-size:10px;color:var(--ink-3)">e.g. 'Hardware' vs ' Hardware'</span>
+            <span class="ctl-hint">e.g. 'Hardware' vs ' Hardware'</span>
           </div>
         </div>
 
         <div class="legend">
-          <span><i class="dotmark" style="background:var(--true)"></i> e_v (true)</span>
-          <span><i class="dotmark" style="background:var(--rival)"></i> e_u (rival)</span>
-          <span><i class="dotmark" style="background:var(--ok)"></i> noisy Y &rarr; decoded correctly</span>
-          <span><i class="dotmark" style="background:var(--bad)"></i> noisy Y &rarr; decoded wrong</span>
+          <span><i class="dotmark is-true"></i> e_v (true)</span>
+          <span><i class="dotmark is-rival"></i> e_u (rival)</span>
+          <span><i class="dotmark is-ok"></i> noisy Y &rarr; decoded correctly</span>
+          <span><i class="dotmark is-bad"></i> noisy Y &rarr; decoded wrong</span>
           <span>&#8212;&#8212; decision boundary (perpendicular bisector)</span>
         </div>
 
@@ -369,7 +424,7 @@
     <p class="lede">Two information-theoretic quantities, both computed from the table geometry + &#963; <em>without ever
       running the attack</em>, sandwich the BNN error:</p>
     <table class="spec">
-      <tr><th style="width:21%">quantity</th><th>units</th><th>what it says</th></tr>
+      <tr><th class="w21">quantity</th><th>units</th><th>what it says</th></tr>
       <tr><td><b>equivocation H(V|Y)</b><br>= log&#8322;K &minus; I(V;Y)</td><td>bits</td>
         <td>how many bits of the token stay hidden after seeing Y — i.e. the <em>matching ambiguity</em>. Fano turns it into
           a <em>lower</em> bound on any attacker's error: <code>P&#8341;&#7497; &ge; (H(V|Y)&minus;1)/log&#8322;(K&minus;1)</code>.</td></tr>
@@ -629,10 +684,10 @@ const PAIRS=[ // legible subset of top_confusable_pairs, results/bnn_error_bound
   const sig=sigmaOf(16);
   const rows=PAIRS.map(p=>{ const err=Phi(-p[2]/(2*sig)); return {a:p[0],b:p[1],d:p[2],err}; });
   const maxErr=Math.max(...rows.map(r=>r.err));
-  let html='<table class="spec"><tr><th>pair (token ↔ near-twin)</th><th class="n">gap ‖Δ‖</th><th class="n">per-pair err @ε=16</th><th style="width:34%">&nbsp;</th></tr>';
+  let html='<table class="spec"><tr><th>pair (token ↔ near-twin)</th><th class="n">gap ‖Δ‖</th><th class="n">per-pair err @ε=16</th><th class="w34">&nbsp;</th></tr>';
   rows.forEach(r=>{ const w=(r.err/maxErr*100).toFixed(0);
     html+='<tr><td><code>'+r.a+'</code> ↔ <code>'+r.b+'</code></td><td class="n">'+r.d.toFixed(3)+'</td>'
-      +'<td class="n">'+r.err.toFixed(3)+'</td><td><div style="height:11px;background:var(--bad);width:'+w+'%"></div></td></tr>'; });
+      +'<td class="n">'+r.err.toFixed(3)+'</td><td><div class="bar" style="width:'+w+'%"></div></td></tr>'; });
   html+='</table><p class="cap">A typical rival (gap 5.86) at the same noise contributes error '
     +Phi(-5.86/(2*sig)).toExponential(1)+' — i.e. nothing. Only these near-twins matter.</p>';
   document.getElementById('pairsFig').innerHTML=html;

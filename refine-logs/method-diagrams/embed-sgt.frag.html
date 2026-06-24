@@ -1,0 +1,81 @@
+<div class="diagram-frame">
+  <div class="diagram-cap">
+    <span class="l">FIG. 01 — pooled GTR embedding → SGT shaped noise (shape axis at matched budget) → Vec2Text inversion</span>
+    <span>navy = data owner (trusted) · plum = SGT defense · slate = adversary · amber = leak · adapted from §02/§03 (Stained Glass Transform)</span>
+  </div>
+  <svg class="flow" viewBox="0 0 1320 430" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+      </marker>
+    </defs>
+    <!-- ZONES -->
+    <rect x="0"    y="40"  width="430" height="370" class="zone-band zone-band-client"/>
+    <rect x="430"  y="40"  width="340" height="370" class="zone-band zone-band-crypto"/>
+    <rect x="770"  y="40"  width="550" height="370" class="zone-band zone-band-gpu"/>
+    <text x="20"  y="62" class="zone-label">Data owner — trusted</text>
+    <text x="20"  y="78" class="zone-sublabel">holds text X · runs frozen GTR encoder φ</text>
+    <text x="450" y="62" class="zone-label">SGT defense (external Transform)</text>
+    <text x="450" y="78" class="zone-sublabel">shaped diagonal noise N(0,D) at budget I_G</text>
+    <text x="790" y="62" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
+    <text x="790" y="78" class="zone-sublabel">has φ + pretrained inverter · sees only e′</text>
+    <line x1="430" y1="40" x2="430" y2="410" class="boundary"/>
+    <line x1="770" y1="40" x2="770" y2="410" class="boundary"/>
+    <text x="774" y="406" class="boundary-label">release (e′ crosses to adversary)</text>
+
+    <!-- OWNER -->
+    <rect x="20" y="150" width="180" height="70" class="box box-strong box-client"/>
+    <text x="34" y="174" class="box-label">secret text X</text>
+    <text x="34" y="192" class="box-sub">token sequence behind e₀</text>
+    <rect x="230" y="150" width="180" height="70" class="box box-client"/>
+    <text x="244" y="174" class="box-label">① mean-pool e₀</text>
+    <text x="244" y="192" class="box-sub">frozen GTR · e₀ ∈ ℝ⁷⁶⁸</text>
+
+    <!-- SGT DEFENSE (shape axis is the locus) -->
+    <rect x="445" y="120" width="310" height="146" class="box box-strong box-crypto"/>
+    <text x="459" y="142" class="box-label">② add shaped noise N(0,D)</text>
+    <text x="459" y="160" class="box-mono">e′ = e₀ + N(0, D)  · D diagonal</text>
+    <text x="459" y="178" class="box-sub">shape axis @ matched budget I_G (= vᵢ per λᵢ):</text>
+    <text x="459" y="196" class="box-sub">· isotropic — equal vᵢ all directions</text>
+    <text x="459" y="214" class="box-sub">· utility-optimal — reverse water-filling (SGT loss)</text>
+    <text x="459" y="232" class="box-sub warn">· tail-loaded — noise on low-energy tail (adversarial)</text>
+    <text x="459" y="252" class="box-mono">budget I_G=½Σ log₂(1+λᵢ/vᵢ) · cost Σvᵢ</text>
+
+    <!-- ADVERSARY: vec2text corrector -->
+    <rect x="800" y="150" width="240" height="92" class="box box-strong box-gpu"/>
+    <text x="814" y="174" class="box-label">④ Vec2Text corrector</text>
+    <text x="814" y="192" class="box-sub">pretrained iterative inverter (unchanged)</text>
+    <text x="814" y="210" class="box-mono">re-embed φ(h_t) · correct toward e′</text>
+    <text x="814" y="228" class="box-sub">Morris et al. 2023</text>
+
+    <rect x="1080" y="150" width="225" height="92" class="box box-strong box-gpu box-warn"/>
+    <text x="1094" y="174" class="box-label warn">recovered text x̂</text>
+    <text x="1094" y="192" class="box-sub">token-F1 / exact-match</text>
+    <text x="1094" y="210" class="box-sub">positional-acc / cosine</text>
+    <text x="1094" y="228" class="box-mono">recovery varies by shape</text>
+
+    <!-- PROBE annotation -->
+    <rect x="800" y="282" width="240" height="106" class="box box-crypto" style="opacity:.92;"/>
+    <text x="814" y="304" class="box-label">probe I_G(D) — geometry-only · no attack</text>
+    <text x="814" y="322" class="box-mono">½ log₂ det(I + D⁻½ Σ D⁻½)</text>
+    <text x="814" y="340" class="box-sub">closed-form from Σ, D · never runs the attack</text>
+    <text x="814" y="358" class="box-sub">three shapes agree in I_G to 2.3×10⁻¹³ bits</text>
+    <text x="814" y="378" class="box-sub warn">equal budget ≠ equal recovery (valid ceiling, not predictor)</text>
+
+    <!-- ARROWS -->
+    <path d="M200 185 L230 185" class="arrow arrow-secret" marker-end="url(#ah)"/>
+    <text x="206" y="178" class="arrow-label secret">X</text>
+    <path d="M410 185 L445 185" class="arrow arrow-secret" marker-end="url(#ah)"/>
+    <text x="416" y="178" class="arrow-label secret">e₀</text>
+    <path d="M755 180 L800 188" class="arrow arrow-masked" marker-end="url(#ah)"/>
+    <text x="600" y="106" class="arrow-label masked">③ release e′ (noisy embedding)</text>
+    <path d="M1040 196 L1080 196" class="arrow arrow-warn" marker-end="url(#ah)"/>
+    <text x="1046" y="188" class="arrow-label warn">x̂</text>
+    <!-- attack re-embed loop arm -->
+    <path d="M820 242 C800 270 800 200 800 196" class="arrow arrow-masked" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
+    <text x="676" y="262" class="arrow-label masked">φ query (re-embed h_t)</text>
+    <!-- probe arm: e′ to probe box -->
+    <path d="M770 200 C792 240 800 300 800 320" class="arrow arrow-masked" marker-end="url(#ah)"/>
+    <text x="782" y="288" class="arrow-label masked">e′ → Σ, D</text>
+  </svg>
+</div>

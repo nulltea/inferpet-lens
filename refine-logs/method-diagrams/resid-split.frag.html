@@ -1,0 +1,101 @@
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — split-inference · residual at the cut → PriPert (sparsify+perturb) → released activation → ridge/mlp2 vs I_G+Fano probe</span>
+        <span>navy = client (layers ≤ cut + PriPert) · plum = PriPert defense · slate = adversary (WEIGHTS-PUB) · amber = recovery</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 430" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Client runs Qwen3-4B up to the split layer and applies PriPert (sparsify top-rho, add beta-scaled Gaussian noise, release); the adversary holding public weights and the embedding table inverts the released activation with ridge or mlp2 to a recovered token, while a geometry-only I_G + Fano probe bounds recovery without an inverter">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <!-- ZONES -->
+        <rect x="0"   y="40" width="270" height="370" class="zone-band zone-band-client"/>
+        <rect x="270" y="40" width="250" height="370" class="zone-band zone-band-crypto"/>
+        <rect x="520" y="40" width="800" height="370" class="zone-band zone-band-gpu"/>
+        <text x="18"  y="62" class="zone-label">Client — trusted</text>
+        <text x="18"  y="78" class="zone-sublabel">runs Qwen3-4B layers ≤ cut · L∈{0,8,16,24}</text>
+        <text x="288" y="62" class="zone-label">PriPert defense (external Transform)</text>
+        <text x="288" y="78" class="zone-sublabel">sparsify top-ρ, then add β·scale noise</text>
+        <text x="538" y="62" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
+        <text x="538" y="78" class="zone-sublabel">has weights + embedding table φ · sees only defended activation</text>
+        <line x1="270" y1="40" x2="270" y2="410" class="boundary"/>
+        <line x1="520" y1="40" x2="520" y2="410" class="boundary"/>
+        <text x="524" y="406" class="boundary-label">release at cut (③ defended activation a′ crosses)</text>
+
+        <!-- CLIENT -->
+        <rect x="14" y="120" width="240" height="74" class="box box-strong box-client"/>
+        <text x="28" y="144" class="box-label">secret token at position</text>
+        <text x="28" y="162" class="box-sub">graded target = token embedding</text>
+        <text x="28" y="180" class="box-mono">readout: top-1 table retrieval</text>
+
+        <rect x="14" y="232" width="240" height="74" class="box box-client"/>
+        <text x="28" y="256" class="box-label">layers ≤ cut</text>
+        <text x="28" y="274" class="box-sub">block residual, one vec / position</text>
+        <text x="28" y="292" class="box-mono">a ∈ ℝ^d  at split L</text>
+
+        <!-- PRIPERT (defense, two numbered loci) -->
+        <rect x="282" y="120" width="226" height="84" class="box box-strong box-crypto"/>
+        <text x="296" y="144" class="box-label">① sparsify — locus ρ</text>
+        <text x="296" y="162" class="box-mono">keep top-ρ coords / row</text>
+        <text x="296" y="180" class="box-sub">zero smallest · ρ∈{1, .25, .05}</text>
+        <text x="296" y="197" class="box-sub">ρ=1 = plaintext anchor</text>
+
+        <rect x="282" y="232" width="226" height="84" class="box box-strong box-crypto"/>
+        <text x="296" y="256" class="box-label">② perturb — locus β</text>
+        <text x="296" y="274" class="box-mono">a′ = sparse(a) + N(0, (β·s)²I)</text>
+        <text x="296" y="292" class="box-sub">s = plaintext row scale (fixed / L)</text>
+        <text x="296" y="309" class="box-sub">β∈{0, .25, .5, 1, 2} · 32 settings</text>
+
+        <!-- ADVERSARY: attack arm (inverters → recovered token) -->
+        <rect x="556" y="118" width="232" height="78" class="box box-strong box-gpu"/>
+        <text x="570" y="142" class="box-label">inverter — ridge / mlp2</text>
+        <text x="570" y="160" class="box-sub">cos-NN (memorization baseline)</text>
+        <text x="570" y="178" class="box-mono">â = g(a′) → token via φ</text>
+
+        <rect x="852" y="118" width="232" height="78" class="box box-strong box-gpu box-warn"/>
+        <text x="866" y="142" class="box-label warn">recovered token</text>
+        <text x="866" y="160" class="box-sub warn">selectivity = real − shuffle floor</text>
+        <text x="866" y="178" class="box-mono">vocab-disjoint · boot 95%</text>
+
+        <!-- ADVERSARY: probe arm (I_G + Fano, CLUB) -->
+        <rect x="556" y="262" width="240" height="98" class="box box-gpu" style="opacity:.92;"/>
+        <text x="570" y="286" class="box-label">probe I_G — geometry-only · no inverter</text>
+        <text x="570" y="304" class="box-mono">½Σ log₂(1+λᵢ/(β·s)²)</text>
+        <text x="570" y="322" class="box-sub">λᵢ from sparsified Cov + noise level</text>
+        <text x="570" y="340" class="box-sub">⇒ Fano accuracy ceiling on recovery</text>
+        <text x="570" y="356" class="box-sub">secondary: CLUB upper bound I(a′;φ)</text>
+
+        <rect x="852" y="278" width="232" height="66" class="box box-gpu"/>
+        <text x="866" y="302" class="box-label">bits → Fano ceiling</text>
+        <text x="866" y="320" class="box-sub">caps selectivity vs sweep</text>
+        <text x="866" y="336" class="box-mono">I_G + Fano · CLUB</text>
+
+        <!-- ARROWS -->
+        <!-- secret → layers -->
+        <path d="M134 194 L134 232" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="140" y="218" class="arrow-label secret">token</text>
+        <!-- layers → sparsify (a into PriPert) -->
+        <path d="M254 261 C268 240 268 175 282 162" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="222" y="220" class="arrow-label secret">a</text>
+        <!-- ① sparsify → ② perturb -->
+        <path d="M395 204 L395 232" class="arrow" marker-end="url(#ah)"/>
+        <text x="400" y="222" class="arrow-label">sparse(a)</text>
+        <!-- ② perturb → release across boundary (defended activation) -->
+        <path d="M508 274 C534 274 534 157 556 157" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="404" y="112" class="arrow-label masked">③ release defended activation a′</text>
+        <!-- a′ also feeds the probe arm -->
+        <path d="M508 296 C534 296 534 311 556 311" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="450" y="334" class="arrow-label masked">a′</text>
+        <!-- inverter → recovered token (warn) -->
+        <path d="M788 157 L852 157" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="800" y="148" class="arrow-label warn">â → token</text>
+        <!-- probe → bits/Fano ceiling -->
+        <path d="M796 311 L852 311" class="arrow" marker-end="url(#ah)"/>
+        <text x="804" y="302" class="arrow-label">I_G bits</text>
+        <!-- Fano ceiling bounds recovery (probe arm → recovered-token box) -->
+        <path d="M968 278 L968 196" class="arrow" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
+        <text x="974" y="240" class="arrow-label">ceilings selectivity</text>
+      </svg>
+    </div>

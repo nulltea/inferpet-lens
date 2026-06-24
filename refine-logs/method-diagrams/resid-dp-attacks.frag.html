@@ -1,0 +1,107 @@
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — input-embedding DP (ε locus) propagated to depth L · ridge / Bayes-NN / decoder vs CLUB / V_cap / SDL</span>
+        <span>navy = client (forms embedding, applies DP, runs model) · plum = ε DP locus · slate = adversary (WEIGHTS-PUB) · amber = recovery · adapted from §03 Method — the measurement loop, two noise geometries</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 430" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+
+        <!-- ZONES -->
+        <rect x="0"   y="40" width="850" height="370" class="zone-band zone-band-client"/>
+        <rect x="850" y="40" width="470" height="370" class="zone-band zone-band-gpu"/>
+        <text x="20"  y="62" class="zone-label">Client — trusted (data owner)</text>
+        <text x="20"  y="78" class="zone-sublabel">forms input embedding · applies DP at L0 · runs the transformer to depth L</text>
+        <text x="870" y="62" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
+        <text x="870" y="78" class="zone-sublabel">has φ + weights · knows ε, (C,σ) · inverts released depth-L residual</text>
+
+        <!-- ε DP locus sub-band inside the client zone -->
+        <rect x="245" y="100" width="245" height="250" class="zone-band zone-band-crypto" style="opacity:.5;"/>
+        <text x="258" y="120" class="zone-sublabel">ε DP locus (Gaussian mechanism on L0 embedding)</text>
+
+        <!-- BOUNDARY -->
+        <line x1="850" y1="40" x2="850" y2="410" class="boundary"/>
+        <text x="854" y="406" class="boundary-label">release (depth-L residual r_L crosses to adversary)</text>
+
+        <!-- CLIENT: ① input embedding -->
+        <rect x="20" y="150" width="200" height="80" class="box box-strong box-client"/>
+        <text x="34" y="174" class="box-label">① input embedding</text>
+        <text x="34" y="192" class="box-sub">tokens t → e₀ ∈ ℝ^d at L0</text>
+        <text x="34" y="212" class="box-mono">secret = tokens behind e₀</text>
+
+        <!-- ② DP mechanism (ε locus) -->
+        <rect x="255" y="150" width="225" height="92" class="box box-strong box-crypto"/>
+        <text x="269" y="174" class="box-label">② DP mechanism (ε locus)</text>
+        <text x="269" y="192" class="box-mono">e₀ ← clip(e₀, C)</text>
+        <text x="269" y="210" class="box-mono">e′ = e₀ + N(0, σ²I)</text>
+        <text x="269" y="230" class="box-sub">σ = C·z/ε · smaller ε → more noise · sweep ε</text>
+
+        <!-- ③ propagate to depth L -->
+        <rect x="520" y="150" width="220" height="92" class="box box-strong box-client"/>
+        <text x="534" y="174" class="box-label">③ propagate to depth L</text>
+        <text x="534" y="192" class="box-mono">r_L = f_{1..L}(e′)</text>
+        <text x="534" y="210" class="box-sub">noise mixes through L layers</text>
+        <text x="534" y="230" class="box-sub">WHERE noise enters changes the answer</text>
+
+        <!-- ④ release point (residual leaving the zone) -->
+        <rect x="755" y="160" width="80" height="72" class="box box-strong box-client"/>
+        <text x="769" y="184" class="box-label">④ release</text>
+        <text x="769" y="202" class="box-sub">surface</text>
+        <text x="769" y="220" class="box-mono">r_L</text>
+
+        <!-- ADVERSARY: attack path — three series -->
+        <rect x="875" y="92" width="270" height="118" class="box box-strong box-gpu"/>
+        <text x="889" y="114" class="box-label">attack — three series (plot together)</text>
+        <text x="889" y="134" class="box-mono">ridge — linear decoder</text>
+        <text x="889" y="152" class="box-mono">Bayes-NN — exact / optimal decoder</text>
+        <text x="889" y="170" class="box-mono">decoder — learned (stronger attack)</text>
+        <text x="889" y="190" class="box-sub">readout = graded recovery (token recovery / selectivity)</text>
+
+        <!-- recovered token (warn) -->
+        <rect x="1165" y="100" width="140" height="102" class="box box-strong box-gpu box-warn"/>
+        <text x="1179" y="124" class="box-label warn">recovered token t̂</text>
+        <text x="1179" y="142" class="box-sub">token-F1 /</text>
+        <text x="1179" y="160" class="box-sub">selectivity</text>
+        <text x="1179" y="180" class="box-mono">vs source t</text>
+        <text x="1179" y="196" class="box-sub">best decoder wins</text>
+
+        <!-- PROBE path — CLUB / V_cap / SDL -->
+        <rect x="875" y="240" width="430" height="118" class="box box-gpu" style="opacity:.92;"/>
+        <text x="889" y="262" class="box-label">probe path — bits (no attack · geometry / channel-matched)</text>
+        <text x="889" y="282" class="box-mono">CLUB — MI upper bound I(rep;tok)   at-layer ρ = +1.00</text>
+        <text x="889" y="300" class="box-mono">V_cap — capacity-matched predictive V-info   ρ = +1.00</text>
+        <text x="889" y="318" class="box-mono">SDL — surplus description length   ρ = +0.80 (auxiliary)</text>
+        <text x="889" y="338" class="box-sub">SDL noisier + 6–7× costlier → auxiliary · computed WITHOUT running the attack</text>
+
+        <!-- THREE REGIMES annotation (the central finding) -->
+        <rect x="20" y="278" width="700" height="116" class="box box-client" style="opacity:.92;"/>
+        <text x="34" y="300" class="box-label">three regimes — WHERE the noise enters changes the answer</text>
+        <text x="34" y="320" class="box-sub">at-layer noise: ridge tracks MI ρ=1.0 · stronger MLP does NOT help — no gap (ridge near-sufficient)</text>
+        <text x="34" y="338" class="box-sub">L0 input-DP: ridge still tracks (+0.76..+0.88) but recovery COLLAPSES · Bayes-NN uplift +0.98 — ceiling-realization gap</text>
+        <text x="34" y="356" class="box-sub warn">propagated @depth: ridge ANTI-correlates (−0.09) · stronger DECODER re-correlates (+0.83) — the open regime</text>
+        <text x="34" y="376" class="box-sub">information preserved through propagation; only the exact / stronger decoder extracts it</text>
+
+        <!-- ARROWS -->
+        <!-- ① → ② -->
+        <path d="M220 190 L255 191" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="226" y="183" class="arrow-label secret">e₀</text>
+        <!-- ② → ③ -->
+        <path d="M480 191 L520 191" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="486" y="183" class="arrow-label masked">e′ (DP'd L0)</text>
+        <!-- ③ → ④ : propagation -->
+        <path d="M740 191 L755 192" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="612" y="138" class="arrow-label masked">propagate L0 → depth L</text>
+        <!-- ④ release → attack path -->
+        <path d="M835 184 L875 150" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="846" y="132" class="arrow-label masked">r_L released</text>
+        <!-- ④ release → probe path -->
+        <path d="M835 210 C855 250 856 280 875 295" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="848" y="278" class="arrow-label masked">r_L (probe)</text>
+        <!-- attack → recovered token -->
+        <path d="M1145 151 L1165 151" class="arrow arrow-warn" marker-end="url(#ah)"/>
+        <text x="1148" y="143" class="arrow-label warn">t̂</text>
+      </svg>
+    </div>
