@@ -36,12 +36,17 @@ case "$cmd" in
     if [ -n "$(port_pid)" ]; then
       echo "http server already running on 127.0.0.1:$port (pid $(port_pid))"
     else
-      ( cd "$docroot" && nohup python3 -c "import http.server,socketserver
+      ( nohup python3 -c "import http.server,socketserver,functools
 class H(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Cache-Control','no-store, max-age=0'); super().end_headers()
 socketserver.TCPServer.allow_reuse_address=True
-with socketserver.TCPServer(('127.0.0.1',$port),H) as s: s.serve_forever()" >/tmp/talens-docs-http.$port.log 2>&1 & )
+# Bind the document root ABSOLUTELY (not via cwd): SimpleHTTPRequestHandler falls back to
+# os.getcwd() per request when directory is None, which throws FileNotFoundError (-> empty
+# reply -> tailscale 502) if the process's cwd inode is later removed/replaced (e.g. a git
+# checkout or dir rewrite under it).
+handler=functools.partial(H, directory='$docroot')
+with socketserver.TCPServer(('127.0.0.1',$port),handler) as s: s.serve_forever()" >/tmp/talens-docs-http.$port.log 2>&1 & )
       sleep 1; echo "http server (no-store) on 127.0.0.1:$port (pid $(port_pid)) serving $docroot"
     fi
     if ! tailscale serve --bg "--$scheme=$pub_port" "$port"; then
