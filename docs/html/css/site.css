@@ -712,6 +712,16 @@ svg.plot .plot-point {
 svg.plot .plot-point.b {
   fill: var(--warn);
 }
+/* .c = third series (used only where a page overlays 3 series, e.g. sgt noise shapes);
+   distinguished by a dotted dash AND a hollow marker, not hue alone (accessibility) */
+svg.plot .plot-line.c {
+  stroke: var(--ink-3);
+  stroke-dasharray: 1.5 3;
+}
+svg.plot .plot-point.c {
+  fill: var(--paper);
+  stroke: var(--ink-3);
+}
 svg.plot .point-label {
   fill: var(--ink-2);
   font-size: 9.5px;

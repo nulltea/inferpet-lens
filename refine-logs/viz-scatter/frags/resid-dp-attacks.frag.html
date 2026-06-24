@@ -1,0 +1,65 @@
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · A1 — L0 input-DP · ridge vs exact Bayes-NN against CLUB bits</span><span class="r">source: results/b2_l0_bayes.json · N=8</span></div>
+      <svg class="plot" viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scatter of CLUB leakage bits against top-1 recovery over the L0 input-DP epsilon sweep, with ridge and exact Bayes-NN attack series; ridge collapses as the CLUB bits fall while Bayes-NN holds flat at the L0 ceiling, and ridge still tracks CLUB at Spearman plus 0.76.">
+        <title>L0 input-DP: ridge collapses while Bayes-NN holds the ceiling as CLUB bits fall (ridge ρ=+0.76)</title>
+        <!-- gridlines -->
+        <line class="gridline" x1="269" y1="20" x2="269" y2="384"/>
+        <line class="gridline" x1="451" y1="20" x2="451" y2="384"/>
+        <line class="gridline" x1="633" y1="20" x2="633" y2="384"/>
+        <line class="gridline" x1="64" y1="384" x2="656" y2="384"/>
+        <line class="gridline" x1="64" y1="280" x2="656" y2="280"/>
+        <line class="gridline" x1="64" y1="176" x2="656" y2="176"/>
+        <line class="gridline" x1="64" y1="72" x2="656" y2="72"/>
+        <!-- axes -->
+        <line class="axis" x1="64" y1="20" x2="64" y2="384"/>
+        <line class="axis" x1="64" y1="384" x2="656" y2="384"/>
+        <!-- x ticks -->
+        <line class="tick" x1="87" y1="384" x2="87" y2="389"/>
+        <text class="tick-label" x="87" y="401" text-anchor="middle">1900</text>
+        <line class="tick" x1="269" y1="384" x2="269" y2="389"/>
+        <text class="tick-label" x="269" y="401" text-anchor="middle">2300</text>
+        <line class="tick" x1="451" y1="384" x2="451" y2="389"/>
+        <text class="tick-label" x="451" y="401" text-anchor="middle">2700</text>
+        <line class="tick" x1="633" y1="384" x2="633" y2="389"/>
+        <text class="tick-label" x="633" y="401" text-anchor="middle">3100</text>
+        <!-- y ticks -->
+        <line class="tick" x1="60" y1="384" x2="64" y2="384"/>
+        <text class="tick-label" x="56" y="387" text-anchor="end">0</text>
+        <line class="tick" x1="60" y1="280" x2="64" y2="280"/>
+        <text class="tick-label" x="56" y="283" text-anchor="end">.20</text>
+        <line class="tick" x1="60" y1="176" x2="64" y2="176"/>
+        <text class="tick-label" x="56" y="179" text-anchor="end">.40</text>
+        <line class="tick" x1="60" y1="72" x2="64" y2="72"/>
+        <text class="tick-label" x="56" y="75" text-anchor="end">.60</text>
+        <!-- series: Bayes-NN (exact) -->
+        <polyline class="plot-line" points="92,63 416,63 561,63 612,63 624,63 626,63 626,63 627,63"/>
+        <circle class="plot-point" cx="92" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="416" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="561" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="612" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="624" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="626" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="626" cy="63" r="4.5"/>
+        <circle class="plot-point" cx="627" cy="63" r="4.5"/>
+        <!-- series: ridge (linear) -->
+        <polyline class="plot-line b" points="92,376 416,300 561,63 612,63 624,63 626,63 626,63 627,63"/>
+        <circle class="plot-point b" cx="92" cy="376" r="4.5"/>
+        <circle class="plot-point b" cx="416" cy="300" r="4.5"/>
+        <circle class="plot-point b" cx="561" cy="63" r="4.5"/>
+        <circle class="plot-point b" cx="612" cy="63" r="4.5"/>
+        <circle class="plot-point b" cx="624" cy="63" r="4.5"/>
+        <circle class="plot-point b" cx="626" cy="63" r="4.5"/>
+        <circle class="plot-point b" cx="626" cy="63" r="4.5"/>
+        <circle class="plot-point b" cx="627" cy="63" r="4.5"/>
+        <!-- point labels -->
+        <text class="point-label" x="619" y="55" text-anchor="end">ε=∞</text>
+        <text class="point-label" x="100" y="380" text-anchor="start">ε=128</text>
+        <text class="stat-badge" x="648" y="50" text-anchor="end">ρ = +0.76</text>
+        <text class="stat-sub" x="648" y="64" text-anchor="end">Spearman · ridge vs CLUB</text>
+        <text class="stat-badge" x="648" y="84" text-anchor="end">Bayes flat</text>
+        <text class="stat-sub" x="648" y="98" text-anchor="end">holds the L0 ceiling</text>
+        <text class="axis-label" x="360" y="423" text-anchor="middle">CLUB — variational MI upper bound (bits)</text>
+        <text class="axis-label" x="20" y="202" text-anchor="middle" transform="rotate(-90 20 202)">recovery — top-1 (TTRSR)</text>
+      </svg>
+      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">As input-DP noise grows the <code>CLUB</code> ceiling decays only ~38%, but the weak <strong>ridge</strong> attack (amber) collapses about 39× to near zero, yet still tracks <code>CLUB</code> at ρ=+0.76: a ceiling-realization gap, not decorrelation. The exact <strong>Bayes-NN</strong> (navy) holds flat at the L0 ceiling: the preserved information is there, and only the stronger attack extracts it. All coordinates and the ρ come from <code>b2_l0_bayes.json</code> (gemma-2-2b, L0).</span></div>
+    </div>

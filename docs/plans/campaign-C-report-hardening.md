@@ -209,7 +209,7 @@ scope (pages with paired sweep data): resid-split, resid-depth-inversion, resid-
 
 steps: (a) for each page, extract the `(bits, recovery)` pairs from its results JSON; (b) render the A1 scatter into the Results/Measures section; (c) where multiple attacks exist, overlay series; (d) cross-check each plotted ρ against the number already stated in the page's prose (they must match); (e) cleanup pass.
 acceptance: each in-scope page carries a compliant A1 scatter whose annotated ρ matches the page's stated correlation; multi-attack pages overlay their attack series; all render without JS with JSON provenance; cleanup pass run.
-- [ ] run-phase: c10-viz-scatter
+- [x] run-phase: c10-viz-scatter
 
 ### Task 10: visual reporting Phase 2 — A2 layer×param heatmap + A5 eigenspectrum/noise-floor
 recipe: consolidate

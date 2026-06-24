@@ -1,82 +1,40 @@
-# Auto Review — Block-C visual-reporting Phase 0 (plotting harness)
+# Auto Review — Task 9 (c10-viz-scatter): A1 bits-vs-recovery scatter rollout
 
-Surface: viz-harness · run_id c9-viz-harness · backend codex (xhigh) · difficulty medium
+Reviewer: Codex / gpt-5.5 (xhigh), thread 019efbe7. Backend: codex (medium difficulty).
 
-## Round 1 (2026-06-25)
+## Round 1 — Score 5/10 — not ready
+Critical: (1) resid-dp-attacks badge +0.76 did not match the 3 plotted monotone points (ρ=+1.0);
+(2) resid-split plotted ridge but labelled badge "best recovery"; (3) plots inserted into invalid
+DOM positions (inside <tbody> / mid-<p>); (4) contrast classes emitted as `class="plot-point.b"`
+(dotted) instead of space-separated, breaking styling; (5) synthesis omission note hid the V_cap
+−0.21 depth tail; (6) sgt "within each shape monotone" overstated (tail-loaded ρ=−0.20).
 
-### Assessment (Summary)
-- Score: 8/10
-- Verdict: almost
-- Key criticisms: no data-fidelity defect (reviewer independently re-derived all five A1 SVG
-  coordinates + the 479-bit cap line and confirmed they match the JSON and the B8 table; ρ=+1.00
-  matches `c1_spearman` and B9). Two stale documentation cross-references would weaken reuse:
-  (1) STYLE.md `.diagram-frame` bullet still allowed a `/paper-figure` bits-vs-recovery plot,
-  conflicting with the new `.plot-frame` rule; (2) DIAGRAM-STYLE.md still said data plots follow
-  `paper-figure`, not PLOT-STYLE.md.
+## Round 2 — Score 7/10 — almost (gate threshold met: ≥6 AND almost/ready)
+Fixed all six. dp-attacks now sources every coordinate AND ρ from one file (b2_l0_bayes.json, 8
+club-bits rows; Spearman recomputes to 0.7638 = +0.76). resid-split primary = best recovery (+0.96).
+DOM placement valid. Classes space-separated. Synthesis surfaces −0.21. sgt wording corrected.
+Remaining: dp plot not matching adjacent R1 table; resid-split mlp2 badge +0.92 not reproducing
+from plotted points; sgt aria still overstated; synthesis manual provenance.
 
-### Reviewer Raw Response
+## Round 3 — Score 8/10 — almost (FINAL)
+dp-attacks plot RELOCATED to end of §5 Results (decoupled from the R1 l0_fast table), source note
+present. resid-split mlp2 +0.92 badge removed (only the reproducing +0.96 best badge remains; mlp2
+shown as amber series, described qualitatively). sgt aria-label corrected. synthesis caption marks
+"source: §02 overview table". Reviewer confirmed every annotated ρ recomputes from the cited JSON
+(split best 0.956→+0.96, depth +0.85, dp +0.7638→+0.76, sgt across-shape 0.4816→+0.48, kv 0.7058→
++0.71 / channel-mean 0.7714→+0.77). All 6 plot SVGs XML-valid, no-JS, role/aria/title present, no
+dotted classes, clean DOM placement. Final residual: removed the +0.92 mention entirely after the
+round-3 review (strictly the reviewer's requested fix — committed state ⊇ reviewed state).
 
-<details>
-<summary>Click to expand full reviewer response</summary>
-
-**Findings**
-No blocking data-fidelity defect found. The A1 SVG maps the displayed B8 values correctly:
-
-- `1597 / 0.80` → `(620.13, 92.8)` → SVG `(620,93)`
-- `312 / 0.45` → `(172.65, 220.2)` → SVG `(173,220)`
-- `220 / 0.30` → `(140.61, 274.8)` → SVG `(141,275)`
-- `135 / 0.16` → `(111.01, 325.76)` → SVG `(111,326)`
-- `68 / 0.09` → `(87.68, 351.24)` → SVG `(88,351)`
-
-The 479-bit accessible-cap line maps to `x=230.86`, rendered as `231`, so that is correct. The
-sweep polyline is in order `∞ → 1024 → 512 → 256 → 128`. JSON `c1_spearman.token_f1.i_g` is
-`0.9999999999999999`, matching B9 and the plot’s `ρ = +1.00`.
-
-Main remaining weakness: STYLE.md:111 still says `.diagram-frame` may contain a `/paper-figure`
-plot with `.diagram-cap`, which conflicts with the new `.plot-frame` rule at STYLE.md:116.
-Minimum fix: rewrite the `.diagram-frame` bullet to method diagrams only, and point all
-result/data plots to `.plot-frame`.
-
-Minor cleanup: DIAGRAM-STYLE.md:13 still says data plots follow `paper-figure`, not
-`PLOT-STYLE.md`. Minimum fix: update that row/line to say data plots follow `PLOT-STYLE.md`.
-
-**Score**
-8/10. The harness and reference plot satisfy the acceptance criteria, and the arithmetic checks
-out. The only real problem is documentation ambiguity that could weaken reuse.
-
-**Verdict**
-Almost. Data and SVG are ready; clean up the two stale doc references before calling Phase 0
-fully ready.
-
-</details>
-
-### Actions Taken
-- STYLE.md: rewrote the `.diagram-frame` bullet to method/architecture diagrams only; result plots
-  (bits-vs-recovery, sweeps, tradeoff frontiers) now explicitly route to `.plot-frame`.
-- DIAGRAM-STYLE.md: the "Data plot" row and the governing-scope line now point to `PLOT-STYLE.md`
-  (the `.plot-frame` idiom), not `paper-figure`.
-
-### Results
-- Both flagged weaknesses (the only items above the passing bar) addressed; no data/SVG change was
-  required (the reviewer certified the plot arithmetic and ρ exact).
-
-### Status
-- Stopping: score 8/10 ≥ 6 AND verdict "almost" ∈ {ready, almost} → positive threshold met at
-  round 1; the two doc fixes were implemented post-verdict to close the noted ambiguity.
-- Difficulty: medium
+Verdict: score 8/10, almost → PASSES the report-quality gate (≥6 AND verdict ∈ {ready, almost}).
 
 ## Method Description
-
-Phase 0 builds the shared result-plot harness reused by Block-C Tasks 9–12. It adds a `.plot-frame`
-CSS vocabulary to `css/site.css` (mirroring `.diagram-frame`): margined axes (`.axis`/`.tick`/
-`.gridline`), data series (`.plot-line`/`.plot-point`, with a `.b` contrast variant), reference
-lines (`.ref-line`), a rank-correlation badge (`.stat-badge`), heatmap cells (`.cell`) and a
-`.colorbar`, plus `:root` color ramps (sequential `--ramp-0..5`, diverging `--div-neg`/`--div-pos`,
-and a trust-zone-neutral `--plot-series`). The idiom is documented in `docs/html/PLOT-STYLE.md`
-(linked from `STYLE.md`): the five Group-A plot types, axis rules (x = attack-independent quantity,
-y = consequence; canonical probe names; legible per-secret readouts), the no-JS / D3-only-on-R2-
-trigger policy, and accessibility. The reference implementation is the A1 bits-vs-recovery scatter
-on `vec2text.html` §07: inline SVG, x = `I_G` (Gaussian channel-capacity MI ceiling, bits), y =
-token-F1 recovery, one point per DP ε, polyline in sweep order, Spearman ρ=+1.00 annotated,
-accessible-cap reference line at 479 bits, provenance `results/spectral_mi_probe_eval.json`. No GPU;
-renders existing on-disk measurement.
+Task 9 rolled the Task-8 "A1" inline-SVG bits-vs-recovery scatter primitive (viewBox 680×440, plot
+box x∈[64,656] y∈[20,384], `.plot-frame`/`.plot-line[.b]`/`.plot-point[.b/.c]`/`.stat-badge`/
+`.ref-line`) across the five surface pages with paired (bits,recovery) sweep data and added a
+cross-surface matched-probe ρ-summary dot plot to synthesis.html. A single generator
+(refine-logs/viz-scatter/gen_scatters.py) reads each surface's results JSON, computes the plotted
+coordinates and the Spearman ρ, and emits one fragment per page; each annotated ρ was cross-checked
+to equal the value already stated in that page's prose (PLOT-STYLE.md cardinal rule). The synthesis
+dot plot is hand-authored from the §02 overview table (single-valued ρ per surface; range rows
+excluded and noted, including the V_cap −0.21 depth tail).
