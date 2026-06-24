@@ -1,0 +1,58 @@
+{
+  "operand_shape": [
+    14,
+    2560
+  ],
+  "layer": 12,
+  "sweep": [
+    {
+      "kappa": 1.0,
+      "cond_A": 1.0000000000000009,
+      "feat_gram_relerr": 2.50877079844622e-16,
+      "row_gram_relerr": 1.3864754688998107,
+      "row_gram_fro_relerr": 3.325498046976101e-16,
+      "unmix_relerr": 2.433023879619244e-16
+    },
+    {
+      "kappa": 3.0,
+      "cond_A": 3.0000000000000018,
+      "feat_gram_relerr": 3.7002859381592645,
+      "row_gram_relerr": 4.837312131921993,
+      "row_gram_fro_relerr": 3.7655340229451957,
+      "unmix_relerr": 3.1059740353919756e-16
+    },
+    {
+      "kappa": 10.0,
+      "cond_A": 10.000000000000021,
+      "feat_gram_relerr": 35.080989092554894,
+      "row_gram_relerr": 36.76399747480803,
+      "row_gram_fro_relerr": 35.770352012146425,
+      "unmix_relerr": 6.656028042292403e-16
+    },
+    {
+      "kappa": 30.0,
+      "cond_A": 30.000000000000014,
+      "feat_gram_relerr": 257.6994059297881,
+      "row_gram_relerr": 263.3037601301435,
+      "row_gram_fro_relerr": 262.3153052032868,
+      "unmix_relerr": 1.0007026881670353e-15
+    },
+    {
+      "kappa": 100.0,
+      "cond_A": 99.99999999999986,
+      "feat_gram_relerr": 2327.0204357599314,
+      "row_gram_relerr": 2366.062459937196,
+      "row_gram_fro_relerr": 2365.0717233138353,
+      "unmix_relerr": 4.7560155283754194e-15
+    }
+  ],
+  "_checks": {
+    "kappa=1 A orthogonal (cond~1)": true,
+    "kappa=1 feature-Gram invariant (relerr~0)": true,
+    "kappa=1 row-Gram Frobenius-norm preserved (orthogonal conjugation)": true,
+    "kappa=1 row-Gram entries DO change (conjugation != invariance)": true,
+    "feature-Gram leak grows with kappa": true,
+    "defender un-mix exact at all kappa": true
+  },
+  "_all_pass": true
+}

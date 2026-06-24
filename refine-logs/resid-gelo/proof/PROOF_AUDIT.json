@@ -1,0 +1,23 @@
+{
+  "audit_skill": "proof-checker",
+  "verdict": "PASS",
+  "reason_code": "all_proofs_complete",
+  "summary": "GELO L1-L4 verified after scope-tightening (2 rounds). L1 feature-Gram leak exact; L2 row-Gram conjugation; L3 rowspace identity (floor-invariance scoped to orthogonal A); L4 no no-intercept linear map beats zero predictor. Round1 FAIL (I-02 L3 floor-invariance over-general, I-04..I-07 L4 overstated) -> fixed -> Round2 WARN (2 MINOR) -> MINOR closed.",
+  "audited_input_hashes": {"refine-logs/resid-gelo/proof/PROOF_PACKAGE.md": "sha256:dcc6374fec65ceac076e9f6acd77bfdc3f54b88a26652816ff4a113df11d480e"},
+  "trace_path": ".aris/traces/proof-checker/2026-06-24_run01/",
+  "thread_id": "019ef84c-95be-7bc1-97dd-a5adf19694dc",
+  "reviewer_model": "gpt-5.5",
+  "reviewer_reasoning": "xhigh",
+  "generated_at": "2026-06-24T06:32:58Z",
+  "details": {
+    "theorems_audited": 4,
+    "rounds": 2,
+    "issues": [
+      {"id":"I-02","severity":"CRITICAL","category":"scope","location":"PROOF_PACKAGE.md:L3","note":"floor-invariance over-general for non-orthogonal A — FIXED (restricted to orthogonal A; empirical floor recomputed per U)"},
+      {"id":"I-04","severity":"MAJOR","category":"hypothesis_discharge","location":"PROOF_PACKAGE.md:L4","note":"M wrongly assumed A orthogonal — FIXED (general PSD M=E[H^T A^T A H])"},
+      {"id":"I-07","severity":"MAJOR","category":"scope_overclaim","location":"PROOF_PACKAGE.md:L4","note":"'beats chance' overstated — FIXED (no no-intercept linear map improves on zero predictor)"},
+      {"id":"R-01","severity":"MINOR","category":"wording","location":"PROOF_PACKAGE.md:L1","note":"identity-vs-recoverability with shields — CLOSED"},
+      {"id":"R-02","severity":"MINOR","category":"integrability","location":"PROOF_PACKAGE.md:L4","note":"added E||A_t H_t||^2<inf assumption — CLOSED"}
+    ]
+  }
+}

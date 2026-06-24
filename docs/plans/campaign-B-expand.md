@@ -67,7 +67,7 @@ run_id: b-r3-gelo
 gate: review refine-logs/resid-gelo/REVIEW_STATE.json
 spawn-depth: 0
 objective: implement GELO (fresh invertible mixing U=AH + shield vectors, arXiv 2603.05035, code github.com/noskill/gelo) as a Transform on the QKVO-feeding residual; sweep κ(A) and shield fraction/energy vs the BSS attacks (Task 1) and anchor ridge; confirm the orthogonal-A Gram-invariance leak; probe bits vs shield params.
-- [ ] run-phase: b-r3-gelo
+- [x] run-phase: b-r3-gelo
 
 ### Task 6: residual — split-inference / PriPert defense + sweep
 recipe: full
@@ -108,3 +108,13 @@ gate: review refine-logs/resid-rep2text-v2/REVIEW_STATE.json
 spawn-depth: 1
 objective: the capacity probe (spectral channel-MI) is vacuous on the plaintext L10 residual because capacity is slack (claim:rep2text-capacity-nonbinding-extraction-limited). Build a matched EXTRACTABLE-information probe (𝒱-information, Xu 2020) under the decoder's hypothesis class and test whether it tracks Rep2Text recovery across length where the capacity probe failed; add a stronger-attack capacity ablation (more epochs/data/k, larger decoder) + derangement null + empirical per-token entropy to separate attack-weakness from representation limits.
 - [ ] run-phase: resid-rep2text-followup-1
+
+### Task 10: feature-Gram-matched probe + stronger BSS for resid-gelo
+recipe: full
+gpu: true
+surface: resid-gelo-v2
+run_id: resid-gelo-followup-1
+gate: review refine-logs/resid-gelo-v2/REVIEW_STATE.json
+spawn-depth: 1
+objective: the row-negentropy probe does not track the BSS margin on GELO (Spearman 0.507 shield0 / 0.293 all, below 0.6; claim:gelo-orthogonal-gram-leak-rowmix-defeats-bss C2). The data cannot yet separate "non-matched probe" from "weak attack". Test BOTH arms — (a) a feature-Gram-matched probe (eigenspectrum / Gram-distance / Gram-recoverability of HᵀH from UᵀU, with a matched feature-Gram floor) against the C0 leak channel, and a shielded-Gram recovery analysis (recover Hᵀ_real H_real from UᵀU = Hᵀ_realH_real + SᵀS vs shield fraction); (b) a stronger BSS suite (FastICA / FOBI / SOBI / multi-restart JADE, larger max_dim, multiple seeds) with the same matched random-demix floor — does either re-correlate a matched probe with recovery?
+- [ ] run-phase: resid-gelo-followup-1

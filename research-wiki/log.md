@@ -75,3 +75,5 @@ _Append-only timeline._
 - `2026-06-24T05:19:13Z` add_claim: skipped existing claim depth-inversion-certificate.md (slug dedup)
 - `2026-06-24T05:19:13Z` add_experiment: added exp:resid-depth-inversion-sweep [verdict=partial confidence=medium]
 - `2026-06-24T05:19:21Z` Task4 resid-depth-inversion: registered claim:depth-inversion-certificate (proof-checker PASS) + exp:resid-depth-inversion-sweep, supports edge
+- `2026-06-24T06:34:44Z` add_claim: updated claim:gelo-orthogonal-gram-leak-rowmix-defeats-bss [status=verified] prov=refine-logs/resid-gelo/proof/PROOF_AUDIT.json
+- `2026-06-24T06:36:01Z` add_experiment: updated exp:b-r3-gelo [verdict=partial confidence=medium]

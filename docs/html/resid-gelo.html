@@ -1,0 +1,342 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — GELO row-mixing defense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label current">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+          <a href="resid-gelo.html" class="current">GELO row-mixing</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+          <a href="kv-cloak.html">KV-Cloak decoupling</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">GELO<br><em>— row-mixing defense</em></h1>
+      <p class="subtitle">GELO protects the residual stream sent to a remote accelerator by exposing only a fresh secret linear mixing of its token rows, optionally padded with decoy rows. The mixing is the canonical blind-source-separation setting, the regime in which the source-separation adversary becomes informative. Measured on the Qwen3-4B residual, the fresh per-prompt mixing holds per-row separation at the random-demixing baseline and makes amortized linear inversion fail outright. But at the recommended orthogonal setting the mixing leaves the feature Gram of the exposed matrix exactly invariant: without decoy rows, or when their Gram is subtractable, this is the residual feature Gram itself, so the defense publishes an exact functional of the secret with no attack. The load-bearing leakage is the static feature Gram, not the token rows.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the defense, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      GELO (<a href="https://arxiv.org/abs/2603.05035">arXiv 2603.05035</a>) lets a client offload
+      transformer inference to an untrusted accelerator while hiding the residual stream. For a
+      residual block <code>H ∈ R^(n×d)</code> of <code>n</code> token rows and feature dimension
+      <code>d</code>, it sends only <code>U = A·H</code>, where <code>A</code> is a fresh secret
+      <code>n×n</code> row-mixing matrix drawn per prompt, optionally after appending decoy
+      <em>shield</em> rows. Because the left row mixing commutes with the right projection
+      (<code>U·W = A·H·W</code>), the trusted side recovers the true result by un-mixing with
+      <code>A⁻¹</code>; the recommended choice is an orthogonal <code>A</code>, for which
+      <code>A⁻¹ = Aᵀ</code>.
+    </p>
+    <div class="prose">
+      <p>The threat model is WEIGHTS-PUB: the adversary knows the weights and embeddings, reads the
+      exposed <code>U</code>, but does not hold <code>A</code>. The secret is the residual
+      <code>H</code> and the tokens behind it. Unlike a plaintext residual, where the rows are given
+      directly and blind source separation is ill-posed, GELO introduces a genuine unknown linear
+      row mixing, which is exactly the independent-component setting. The attacks are the
+      source-separation family: whitening followed by joint diagonalization on the exposed rows,
+      graded by the 95th-percentile Hungarian-matched cosine of recovered rows to the plaintext
+      rows, against a matched random-orthogonal-demixing baseline. An amortized ridge inverter,
+      fit on training prompts and tested on held-out prompts, serves as the linear-inversion anchor.</p>
+      <p>The headline is a channel separation. The fresh per-prompt mixing is effective against the
+      attacks tried: per-row separation stays at the matched baseline and the amortized inverter
+      fails below it. Yet the orthogonal mixing leaves the feature Gram of the exposed matrix
+      exactly invariant, <code>UᵀU = (A·H̃)ᵀ(A·H̃) = H̃ᵀH̃</code>; without decoy rows this is the
+      residual feature Gram <code>HᵀH</code>, which an adversary reads directly from the exposed
+      matrix. The same separation appears on the key/value surface under KV-Cloak: the secret
+      feature mixing is the load-bearing channel, the row mixing is close to a cover.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 THE DEFENSE ═════ -->
+  <section id="defense">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">The defense, by channel</h2>
+      <div class="section-meta">how the mixing acts on each Gram</div>
+    </header>
+    <p class="lede">An orthogonal row mixing <code>A</code> acts differently on the two Grams of the
+    exposed operand <code>H̃</code>, which is the residual block <code>H</code> alone, or
+    <code>[H;S]</code> when decoy shield rows <code>S</code> are appended.</p>
+    <table class="spec">
+      <thead><tr><th>Object</th><th>Under <code>U = A·H̃</code>, orthogonal <code>A</code></th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td class="accent">feature Gram <code>UᵀU</code></td><td class="accent">exactly equal to <code>H̃ᵀH̃</code></td><td class="accent">published functional of the secret</td></tr>
+        <tr><td>row Gram <code>UUᵀ</code></td><td>orthogonal conjugation <code>A·(H̃H̃ᵀ)·Aᵀ</code></td><td>spectrum and Frobenius norm preserved, entries rotated</td></tr>
+        <tr><td>row space</td><td><code>rowspace(U) = rowspace(H̃)</code></td><td>recoverable directions unchanged</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Without shields, <code>H̃ = H</code> and the exposed feature Gram is the residual
+    Gram <code>HᵀH</code> itself. With shields the exposed object is <code>[H;S]</code>, so the
+    orthogonal mixing leaves the augmented feature Gram <code>HᵀH + SᵀS</code> invariant; the exact
+    <code>HᵀH</code> leak then holds only when <code>SᵀS</code> is known and subtractable. The
+    condition number of <code>A</code>
+    parameterizes the privacy sweep: <code>κ(A)=1</code> is orthogonal, larger values are
+    increasingly ill-conditioned mixings.</p>
+  </section>
+
+  <!-- ═════ § 3 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">surface, sweep, attacks, baseline, probe</div>
+    </header>
+    <div class="prose">
+      <p>The defense is implemented as a representation transform and applied to the residual stream
+      captured from Qwen3-4B at layers 0, 12, and 20 over 48 prompts. The sweep crosses the
+      condition number <code>κ(A) ∈ {1, 3, 10, 30, 100}</code> with the shield fraction
+      <code>{0, 0.5, 1.0}</code>, where shield rows are Gaussian and energy-matched to the median
+      real-row norm, for 45 configurations. The mixing is built in singular-value form,
+      <code>A = Q₁·diag(s)·Q₂</code> with random orthogonal factors and log-spaced singular values
+      set to the target condition number, so <code>κ=1</code> returns an orthogonal matrix.</p>
+      <p>The attack is the joint-diagonalization separator run on the exposed rows; recovery is the
+      95th-percentile Hungarian-matched cosine to the plaintext rows. The baseline is a matched
+      random-orthogonal demixing: identical whitening of the same exposed matrix, then a random
+      rotation in place of joint diagonalization. The genuine margin is recovery minus this matched
+      baseline, which removes the subspace-membership component that any rotation of the row space
+      would attain. The amortized ridge inverter fits a single linear map from exposed to plaintext
+      rows on training prompts and is scored on held-out prompts. The probe is the whitened-row
+      negentropy, a geometry-only non-Gaussianity measure computed without running any separation,
+      reported in bits. Recovery and the margin are the per-secret readout; the negentropy and the
+      feature-Gram error are reported as the geometry-only quantities.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 4 CHANNEL IDENTITIES ═════ -->
+  <section id="identities">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Channel identities</h2>
+      <div class="section-meta">exact, against the condition number</div>
+    </header>
+    <p class="lede">The mixing applied to one residual block, against the condition number of
+    <code>A</code>, without shields.</p>
+    <table class="spec">
+      <thead><tr><th>condition number <code>κ(A)</code></th><th>feature-Gram error <code>‖UᵀU−HᵀH‖/‖HᵀH‖</code></th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><td class="accent"><code>1</code> (orthogonal)</td><td class="accent"><code>2.5e-16</code></td><td class="accent">feature Gram exactly invariant</td></tr>
+        <tr><td><code>3</code></td><td><code>2.80</code></td><td rowspan="4">error grows with the condition number</td></tr>
+        <tr><td><code>10</code></td><td><code>25.3</code></td></tr>
+        <tr><td><code>30</code></td><td><code>189</code></td></tr>
+        <tr><td><code>100</code></td><td><code>1780</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">The sanity checks confirm the row-mixing algebra: the condition number reads 1
+    at the orthogonal setting, the row-Gram entries change while the Frobenius norm is preserved
+    (orthogonal conjugation), and the trusted un-mix is exact to within <code>5e-15</code> at every
+    condition number. The feature-Gram channel is exposed outright at the orthogonal setting; the
+    ill-conditioned mixings break the invariance but are not the recommended configuration.</p>
+  </section>
+
+  <!-- ═════ § 5 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">separation, amortized inversion, probe</div>
+    </header>
+
+    <p class="lede">Per-row source separation against the condition number, without shields, median
+    over layers. Recovery is the 95th-percentile Hungarian-matched cosine; the genuine margin is
+    recovery minus the matched random-demixing baseline.</p>
+    <table class="spec">
+      <thead><tr><th>condition number <code>κ(A)</code></th><th>recovery</th><th>matched baseline</th><th>genuine margin</th><th>negentropy (bits)</th></tr></thead>
+      <tbody>
+        <tr><td><code>1</code></td><td><code>0.721</code></td><td><code>0.674</code></td><td><code>0.047</code></td><td><code>66.6</code></td></tr>
+        <tr><td><code>3</code></td><td><code>0.705</code></td><td><code>0.668</code></td><td><code>0.037</code></td><td><code>48.1</code></td></tr>
+        <tr><td><code>10</code></td><td><code>0.705</code></td><td><code>0.663</code></td><td><code>0.022</code></td><td><code>30.5</code></td></tr>
+        <tr><td><code>30</code></td><td><code>0.701</code></td><td><code>0.660</code></td><td><code>0.025</code></td><td><code>21.7</code></td></tr>
+        <tr><td><code>100</code></td><td><code>0.692</code></td><td><code>0.666</code></td><td><code>0.026</code></td><td><code>20.8</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">Each column is a median over layers, and the genuine margin is the median of the
+    per-layer margins, so it need not equal the difference of the displayed recovery and baseline
+    medians. The genuine margin is small at every setting and shows a net decrease as the mixing
+    becomes more ill-conditioned: source separation recovers little beyond the row subspace that any
+    rotation attains. Recovery sits near the matched baseline throughout, so the fresh per-prompt
+    mixing is close to a cover for the per-row attack tried.</p>
+
+    <p class="lede">Amortized linear inversion, held-out prompts, median over the sweep.</p>
+    <table class="spec">
+      <tbody>
+        <tr><td><strong>ridge inverter <code>U→H</code></strong></td><td><code>0.288</code>, below the matched baseline of <code>0.667</code></td></tr>
+        <tr><td class="accent"><strong>reading</strong></td><td class="accent">a fresh per-prompt mixing admits no fixed linear inverse; the amortized inverter carries no prompt-specific information and falls below the baseline that respects the row subspace</td></tr>
+      </tbody>
+    </table>
+
+    <p class="lede">The matched probe against recovery.</p>
+    <table class="spec">
+      <tbody>
+        <tr><td><strong>negentropy → genuine margin</strong></td><td>Spearman <code>0.51</code> at shield fraction zero (15 cells), <code>0.29</code> across all 45 cells, both below the 0.6 bar. The direction is consistent (negentropy falls from 66.6 to 20.8 bits as recovery falls) but the rank correlation is weak.</td></tr>
+        <tr><td class="warn"><strong>why</strong></td><td>The genuine margin is near the baseline across the whole sweep, so there is little per-row recovery signal for the row-negentropy probe to track. The probe is matched to the row-separation channel, not to the feature-Gram channel that leaks at the orthogonal setting. Whether this is a mismatched probe or a too-weak attack is not yet settled by the data.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 6 FINDINGS ═════ -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">what the mixing protects, what it exposes</div>
+    </header>
+    <div class="prose">
+      <p><strong>The fresh row mixing holds per-row separation near chance and defeats amortized
+      inversion.</strong> For the tested single-seed joint-diagonalization attack, the shield-0
+      genuine margin (median over layers) stays at or below 0.05 and does not improve as the mixing
+      becomes more ill-conditioned; across the full sweep 17 of 45 configurations exceed a margin of
+      0.05, mostly with shields. The amortized ridge inverter falls below the baseline, because a
+      mixing redrawn each prompt admits no single linear inverse. Against these attacks the token
+      rows are well protected.</p>
+      <p><strong>The orthogonal mixing exposes the feature Gram exactly.</strong> At the recommended
+      orthogonal setting the feature-Gram error is at machine precision, so an adversary reads
+      <code>HᵀH</code> directly from the exposed matrix with no attack. With shield rows the exposed
+      object is the augmented Gram <code>HᵀH + SᵀS</code>; the exact leak holds without shields or
+      when the shield Gram is subtractable. The static feature Gram, not the token rows, is the
+      load-bearing leakage channel.</p>
+      <p><strong>The row-negentropy probe does not track recovery to the preregistered bar.</strong>
+      Its rank correlation with the genuine margin is 0.51 at best, below the 0.6 threshold. This is
+      consistent with a probe matched to the wrong channel (the row-separation channel rather than
+      the feature-Gram channel that leaks at the orthogonal setting), but it is equally consistent
+      with a too-weak separation attack: the margin is near the baseline everywhere, so there is
+      little signal either to track or to recover. A probe matched to the feature-Gram channel, and
+      a stronger separation suite, are the next step and would separate the two explanations.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 THEORY ═════ -->
+  <section id="theory">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Theory</h2>
+      <div class="section-meta">four lemmas, verified</div>
+    </header>
+    <div class="prose">
+      <p>The leak is an exact identity on the exposed operand <code>H̃</code> (the residual
+      <code>H</code>, or <code>[H;S]</code> with shield rows). For orthogonal <code>A</code>, the
+      feature Gram satisfies <code>UᵀU = H̃ᵀAᵀAH̃ = H̃ᵀH̃</code>, so it is invariant; without shields
+      this is the residual Gram <code>HᵀH</code>, and with shields it is the augmented Gram
+      <code>HᵀH + SᵀS</code>, from which <code>HᵀH</code> is recoverable only when the shield Gram is
+      subtractable (Lemma 1). The row Gram transforms as <code>UUᵀ = A(H̃H̃ᵀ)Aᵀ</code>, an orthogonal
+      conjugation: its spectrum and Frobenius norm are preserved while its entries are rotated, so
+      the row Gram is hidden up to conjugation while the feature Gram is exposed (Lemma 2).</p>
+      <p>The row mixing preserves the recoverable set. For any invertible <code>A</code>,
+      <code>rowspace(U) = rowspace(H̃)</code>, so every key-free demixing produces directions inside
+      the exposed-operand row space; the recoverable directions and the best-case alignment are
+      independent of <code>A</code>. The matched random-demixing baseline is invariant under
+      orthogonal <code>A</code>, and for the ill-conditioned mixings the baseline is recomputed on
+      each exposed matrix, so the genuine margin is a well-posed within-configuration contrast
+      throughout (Lemma 3).</p>
+      <p>The fresh per-prompt mixing forecloses amortized linear inversion. When the mixings are
+      drawn independently per prompt with zero mean, which holds both for orthogonal mixings and for
+      the singular-value-form mixings used here, the population least-squares and ridge objective
+      over a fixed linear map is minimized by the zero map: the cross term between the exposed
+      matrix and the target vanishes in expectation, leaving a positive-semidefinite quadratic whose
+      minimizer is zero. No fixed linear map improves on the zero predictor, so the amortized
+      inverter must fail; this is the linear, intercept-free class only, and says nothing about
+      per-prompt separation or nonlinear attacks (Lemma 4). The full proofs of the four lemmas are
+      in the supporting claim and proof package cited in the footer.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 8 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">scope and consequence</div>
+    </header>
+    <div class="prose">
+      <p>The consequence for the defense is specific: a fresh secret row mixing is effective against
+      per-row separation and amortized linear inversion, but at its recommended orthogonal setting
+      it exposes the feature Gram of the exposed operand exactly; without shields, or with a
+      subtractable shield Gram, this is the residual feature Gram. Security against representation inversion would
+      have to come from breaking the feature-Gram channel, not from the apparent complexity of the
+      mixing. This mirrors the channel separation found on the key/value surface, where the secret
+      feature mixing is the only load-bearing operation.</p>
+      <p>The scope is bounded. The exact feature-Gram leak is established without shields, or with a
+      subtractable shield Gram. The separation result is for the joint-diagonalization attack at a
+      single random seed; the genuine margin is small but not uniformly negligible, since 17 of 45
+      configurations exceed a margin of 0.05, mostly with shields. The amortized-inversion result
+      covers fixed linear maps only. The row-negentropy probe does not predict recovery to the
+      preregistered bar, and whether a feature-Gram-matched probe or a stronger separation suite
+      restores the correspondence is left to a follow-up. These are the honest limits of the present
+      result; the proofs hold within them.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Code</h5>
+      <ul>
+        <li><code>scripts/defenses/gelo.py</code> · the defense transform</li>
+        <li><code>scripts/spikes/gelo_sweep.py</code> · the privacy sweep and attacks</li>
+        <li><code>src/talens/measures/bss_separability.py</code> · the matched probe</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claim &amp; record</h5>
+      <ul>
+        <li><code>research-wiki/claims/gelo-orthogonal-gram-leak-rowmix-defeats-bss.md</code></li>
+        <li><code>research-wiki/experiments/b-r3-gelo.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>GELO · <a href="https://arxiv.org/abs/2603.05035">arXiv 2603.05035</a> · github.com/noskill/gelo</li>
+        <li>JADE · Cardoso &amp; Souloumiac 1993</li>
+        <li>Independent component analysis · Comon 1994; Hyvärinen 1999</li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body></html>
