@@ -49,6 +49,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -84,7 +90,7 @@
       input tokens; the privacy parameter swept is isotropic Gaussian noise added to the residual.</p>
       <p>The question is the one this project asks of every surface: does an attack-independent
       information measure predict how well the attack recovers the secret? The candidate measure is the
-      geometry-only spectral channel mutual information of the residual ensemble, already validated for
+      geometry-only Gaussian channel-capacity MI ceiling of the residual ensemble, already validated for
       sentence-embedding inversion. A single residual vector is a natural bottleneck candidate, since one
       fixed-dimensional vector must encode an entire variable-length prefix. The headline is that this
       bottleneck does not bind at layer 10: capacity exceeds the secret entropy by more than a factor of
@@ -114,7 +120,7 @@
       which is the frozen decoder's language and common-token prior. Genuine leakage is the difference
       between real and shuffled recovery, with paired bootstrap 95% confidence intervals over 5000
       resamples.</p>
-      <p>The probe is the spectral channel mutual information
+      <p>The probe is the Gaussian channel-capacity MI ceiling
       <code>I_G(σ) = ½ Σ log₂(1 + λ_i/σ²)</code> of the residual covariance spectrum, evaluated at the
       injected noise level plus a fixed geometry-only reference floor. It is computed from the covariance
       and the noise level alone; it never trains a decoder, never reads target text, and cannot be
@@ -186,7 +192,7 @@
     <div class="prose">
       <p>The failure of the capacity probe to predict recovery across length is not an artifact of the
       data; it follows from a short lemma. Fix one residual covariance and hold it constant across
-      lengths, so the spectral channel mutual information <code>I_G(σ)</code> is a function of the
+      lengths, so the Gaussian channel-capacity MI ceiling <code>I_G(σ)</code> is a function of the
       covariance and the noise level alone and is independent of the secret length. A length-<code>L</code>
       secret has positive entropy <code>H_X(L) = L·h</code> with per-token entropy <code>h &gt; 0</code>,
       and the probe assigns the normalized throughput ceiling

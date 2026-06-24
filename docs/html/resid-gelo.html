@@ -49,6 +49,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -148,7 +154,7 @@
       baseline, which removes the subspace-membership component that any rotation of the row space
       would attain. The amortized ridge inverter fits a single linear map from exposed to plaintext
       rows on training prompts and is scored on held-out prompts. The probe is the whitened-row
-      negentropy, a geometry-only non-Gaussianity measure computed without running any separation,
+      negentropy separability (<code>J</code>), a geometry-only non-Gaussianity measure computed without running any separation,
       reported in bits. Recovery and the margin are the per-secret readout; the negentropy and the
       feature-Gram error are reported as the geometry-only quantities.</p>
     </div>
@@ -192,7 +198,7 @@
     over layers. Recovery is the 95th-percentile Hungarian-matched cosine; the genuine margin is
     recovery minus the matched random-demixing baseline.</p>
     <table class="spec">
-      <thead><tr><th>condition number <code>κ(A)</code></th><th>recovery</th><th>matched baseline</th><th>genuine margin</th><th>negentropy (bits)</th></tr></thead>
+      <thead><tr><th>condition number <code>κ(A)</code></th><th>recovery</th><th>matched baseline</th><th>genuine margin</th><th><code>J</code> (bits)</th></tr></thead>
       <tbody>
         <tr><td><code>1</code></td><td><code>0.721</code></td><td><code>0.674</code></td><td><code>0.047</code></td><td><code>66.6</code></td></tr>
         <tr><td><code>3</code></td><td><code>0.705</code></td><td><code>0.668</code></td><td><code>0.037</code></td><td><code>48.1</code></td></tr>
@@ -220,7 +226,7 @@
     <table class="spec">
       <tbody>
         <tr><td><strong>negentropy → genuine margin</strong></td><td>Spearman <code>0.51</code> at shield fraction zero (15 cells), <code>0.29</code> across all 45 cells, both below the 0.6 bar. The direction is consistent (negentropy falls from 66.6 to 20.8 bits as recovery falls) but the rank correlation is weak.</td></tr>
-        <tr><td class="warn"><strong>why</strong></td><td>The genuine margin is near the baseline across the whole sweep, so there is little per-row recovery signal for the row-negentropy probe to track. The probe is matched to the row-separation channel, not to the feature-Gram channel that leaks at the orthogonal setting. Whether this is a mismatched probe or a too-weak attack is not yet settled by the data.</td></tr>
+        <tr><td class="warn"><strong>why</strong></td><td>The genuine margin is near the baseline across the whole sweep, so there is little per-row recovery signal for the whitened-row negentropy probe to track. The probe is matched to the row-separation channel, not to the feature-Gram channel that leaks at the orthogonal setting. Whether this is a mismatched probe or a too-weak attack is not yet settled by the data.</td></tr>
       </tbody>
     </table>
   </section>
@@ -246,7 +252,7 @@
       object is the augmented Gram <code>HᵀH + SᵀS</code>; the exact leak holds without shields or
       when the shield Gram is subtractable. The static feature Gram, not the token rows, is the
       load-bearing leakage channel.</p>
-      <p><strong>The row-negentropy probe does not track recovery to the preregistered bar.</strong>
+      <p><strong>The whitened-row negentropy separability probe (J) does not track recovery to the preregistered bar.</strong>
       Its rank correlation with the genuine margin is 0.51 at best, below the 0.6 threshold. This is
       consistent with a probe matched to the wrong channel (the row-separation channel rather than
       the feature-Gram channel that leaks at the orthogonal setting), but it is equally consistent
@@ -310,7 +316,7 @@
       subtractable shield Gram. The separation result is for the joint-diagonalization attack at a
       single random seed; the genuine margin is small but not uniformly negligible, since 17 of 45
       configurations exceed a margin of 0.05, mostly with shields. The amortized-inversion result
-      covers fixed linear maps only. The row-negentropy probe does not predict recovery to the
+      covers fixed linear maps only. The whitened-row negentropy probe does not predict recovery to the
       preregistered bar, and whether a feature-Gram-matched probe or a stronger separation suite
       restores the correspondence is left to a follow-up. These are the honest limits of the present
       result; the proofs hold within them.</p>

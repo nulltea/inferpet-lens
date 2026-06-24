@@ -49,6 +49,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -131,7 +137,7 @@
       sizes 16, 32, 64, mask energies 0, 1, 4, and three random key draws, for 273 configurations.</p>
       <p>The attacks are the joint-diagonalization separators run on the obfuscated keys; reconstruction
       is the 95th-percentile Hungarian-matched cosine to the plaintext key rows, graded against the
-      random-demixing baseline. The probe is the whitened-row negentropy, a geometry-only measure of
+      random-demixing baseline. The probe is the whitened-row negentropy separability (<code>J</code>), a geometry-only measure of
       non-Gaussianity computed without running any separation, reported in bits. The shared spectral
       capacity is the accumulation-axis probe. Reconstruction is the per-secret readout; the probes are
       the bits canonical.</p>
@@ -171,7 +177,7 @@
     <p class="lede">Reconstruction and probe by channel, layer 0, averaged over block size, mask energy,
     and key draws. The random-demixing baseline is 0.157.</p>
     <table class="spec">
-      <thead><tr><th>Channel</th><th>reconstruction (95th-pct cosine)</th><th>negentropy (bits)</th></tr></thead>
+      <thead><tr><th>Channel</th><th>reconstruction (95th-pct cosine)</th><th><code>J</code> (bits)</th></tr></thead>
       <tbody>
         <tr><td>plaintext</td><td><code>0.626</code></td><td><code>1044.7</code></td></tr>
         <tr><td class="accent">feature mixing <code>M</code></td><td class="accent"><code>0.126</code> (at baseline)</td><td class="accent"><code>1.5</code></td></tr>
@@ -208,7 +214,7 @@
     <p class="lede">Block size and the matched probe.</p>
     <table class="spec">
       <tbody>
-        <tr><td><strong>Block size</strong></td><td>Reconstruction is flat across block sizes 16, 32, 64 for the token-axis and feature-mixing channels tested; the feature mixing reads exactly 0.145 at each size and the spectral-capacity spread over block size is 0.000. The token-axis channels vary by at most 0.27 bits.</td></tr>
+        <tr><td><strong>Block size</strong></td><td>Reconstruction is flat across block sizes 16, 32, 64 for the token-axis and feature-mixing channels tested; the feature mixing reads exactly 0.145 at each size and the shared spectral capacity spread over block size is 0.000. The token-axis channels vary by at most 0.27 bits.</td></tr>
         <tr><td class="accent"><strong>negentropy → reconstruction</strong></td><td>Spearman <code>0.71</code> across the 270 obfuscated configurations (permutation test below <code>1e-40</code>); across channel means <code>0.77</code>. The probe ranks the channel families by reconstruction.</td></tr>
         <tr><td class="warn"><strong>within a channel</strong></td><td>The correlation is between channels, not within: inside a single channel it is weak and changes sign, and under the mask it inverts because the beacon outliers raise negentropy without raising reconstruction. The probe is a between-channel diagnostic, not a fine-grained meter.</td></tr>
         <tr><td><strong>shared spectral capacity → reconstruction</strong></td><td>Spearman <code>0.33</code>, below the 0.7 bar: the accumulation-axis probe is not matched to this attack.</td></tr>

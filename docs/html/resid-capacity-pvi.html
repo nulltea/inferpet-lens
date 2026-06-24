@@ -54,6 +54,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -76,7 +82,7 @@
     <p class="lede">A leakage probe is useful only if it is independent of the attack it is meant to predict. A reader that recovers the token identity from a hidden state, and never consults the embedding table, is independent by construction. The question is whether such a reader can be made a well-behaved estimator, and whether it then predicts a real inversion attack.</p>
     <div class="prose">
       <p>The threat model is an adversary that knows the model weights, the embedding table, and any published defense parameters, and can synthesize unlimited pairs of defended representation and token. The secret is the token identity behind a residual-stream vector in gemma-2-2b (dimension 2304, an evaluation pool of 2048 candidate tokens).</p>
-      <p>The token-identity reader (here called the capacity-matched probe) originally failed as a bits estimator: with more features than validation points it interpolates, and its information content evaluated on a label-shuffled control falls to roughly negative fifty bits at every depth, an artifact rather than a leakage signal. Reducing the feature dimension below the validation count bounds that control value near negative one bit at every depth, at about 0.57 times the cost. The repaired reader's bounded top-1 accuracy then tracks the inversion attack's recovery rate at Spearman correlation 0.80 to 1.00 under representation-space defenses, while under input-layer differential privacy the two attenuate and finally diverge as the observation layer deepens.</p>
+      <p>The token-identity reader (here called capacity-matched predictive V-information, <code>V_cap</code>) originally failed as a bits estimator: with more features than validation points it interpolates, and its information content evaluated on a label-shuffled control falls to roughly negative fifty bits at every depth, an artifact rather than a leakage signal. Reducing the feature dimension below the validation count bounds that control value near negative one bit at every depth, at about 0.57 times the cost. The repaired reader's bounded top-1 accuracy then tracks the inversion attack's recovery rate at Spearman correlation 0.80 to 1.00 under representation-space defenses, while under input-layer differential privacy the two attenuate and finally diverge as the observation layer deepens.</p>
     </div>
   </section>
 

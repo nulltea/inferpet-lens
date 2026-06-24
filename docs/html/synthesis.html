@@ -52,6 +52,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -92,23 +98,23 @@
         <tr><th>Surface</th><th>Attack(s)</th><th>Defense · swept parameter</th><th>Probe (bits)</th><th style="width:12%">ρ(bits, recovery)</th><th style="width:14%">Verdict</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="resid-capacity-pvi.html">capacity-matched PVI</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td>capacity-matched PVI; CLUB</td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
-        <tr><td><a href="resid-dp-attacks.html">differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td>CLUB; capacity-matched PVI</td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
-        <tr><td><a href="resid-depth-inversion.html">depth inversion</a></td><td>cosine-NN, ridge, learned mlp2</td><td>none · depth L0–L32</td><td>capacity-matched PVI; CLUB</td><td class="num">+0.85</td><td>tracks; depth ≠ privacy</td></tr>
-        <tr><td><a href="resid-rep2text.html">Rep2Text inversion</a></td><td>adapter to frozen decoder</td><td>none · length; noise σ</td><td>spectral channel-MI</td><td class="num">0.18 length (vacuous); 1.00 over σ</td><td>vacuous: capacity slack</td></tr>
-        <tr><td><a href="resid-gelo.html">GELO</a></td><td>JADE separation; amortized ridge</td><td>GELO row-mix · κ(A), shield</td><td>whitened-row negentropy</td><td class="num">0.29–0.51 (below 0.6)</td><td>weak loop; likely probe mismatch, stronger attack not ruled out</td></tr>
-        <tr><td><a href="resid-split.html">split inference (PriPert)</a></td><td>ridge, learned mlp2</td><td>PriPert sparsity; perturbation β</td><td>spectral channel-MI; Fano</td><td class="num">+0.958 (+0.915 learned)</td><td>tracks; converse slack</td></tr>
-        <tr><td><a href="vec2text.html">Vec2Text inversion</a></td><td>pretrained corrector</td><td>Gaussian DP ε</td><td>spectral channel-MI</td><td class="num">+1.00 (F1), +0.71 (exact)</td><td>tracks; complete probe</td></tr>
-        <tr><td><a href="bnn-attack.html">Bayes-NN bounds</a></td><td>nearest-neighbour MAP</td><td>Gaussian DP ε (L0)</td><td>union-Bhattacharyya + Fano bounds</td><td class="num">bracket 10/10; +0.94 lower bound</td><td>tracks; bounds bracket error</td></tr>
-        <tr><td><a href="embed-sgt.html">Stained Glass defense</a></td><td>pretrained corrector</td><td>SGT budget B × noise shape</td><td>spectral channel-MI</td><td class="num">+1.00 within shape; +0.48 across shape</td><td>shape-blind across shapes</td></tr>
-        <tr><td><a href="kv-accumulation.html">source separation</a></td><td>JADE joint-diagonalization</td><td>plaintext baseline (layer × kind; T-axis flat)</td><td>whitened-row negentropy</td><td class="num">+0.92 (genuine margin)</td><td>tracks genuine margin</td></tr>
-        <tr><td><a href="kv-cloak.html">KV-Cloak decoupling</a></td><td>JADE, accumulation</td><td>KV-Cloak · channel, block, scale</td><td>whitened-row negentropy</td><td class="num">+0.71 (0.77 channel-mean)</td><td>feature mix load-bearing</td></tr>
-        <tr><td><a href="perm-cover.html">permutation cover</a></td><td>full sorted-row vs 64-bin matcher</td><td>column permutation + noise α_e</td><td>CLUB on permutation signature</td><td class="num">+0.976</td><td>tracks; strong matcher wins</td></tr>
-        <tr><td>implemented defenses</td><td>permutation matcher; token reader</td><td>Shredder noise b; table obfuscation</td><td>CLUB</td><td class="num">0.39–0.81 within family</td><td>tracks within a family</td></tr>
+        <tr><td><a href="resid-capacity-pvi.html">capacity-matched predictive V-information (V_cap)</a></td><td>ridge inversion</td><td>at-layer ablation + noise; input-DP ε</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">0.80–1.00 at-layer; +0.96→−0.21 by depth (input-DP)</td><td>tracks at-layer; diverges with depth</td></tr>
+        <tr><td><a href="resid-dp-attacks.html">differential privacy</a></td><td>ridge, Bayes-NN, learned decoder</td><td>input-DP ε</td><td><code>CLUB</code>; <code>V_cap</code></td><td class="num">ridge −0.09, learned +0.83; Bayes +0.98 uplift</td><td>attack-limited (re-correlates)</td></tr>
+        <tr><td><a href="resid-depth-inversion.html">depth inversion</a></td><td>cosine-NN, ridge, learned mlp2</td><td>none · depth L0–L32</td><td><code>V_cap</code>; <code>CLUB</code></td><td class="num">+0.85</td><td>tracks; depth ≠ privacy</td></tr>
+        <tr><td><a href="resid-rep2text.html">Rep2Text inversion</a></td><td>adapter to frozen decoder</td><td>none · length; noise σ</td><td><code>I_G</code></td><td class="num">0.18 length (vacuous); 1.00 over σ</td><td>vacuous: capacity slack</td></tr>
+        <tr><td><a href="resid-gelo.html">GELO</a></td><td>JADE separation; amortized ridge</td><td>GELO row-mix · κ(A), shield</td><td><code>J</code></td><td class="num">0.29–0.51 (below 0.6)</td><td>weak loop; likely probe mismatch, stronger attack not ruled out</td></tr>
+        <tr><td><a href="resid-split.html">split inference (PriPert)</a></td><td>ridge, learned mlp2</td><td>PriPert sparsity; perturbation β</td><td><code>I_G</code>; Fano</td><td class="num">+0.958 (+0.915 learned)</td><td>tracks; converse slack</td></tr>
+        <tr><td><a href="vec2text.html">Vec2Text inversion</a></td><td>pretrained corrector</td><td>Gaussian DP ε</td><td><code>I_G</code></td><td class="num">+1.00 (F1), +0.71 (exact)</td><td>tracks; complete probe</td></tr>
+        <tr><td><a href="bnn-attack.html">Bayes-NN bounds</a></td><td>nearest-neighbour MAP</td><td>Gaussian DP ε (L0)</td><td>Bhattacharyya–Fano bounds</td><td class="num">bracket 10/10; +0.94 lower bound</td><td>tracks; bounds bracket error</td></tr>
+        <tr><td><a href="embed-sgt.html">Stained Glass defense</a></td><td>pretrained corrector</td><td>SGT budget B × noise shape</td><td><code>I_G</code></td><td class="num">+1.00 within shape; +0.48 across shape</td><td>shape-blind across shapes</td></tr>
+        <tr><td><a href="kv-accumulation.html">source separation</a></td><td>JADE joint-diagonalization</td><td>plaintext baseline (layer × kind; T-axis flat)</td><td><code>J</code></td><td class="num">+0.92 (genuine margin)</td><td>tracks genuine margin</td></tr>
+        <tr><td><a href="kv-cloak.html">KV-Cloak decoupling</a></td><td>JADE, accumulation</td><td>KV-Cloak · channel, block, scale</td><td><code>J</code></td><td class="num">+0.71 (0.77 channel-mean)</td><td>feature mix load-bearing</td></tr>
+        <tr><td><a href="perm-cover.html">permutation cover</a></td><td>full sorted-row vs 64-bin matcher</td><td>column permutation + noise α_e</td><td><code>CLUB</code></td><td class="num">+0.976</td><td>tracks; strong matcher wins</td></tr>
+        <tr><td>implemented defenses</td><td>permutation matcher; token reader</td><td>Shredder noise b; table obfuscation</td><td><code>CLUB</code></td><td class="num">0.39–0.81 within family</td><td>tracks within a family</td></tr>
       </tbody>
     </table>
     <p class="prose">Verdict vocabulary: <strong>tracks</strong> (<code>ρ ≥ 0.6</code>, or bounds that bracket the error); <strong>attack-limited</strong> (a weak attack decorrelates, a stronger one re-correlates); <strong>probe not matched</strong> (the probe reads a channel other than the load-bearing leak); <strong>vacuous</strong> (capacity exceeds the secret entropy, so the probe is constant over the operating range).</p>
-    <p class="prose">The probe names above are distinct measures, not synonyms or subtypes of one another; the matched probe differs by surface. <strong>Spectral channel-MI</strong> is the closed-form Gaussian-channel ceiling <code>I_G = ½ Σᵢ log₂(1 + λᵢ/σ²)</code> computed from the embedding covariance spectrum and the noise variance, geometry-only with no attack. <strong>CLUB</strong> is a learned variational upper bound on the same mutual information. <strong>Capacity-matched PVI</strong> is the top-1 accuracy of a capacity-bounded token-identity reader. <strong>Whitened-row negentropy</strong> is the source-separation separability resource. The <strong>Bayes-NN bounds</strong> are a union-Bhattacharyya upper bound and a Fano lower bound on the decode error. The <strong>spectral capacity</strong> column in the KV-Cloak table is a separate shared-spectral-capacity diagnostic, not spectral channel-MI.</p>
+    <p class="prose">The probe names above are distinct measures, not synonyms or subtypes of one another, and the matched probe differs by surface. The <a href="probes-registry.html">probe registry</a> is the canonical source for every name, symbol, and the quantity each reports. In brief: the <strong>Gaussian channel-capacity MI ceiling</strong> (<code>I_G</code>) is the closed-form converse <code>I_G = ½ Σᵢ log₂(1 + λᵢ/σ²)</code> from the embedding covariance spectrum and the noise variance, geometry-only with no attack; <strong>CLUB</strong> (<code>CLUB</code>) is a learned variational upper bound on the same mutual information; <strong>capacity-matched predictive V-information</strong> (<code>V_cap</code>) is the top-1 accuracy of a capacity-bounded token-identity reader; <strong>whitened-row negentropy separability</strong> (<code>J</code>) is the source-separation separability resource; the <strong>Bhattacharyya–Fano error bounds</strong> are a union-Bhattacharyya upper bound and a Fano lower bound on the decode error. The shared spectral capacity column in the KV-Cloak table is a separate key/value diagnostic, not <code>I_G</code>: a different channel and a different quantity, as the registry sets out.</p>
   </section>
 
   <!-- §03 MEASURED SWEEPS -->
@@ -122,9 +128,9 @@
     <!-- ===== RESIDUAL ===== -->
     <h3 style="font-family:'Fraunces',serif;margin:8px 0 4px;">Residual stream</h3>
 
-    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Capacity-matched PVI · input-layer differential privacy</h4>
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Capacity-matched predictive V-information (V_cap) · input-layer differential privacy</h4>
     <table class="spec">
-      <thead><tr><th>ε (layer 0)</th><th class="num">cap-PVI reader acc (probe)</th><th class="num">CLUB (bits)</th><th class="num">ridge recovery (TTRSR)</th><th class="num">utility</th></tr></thead>
+      <thead><tr><th>ε (layer 0)</th><th class="num">V_cap reader acc (probe)</th><th class="num">CLUB (bits)</th><th class="num">ridge recovery (TTRSR)</th><th class="num">utility</th></tr></thead>
       <tbody>
         <tr><td>∞</td><td class="num">0.882</td><td class="num">3850</td><td class="num">0.809</td><td class="num">TODO</td></tr>
         <tr><td>1024</td><td class="num">0.878</td><td class="num">3640</td><td class="num">0.661</td><td class="num">TODO</td></tr>
@@ -135,7 +141,7 @@
     <p class="prose">Held fixed: layer 0, reader <code>pca_softmax</code> dim 64. Model gemma-2-2b. ρ(reader acc, recovery) = <strong>+0.96</strong> at L0. The same correlation by depth (input-DP propagated): L0 <strong>+0.96</strong>, L5 +0.68, L12 +0.43, L20 <strong>−0.21</strong>, while CLUB attenuates in parallel but stays positive (+0.96 → +0.29). The depth divergence is the finding; per-point rows at L20 were not tabulated in the source. Source: <code>refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md</code>.</p>
 
     <table class="spec spec--wide">
-      <thead><tr><th>k = top principal dims removed · PCA-subspace ablation (layer 20)</th><th class="num">cap reader acc (probe)</th><th class="num">cap-PVI (bits)</th><th class="num">CLUB (bits)</th><th class="num">ridge recovery (TTRSR)</th></tr></thead>
+      <thead><tr><th>k = top principal dims removed · PCA-subspace ablation (layer 20)</th><th class="num">V_cap reader acc (probe)</th><th class="num">V_cap (bits)</th><th class="num">CLUB (bits)</th><th class="num">ridge recovery (TTRSR)</th></tr></thead>
       <tbody>
         <tr><td>0</td><td class="num">0.682</td><td class="num">3.47</td><td class="num">3690</td><td class="num">0.465</td></tr>
         <tr><td>8</td><td class="num">0.652</td><td class="num">3.13</td><td class="num">3000</td><td class="num">0.055</td></tr>
@@ -148,7 +154,7 @@
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Under differential privacy · ridge vs Bayes-optimal at the input layer</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>ε (r)</th><th class="num">CLUB (bits)</th><th class="num">cap-PVI acc</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">utility</th></tr></thead>
+      <thead><tr><th>ε (r)</th><th class="num">CLUB (bits)</th><th class="num">V_cap acc</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">utility</th></tr></thead>
       <tbody>
         <tr><td>∞ (0.00)</td><td class="num">3084</td><td class="num">0.981</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">TODO</td></tr>
         <tr><td>512 (0.45)</td><td class="num">2942</td><td class="num">0.977</td><td class="num">0.993</td><td class="num">1.000</td><td class="num">TODO</td></tr>
@@ -160,7 +166,7 @@
     <p class="prose">Held fixed: layer 0, Zipf prior over the real embedding table, pool 2048. Model gemma-2-2b. The Bayes-nearest-neighbour decode is the exact channel optimum: it stays at ~1.0 while ridge collapses 50×, an uplift of +0.98 by r = 1.82. Ridge still tracks the probe positively here (+0.76 to +0.88); the gap is attack efficiency, not lost information. Source: <code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code>.</p>
 
     <table class="spec spec--wide">
-      <thead><tr><th>ε · propagated input-DP, layer 20</th><th class="num">CLUB (bits)</th><th class="num">cap-PVI acc</th><th class="num">ridge recovery</th><th class="num">deep decoder</th><th class="num">iterative</th></tr></thead>
+      <thead><tr><th>ε · propagated input-DP, layer 20</th><th class="num">CLUB (bits)</th><th class="num">V_cap acc</th><th class="num">ridge recovery</th><th class="num">deep decoder</th><th class="num">iterative</th></tr></thead>
       <tbody>
         <tr><td>∞</td><td class="num">2523</td><td class="num">0.668</td><td class="num">0.516</td><td class="num">0.345</td><td class="num">0.364</td></tr>
         <tr><td>1024</td><td class="num">2610</td><td class="num">0.693</td><td class="num">0.507</td><td class="num">0.359</td><td class="num">0.404</td></tr>
@@ -170,11 +176,11 @@
         <tr><td>256</td><td class="num">1780</td><td class="num">0.527</td><td class="num">0.167</td><td class="num">0.221</td><td class="num">0.235</td></tr>
       </tbody>
     </table>
-    <p class="prose">Held fixed: layer 20, noise propagated from the input embedding. ρ(recovery, cap-PVI) over ε: <strong>ridge −0.09, deep decoder +0.83, iterative +0.71</strong>. The stronger trained decoder re-correlates with the probe where the linear ridge anti-correlates, and beats it at high noise (ε ≤ 384). Source: <code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code>.</p>
+    <p class="prose">Held fixed: layer 20, noise propagated from the input embedding. ρ(recovery, V_cap) over ε: <strong>ridge −0.09, deep decoder +0.83, iterative +0.71</strong>. The stronger trained decoder re-correlates with the probe where the linear ridge anti-correlates, and beats it at high noise (ε ≤ 384). Source: <code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code>.</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Depth inversion · plaintext, depth is the axis</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>layer</th><th class="num">cap reader acc (probe)</th><th class="num">CLUB (bits)</th><th class="num">cosine-NN floor</th><th class="num">ridge recovery</th><th class="num">learned mlp2</th><th class="num">utility</th></tr></thead>
+      <thead><tr><th>layer</th><th class="num">V_cap reader acc (probe)</th><th class="num">CLUB (bits)</th><th class="num">cosine-NN floor</th><th class="num">ridge recovery</th><th class="num">learned mlp2</th><th class="num">utility</th></tr></thead>
       <tbody>
         <tr><td>L0</td><td class="num">0.939</td><td class="num">3426</td><td class="num">0.000</td><td class="num">0.685</td><td class="num">0.639</td><td class="num">TODO</td></tr>
         <tr><td>L8</td><td class="num">0.797</td><td class="num">3003</td><td class="num">0.000</td><td class="num">0.588</td><td class="num">0.581</td><td class="num">TODO</td></tr>
@@ -183,11 +189,11 @@
         <tr><td>L32</td><td class="num">0.685</td><td class="num">2970</td><td class="num">0.000</td><td class="num">0.390</td><td class="num accent">0.542</td><td class="num">TODO</td></tr>
       </tbody>
     </table>
-    <p class="prose">Recovery is shuffle-subtracted selectivity (real − label-shuffle); the cosine-NN memorization floor is 0.000 at every depth under the vocab-disjoint split, so the recovery is genuine generalizing inversion, not memorization. Model Qwen3-4B; representative layers shown (full grid is nine depths). Recovery stays 0.39–0.69 at every depth and the learned inverter beats ridge at L32 (+0.153). ρ(cap reader acc, best recovery) = <strong>+0.85</strong>; CLUB +0.78. Source: <code>refine-logs/resid-depth-inversion/RESULTS_STANDARDIZED.md</code>.</p>
+    <p class="prose">Recovery is shuffle-subtracted selectivity (real − label-shuffle); the cosine-NN memorization floor is 0.000 at every depth under the vocab-disjoint split, so the recovery is genuine generalizing inversion, not memorization. Model Qwen3-4B; representative layers shown (full grid is nine depths). Recovery stays 0.39–0.69 at every depth and the learned inverter beats ridge at L32 (+0.153). ρ(V_cap reader acc, best recovery) = <strong>+0.85</strong>; CLUB +0.78. Source: <code>refine-logs/resid-depth-inversion/RESULTS_STANDARDIZED.md</code>.</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Rep2Text · sequence length (plaintext) and noise</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>length (tokens)</th><th class="num">spectral channel-MI (bits)</th><th class="num">real token-F1</th><th class="num">shuffled null</th><th class="num">leakage gap</th><th class="num">utility</th></tr></thead>
+      <thead><tr><th>length (tokens)</th><th class="num">I_G (bits)</th><th class="num">real token-F1</th><th class="num">shuffled null</th><th class="num">leakage gap</th><th class="num">utility</th></tr></thead>
       <tbody>
         <tr><td>9</td><td class="num">2856</td><td class="num">0.076</td><td class="num">0.045</td><td class="num">+0.031</td><td class="num">TODO</td></tr>
         <tr><td>14</td><td class="num">2856</td><td class="num">0.088</td><td class="num">0.074</td><td class="num">+0.015</td><td class="num">TODO</td></tr>
@@ -199,7 +205,7 @@
     </table>
     <p class="prose">The probe is constant (2856 bits) across length because capacity far exceeds the sequence entropy (H ≤ 1102 bits at 64 tokens), so the length-only correlation is undefined and the full length × noise grid gives ρ = 0.18: the capacity probe is vacuous. Recovery is significant at every length (all bootstrap 95% CIs exclude 0) but grows with length rather than decaying. Model Qwen3-4B last-token residual at layer 10. Source: <code>refine-logs/resid-rep2text/EXPERIMENT_RESULTS.md</code>.</p>
     <table class="spec">
-      <thead><tr><th>noise σ</th><th class="num">spectral channel-MI (bits)</th><th class="num">real token-F1</th><th class="num">leakage gap</th></tr></thead>
+      <thead><tr><th>noise σ</th><th class="num">I_G (bits)</th><th class="num">real token-F1</th><th class="num">leakage gap</th></tr></thead>
       <tbody>
         <tr><td>0.053</td><td class="num">2856</td><td class="num">0.150</td><td class="num">+0.038</td></tr>
         <tr><td>0.269</td><td class="num">1019</td><td class="num">0.145</td><td class="num">+0.038</td></tr>
@@ -213,7 +219,7 @@
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">GELO defense · row-mixing condition number</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>κ(A)</th><th class="num">feature-Gram rel-err</th><th class="num">negentropy (bits, probe)</th><th class="num">JADE recovery p95</th><th class="num">random-demix floor</th><th class="num">genuine margin</th></tr></thead>
+      <thead><tr><th>κ(A)</th><th class="num">feature-Gram rel-err</th><th class="num"><code>J</code> (bits, probe)</th><th class="num">JADE recovery p95</th><th class="num">random-demix floor</th><th class="num">genuine margin</th></tr></thead>
       <tbody>
         <tr><td>1 (orthogonal)</td><td class="num">2.5e-16</td><td class="num">66.6</td><td class="num">0.721</td><td class="num">0.674</td><td class="num">0.047</td></tr>
         <tr><td>3</td><td class="num">2.80</td><td class="num">48.1</td><td class="num">0.705</td><td class="num">0.668</td><td class="num">0.037</td></tr>
@@ -222,11 +228,11 @@
         <tr><td>100</td><td class="num">1780</td><td class="num">20.8</td><td class="num">0.692</td><td class="num">0.666</td><td class="num">0.026</td></tr>
       </tbody>
     </table>
-    <p class="prose">Held fixed: shield fraction 0, median over layers {0,12,20}. Model Qwen3-4B. At κ=1 the orthogonal mixing publishes the exact feature Gram (rel-err 2.5e-16), the load-bearing leak; the row source-separation margin stays near the random-demix floor (≤ 0.05) and amortized ridge inversion fails (p95 0.288 < floor 0.667). ρ(negentropy, genuine margin) = <strong>0.51</strong> shield-0, 0.29 over all 45 cells, both below the 0.6 bar: a failed/weak measurement loop. The source diagnoses this as a likely probe mismatch (the row-negentropy probe is not matched to the feature-Gram channel that leaks) but does not rule out a weak attack; a stronger source-separation suite and a feature-Gram-matched probe are the queued follow-up. Source: <code>refine-logs/resid-gelo/RESULTS.md</code>.</p>
+    <p class="prose">Held fixed: shield fraction 0, median over layers {0,12,20}. Model Qwen3-4B. At κ=1 the orthogonal mixing publishes the exact feature Gram (rel-err 2.5e-16), the load-bearing leak; the row source-separation margin stays near the random-demix floor (≤ 0.05) and amortized ridge inversion fails (p95 0.288 < floor 0.667). ρ(J, genuine margin) = <strong>0.51</strong> shield-0, 0.29 over all 45 cells, both below the 0.6 bar: a failed/weak measurement loop. The source diagnoses this as a likely probe mismatch (the whitened-row negentropy probe is not matched to the feature-Gram channel that leaks) but does not rule out a weak attack; a stronger source-separation suite and a feature-Gram-matched probe are the queued follow-up. Source: <code>refine-logs/resid-gelo/RESULTS.md</code>.</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Split inference (PriPert) · perturbation budget</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>β (perturbation)</th><th class="num">spectral channel-MI (bits)</th><th class="num">best-inverter recovery</th><th class="num">Fano ceiling</th><th class="num">accessible (bits)</th><th class="num">utility</th></tr></thead>
+      <thead><tr><th>β (perturbation)</th><th class="num">I_G (bits)</th><th class="num">best-inverter recovery</th><th class="num">Fano ceiling</th><th class="num">accessible (bits)</th><th class="num">utility</th></tr></thead>
       <tbody>
         <tr><td>0</td><td class="num">∞</td><td class="num">0.608</td><td class="num">1.000</td><td class="num">11.0</td><td class="num">TODO</td></tr>
         <tr><td>0.25</td><td class="num">166.7</td><td class="num">0.223</td><td class="num">1.000</td><td class="num">11.0</td><td class="num">TODO</td></tr>
@@ -235,14 +241,14 @@
         <tr><td>2</td><td class="num">10.0</td><td class="num">0.002</td><td class="num">0.986</td><td class="num">10.0</td><td class="num">TODO</td></tr>
       </tbody>
     </table>
-    <p class="prose">Held fixed: layer 8, sparsity ratio 0.25. Model Qwen3-4B. Perturbation is the load-bearing parameter (recovery collapses by β ≈ 0.5), and the learned mlp2 inverter beats ridge at moderate β (β=0.25: 0.283 vs 0.094). ρ(spectral channel-MI, best recovery) = <strong>+0.958</strong> over the full 32-cell sweep (+0.915 against the learned inverter). The Fano converse is valid but slack: it binds in only 1 of 32 cells (β=2 here), far past the empirical recovery floor at β ≈ 0.5. Source: <code>refine-logs/resid-split/RESULTS_STANDARDIZED.md</code>.</p>
+    <p class="prose">Held fixed: layer 8, sparsity ratio 0.25. Model Qwen3-4B. Perturbation is the load-bearing parameter (recovery collapses by β ≈ 0.5), and the learned mlp2 inverter beats ridge at moderate β (β=0.25: 0.283 vs 0.094). ρ(I_G, best recovery) = <strong>+0.958</strong> over the full 32-cell sweep (+0.915 against the learned inverter). The Fano converse is valid but slack: it binds in only 1 of 32 cells (β=2 here), far past the empirical recovery floor at β ≈ 0.5. Source: <code>refine-logs/resid-split/RESULTS_STANDARDIZED.md</code>.</p>
 
     <!-- ===== EMBEDDING ===== -->
     <h3 style="font-family:'Fraunces',serif;margin:28px 0 4px;">Pooled embedding</h3>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Vec2Text · Gaussian differential privacy</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>ε</th><th class="num">σ/C</th><th class="num">spectral channel-MI (bits)</th><th class="num">token-F1</th><th class="num">exact match</th><th class="num">utility (release cos)</th></tr></thead>
+      <thead><tr><th>ε</th><th class="num">σ/C</th><th class="num">I_G (bits)</th><th class="num">token-F1</th><th class="num">exact match</th><th class="num">utility (release cos)</th></tr></thead>
       <tbody>
         <tr><td>base (0-step)</td><td class="num">—</td><td class="num">—</td><td class="num">0.48</td><td class="num">0.00</td><td class="num">0.85</td></tr>
         <tr><td>∞ (Vec2Text)</td><td class="num">0</td><td class="num">1597</td><td class="num accent">0.80</td><td class="num accent">0.18</td><td class="num">0.96</td></tr>
@@ -252,7 +258,7 @@
         <tr><td>128</td><td class="num">.038</td><td class="num">68</td><td class="num">0.09</td><td class="num">0</td><td class="num">0.24</td></tr>
       </tbody>
     </table>
-    <p class="prose">Model GTR-T5-base, pooled, N=96. ρ(spectral channel-MI, token-F1) = <strong>+1.00</strong> (= CLUB, at ~28× lower cost), +0.71 on exact match; 0 ceiling violations. Retrieval utility (nDCG@10, separate N=256 eval) degrades far more gracefully than leakage: 1.00 at ε=∞, 0.99 at 512, 0.97 at 256, 0.90 at 128, so the operating window ε ≈ 256–512 keeps retrieval near-lossless while exact reconstruction is already dead. Source: <code>vec2text.html</code> · <code>results/spectral_mi_probe_eval.json</code>.</p>
+    <p class="prose">Model GTR-T5-base, pooled, N=96. ρ(I_G, token-F1) = <strong>+1.00</strong> (= CLUB, at ~28× lower cost), +0.71 on exact match; 0 ceiling violations. Retrieval utility (nDCG@10, separate N=256 eval) degrades far more gracefully than leakage: 1.00 at ε=∞, 0.99 at 512, 0.97 at 256, 0.90 at 128, so the operating window ε ≈ 256–512 keeps retrieval near-lossless while exact reconstruction is already dead. Source: <code>vec2text.html</code> · <code>results/spectral_mi_probe_eval.json</code>.</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Bayes-NN · geometry-only error bounds</h4>
     <table class="spec spec--wide">
@@ -278,9 +284,9 @@
         <tr><td>71.4</td><td class="num">0.159</td><td class="num">0.484</td><td class="num">4.158</td></tr>
       </tbody>
     </table>
-    <p class="prose">Within the distortion-minimizing noise shape, the spectral channel-MI budget predicts recovery perfectly: ρ(I_G, token-F1) = +1.00. Model GTR-T5-base, N=96. Source: <code>refine-logs/embed-sgt/runs/sweep/sgt_eval.json</code>.</p>
+    <p class="prose">Within the distortion-minimizing noise shape, the I_G budget predicts recovery perfectly: ρ(I_G, token-F1) = +1.00. Model GTR-T5-base, N=96. Source: <code>refine-logs/embed-sgt/runs/sweep/sgt_eval.json</code>.</p>
     <table class="spec spec--wide">
-      <thead><tr><th>noise shape (at B = 826.8 bits)</th><th class="num">spectral channel-MI (bits)</th><th class="num">token-F1</th><th class="num">read-subspace cos</th><th class="num">total distortion</th></tr></thead>
+      <thead><tr><th>noise shape (at B = 826.8 bits)</th><th class="num">I_G (bits)</th><th class="num">token-F1</th><th class="num">read-subspace cos</th><th class="num">total distortion</th></tr></thead>
       <tbody>
         <tr><td>isotropic</td><td class="num">826.8</td><td class="num">0.433</td><td class="num">0.957</td><td class="num">0.111</td></tr>
         <tr><td>optimal (reverse water-filling)</td><td class="num">826.8</td><td class="num">0.566</td><td class="num">0.964</td><td class="num">0.091</td></tr>
@@ -301,11 +307,11 @@
         <tr><td>genuine margin (per-cell median)</td><td class="num">0.027</td></tr>
       </tbody>
     </table>
-    <p class="prose">On plaintext key/value there is no hidden mixing to invert, so the raw 0.776 is subspace membership, not separation; the genuine margin against a matched random-demix floor is 0.027, ordered by kind (key/query ≈ 0, key/query/value/out 0.02–0.03, residual 0.06–0.07). The margin is flat in the observation count (slope vs log₂T = +0.009). This is a recovery-only baseline: plaintext has no defense parameter, and per-cell negentropy is not tabulated in the source, so the probe enters as the correlation ρ(negentropy, genuine margin) = <strong>+0.92</strong> across the 9 layer × kind cells, which anti-correlates with the raw score (−0.43): the floor definition is load-bearing. Model Qwen3-4B. Source: <code>refine-logs/kv-accumulation/RESULTS.md</code>.</p>
+    <p class="prose">On plaintext key/value there is no hidden mixing to invert, so the raw 0.776 is subspace membership, not separation; the genuine margin against a matched random-demix floor is 0.027, ordered by kind (key/query ≈ 0, key/query/value/out 0.02–0.03, residual 0.06–0.07). The margin is flat in the observation count (slope vs log₂T = +0.009). This is a recovery-only baseline: plaintext has no defense parameter, and per-cell negentropy is not tabulated in the source, so the probe enters as the correlation ρ(J, genuine margin) = <strong>+0.92</strong> across the 9 layer × kind cells, which anti-correlates with the raw score (−0.43): the floor definition is load-bearing. Model Qwen3-4B. Source: <code>refine-logs/kv-accumulation/RESULTS.md</code>.</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">KV-Cloak · channel decoupling (the swept parameter is the channel)</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>channel (layer 0)</th><th class="num">negentropy (bits, probe)</th><th class="num">spectral capacity (bits)</th><th class="num">JADE recovery p95</th><th class="num">floor</th></tr></thead>
+      <thead><tr><th>channel (layer 0)</th><th class="num"><code>J</code> (bits, probe)</th><th class="num">shared spectral capacity (bits)</th><th class="num">JADE recovery p95</th><th class="num">floor</th></tr></thead>
       <tbody>
         <tr><td>identity (plaintext)</td><td class="num">1044.7</td><td class="num">18.24</td><td class="num">0.626</td><td class="num">0.157</td></tr>
         <tr><td>feature mix only</td><td class="num">1.47</td><td class="num">20.94</td><td class="num accent">0.126</td><td class="num">0.157</td></tr>
@@ -315,14 +321,14 @@
         <tr><td>full (eq. 9)</td><td class="num">0.72</td><td class="num">16.32</td><td class="num accent">0.126</td><td class="num">0.157</td></tr>
       </tbody>
     </table>
-    <p class="prose">Held fixed: layer 0, mean over block size and mask scale and seed. Model Qwen3-4B key cache. Only channels containing the feature mix drive recovery to the random-demix floor (0.626 → 0.126) and collapse the negentropy probe (1045 → 1.5 bits); token mix and block size are inert. The feature mix also defeats the accumulation attack (it stays at the floor across T while plaintext climbs 0.49 → 0.75). ρ(negentropy, recovery) = <strong>+0.71</strong> aggregate over 270 cells, +0.77 channel-mean; the probe ranks channel families, it is not a within-channel oracle. Source: <code>refine-logs/kv-cloak/RESULTS.md</code>.</p>
+    <p class="prose">Held fixed: layer 0, mean over block size and mask scale and seed. Model Qwen3-4B key cache. Only channels containing the feature mix drive recovery to the random-demix floor (0.626 → 0.126) and collapse the negentropy probe (1045 → 1.5 bits); token mix and block size are inert. The feature mix also defeats the accumulation attack (it stays at the floor across T while plaintext climbs 0.49 → 0.75). ρ(J, recovery) = <strong>+0.71</strong> aggregate over 270 cells, +0.77 channel-mean; the probe ranks channel families, it is not a within-channel oracle. Source: <code>refine-logs/kv-cloak/RESULTS.md</code>.</p>
 
     <!-- ===== PERMUTATION ===== -->
     <h3 style="font-family:'Fraunces',serif;margin:28px 0 4px;">Permutation cover and deployed defenses</h3>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Permutation cover · matcher strength vs leakage</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>noise α_e</th><th class="num">CLUB on signature (bits, probe)</th><th class="num">64-bin baseline recovery</th><th class="num">full sorted-row recovery</th><th class="num">utility</th></tr></thead>
+      <thead><tr><th>noise α_e</th><th class="num"><code>CLUB</code> (bits, probe)</th><th class="num">64-bin baseline recovery</th><th class="num">full sorted-row recovery</th><th class="num">utility</th></tr></thead>
       <tbody>
         <tr><td>0.0</td><td class="num">245</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">TODO</td></tr>
         <tr><td>0.1</td><td class="num">243</td><td class="num">0.977</td><td class="num">1.000</td><td class="num">TODO</td></tr>
@@ -406,7 +412,7 @@
         </tr>
         <tr>
           <td>Single seed; per-point coverage</td>
-          <td>Most sweeps are single-seed point estimates. A few slices lack tabulated per-point rows for every cell (the layer-20 input-DP rows for capacity-matched PVI; full ridge-vs-learned columns at every β for split inference); these are noted in the relevant captions.</td>
+          <td>Most sweeps are single-seed point estimates. A few slices lack tabulated per-point rows for every cell (the layer-20 input-DP rows for capacity-matched predictive V-information (V_cap); full ridge-vs-learned columns at every β for split inference); these are noted in the relevant captions.</td>
           <td>TODO: multi-seed the surfaces whose verdict turns on a near-0.6 correlation (GELO, KV-Cloak channel-mean); tabulate the missing per-point rows.</td>
         </tr>
         <tr>

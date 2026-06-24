@@ -51,6 +51,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -123,7 +129,7 @@
         <tr><th>defense</th><td>release the clean embedding plus zero-mean Gaussian noise with a diagonal covariance; the per-coordinate variances are the defense parameters</td></tr>
         <tr><th>attack</th><td>a pretrained iterative corrector that refines a candidate text against the observed embedding (Morris et al. 2023), used unchanged across all settings</td></tr>
         <tr><th>recovery readout</th><td>token-F1 against the true text, plus exact-match rate, positional token accuracy, and the cosine between the clean and released embeddings; 96 held-out texts per setting</td></tr>
-        <tr><th>measure (bits)</th><td>spectral channel mutual information of the Gaussian release channel, computed from the embedding covariance and the noise covariance alone, with no attack</td></tr>
+        <tr><th>measure (bits)</th><td>Gaussian channel-capacity MI ceiling of the Gaussian release channel, computed from the embedding covariance and the noise covariance alone, with no attack</td></tr>
       </tbody>
     </table>
     <p class="prose">

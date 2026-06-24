@@ -49,6 +49,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -110,7 +116,7 @@
         <tr><th>defense (PriPert)</th><td>keep the top fraction &rho; of coordinates per row by magnitude, then add isotropic Gaussian noise of standard deviation &beta; times the plaintext row scale, held fixed per layer</td></tr>
         <tr><th>recovery readout</th><td>token-table retrieval top-1 rate, reported as selectivity = real minus label-shuffle floor; bootstrap 95% intervals over vocabulary-disjoint test rows</td></tr>
         <tr><th>inverters</th><td>cosine nearest-neighbour over training activations (memorization baseline); linear ridge; learned two-layer perceptron</td></tr>
-        <tr><th>matched measure (bits)</th><td>spectral channel mutual information of the Gaussian channel, computed from the sparsified covariance and the noise level alone, with no inverter; yields a Fano accuracy ceiling</td></tr>
+        <tr><th>matched measure (bits)</th><td>Gaussian channel-capacity MI ceiling of the Gaussian channel, computed from the sparsified covariance and the noise level alone, with no inverter; yields a Fano accuracy ceiling</td></tr>
         <tr><th>secondary measure</th><td>contrastive mutual-information upper bound between the defended activation and the token embedding</td></tr>
         <tr><th>split / control</th><td>train and test token vocabularies disjoint; label-shuffle control fixes the frequency floor</td></tr>
       </tbody>
@@ -136,7 +142,7 @@
       fixed &beta; = 0.25, across all four layers. A plaintext setting at &rho; = 1, &beta; = 0 anchors
       each layer. Each of the 32 resulting settings is attacked by all three inverters under the
       vocabulary-disjoint split with a label-shuffle control and a bootstrap interval, and measured by
-      the matched spectral channel mutual information and the contrastive bound. The measures read only
+      the matched Gaussian channel-capacity MI ceiling and the contrastive bound. The measures read only
       the sparsified covariance and the noise level, never the inverter output, so they are
       attack-independent by construction.</p>
     </div>
@@ -233,7 +239,7 @@
       input-adjacent first layer resists even the largest budget. The effect is therefore not a uniform
       property of the defense but depends on where the cut is taken.</p>
       <p><strong>The matched measure predicts recovery, including the stronger attack (Supported).</strong>
-      Computed with no inverter, the spectral channel mutual information tracks recovery across the joint
+      Computed with no inverter, the Gaussian channel-capacity MI ceiling tracks recovery across the joint
       sweep at 0.958, holds at 0.916 once the perturbation axis is held fixed, and reaches the stronger
       learned inverter at 0.915. The measure is a monotone predictor of recovery here, not a tight one.</p>
       <p><strong>The converse is valid but slack (Supported, with the slack as the finding).</strong>
@@ -300,7 +306,7 @@
   <footer class="colophon">
     <p>Tests PriPert, "Split Inference with Activation Sparsification and Adversarial Perturbation"
     (<a href="https://arxiv.org/abs/2605.23158">arXiv 2605.23158</a>), on the Qwen3-4B residual stream.
-    Matched measure after the spectral channel mutual information; converse after Fano's inequality.
+    Matched measure after the Gaussian channel-capacity MI ceiling; converse after Fano's inequality.
     Four split layers, vocabulary-disjoint split with a label-shuffle control, perturbation and sparsity
     sweeps over 32 settings.</p>
   </footer>

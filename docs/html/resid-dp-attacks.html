@@ -53,6 +53,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -97,7 +103,7 @@
         <tr><td><strong>Bayes-NN</strong></td><td>L0 exact channel optimum: nearest-neighbour to the known embedding table under the published noise model. No training set — uses strictly <em>less</em> than ridge, still admissible.</td></tr>
         <tr><td><strong>channel-aware decoder</strong></td><td>An MLP / deep / Vec2Text-style corrector trained on the σ-matched noised representation → token. The stronger attack at depth.</td></tr>
         <tr><td><strong>FMV</strong></td><td>Forward-model-in-loop Vec2Text: re-embed decoder-seeded candidate tokens through the actual model and match to the observed noised representation.</td></tr>
-        <tr><td><strong>CLUB / capPVI / MDL-SDL</strong></td><td>The three attack-<em>independent</em> probes. CLUB = variational MI upper bound <code>I(rep;tok)</code> (bits); capacity-PVI = capacity-controlled reader accuracy; MDL/SDL = surplus description length (bits). None runs the attack.</td></tr>
+        <tr><td><strong>CLUB / V_cap / SDL</strong></td><td>The three attack-<em>independent</em> probes. CLUB = variational MI upper bound <code>I(rep;tok)</code> (bits); V_cap = capacity-matched predictive V-information; SDL = surplus description length (bits). None runs the attack.</td></tr>
         <tr><td><strong>recovery / selectivity</strong></td><td>TTRSR / top-1 exact-match recovery rate; <em>selectivity</em> = recovery − shuffle-control floor (guards against memorization). The per-secret readout.</td></tr>
         <tr><td><strong>uplift</strong></td><td>recovery(strong attack) − recovery(ridge). Positive ⇒ the stronger attack extracts preserved information ridge misses.</td></tr>
       </tbody>
@@ -132,15 +138,15 @@
       <div class="section-meta">why they are attack-independent</div>
     </header>
     <div class="prose">
-      <p>All three probes are computed <strong>without running the attack</strong> (integrity-critical — a probe that reported the attack's own bits would make any correlation circular). The cross-model integrity audit confirmed CLUB, capacity-PVI and MDL/SDL each estimate leakage independently and do not call the attack's recovery output.</p>
-      <p>Under <strong>at-layer noise all three track recovery</strong> (Spearman 0.80–1.0): CLUB and capPVI are smoothest (ρ=1.0), MDL/SDL noisier and 6–7× costlier (report it auxiliary). This closes the "is MDL faithful too?" question and shows the probes are not the limiting factor — the attack is.</p>
+      <p>All three probes are computed <strong>without running the attack</strong> (integrity-critical — a probe that reported the attack's own bits would make any correlation circular). The cross-model integrity audit confirmed CLUB, V_cap and SDL each estimate leakage independently and do not call the attack's recovery output.</p>
+      <p>Under <strong>at-layer noise all three track recovery</strong> (Spearman 0.80–1.0): CLUB and V_cap are smoothest (ρ=1.0), SDL noisier and 6–7× costlier (report it auxiliary). This closes the "is MDL faithful too?" question and shows the probes are not the limiting factor — the attack is.</p>
     </div>
     <table class="spec">
       <thead><tr><th>Probe</th><th>Bits it reports</th><th class="num">at-layer ρ(probe, recovery)</th><th>independent of attack?</th></tr></thead>
       <tbody>
         <tr><td><strong>CLUB</strong></td><td>MI upper bound <code>I(rep;tok)</code></td><td class="num accent">+1.00</td><td>yes (trains <code>q(y|x)</code>, not the attack)</td></tr>
-        <tr><td><strong>capacity-PVI</strong></td><td>reader accuracy (V-info)</td><td class="num accent">+1.00</td><td>yes (capacity-matched reader)</td></tr>
-        <tr><td><strong>MDL / SDL</strong></td><td>surplus description length</td><td class="num">+0.80</td><td>yes (online code length)</td></tr>
+        <tr><td><strong>V_cap</strong></td><td>capacity-matched predictive V-information</td><td class="num accent">+1.00</td><td>yes (capacity-matched reader)</td></tr>
+        <tr><td><strong>SDL</strong></td><td>surplus description length</td><td class="num">+0.80</td><td>yes (online code length)</td></tr>
       </tbody>
     </table>
   </section>
@@ -155,7 +161,7 @@
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:8px 0 8px;">R1 — L0 input-DP · exact Bayes-NN vs ridge <span class="mono" style="font-size:12px">(synthetic_proxy; recovery from l0_fast.txt, bits from b2_l0_bayes.json)</span></h4>
     <table class="spec">
-      <thead><tr><th>ε (r=σ√d/C)</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">uplift</th><th class="num">CLUB (bits)</th><th class="num">capPVI</th></tr></thead>
+      <thead><tr><th>ε (r=σ√d/C)</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">uplift</th><th class="num">CLUB (bits)</th><th class="num">V_cap</th></tr></thead>
       <tbody>
         <tr><td>∞ (0.00)</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">+0.000</td><td class="num">3084</td><td class="num">0.981</td></tr>
         <tr><td>256 (0.91)</td><td class="num">0.202</td><td class="num accent">1.000</td><td class="num accent">+0.798</td><td class="num">2624</td><td class="num">0.935</td></tr>
@@ -179,7 +185,7 @@
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R5 — PROPAGATED input-DP @L20 · the headline <span class="mono" style="font-size:12px">(single seed — no robustness claim)</span></h4>
     <table class="spec">
-      <thead><tr><th>attack</th><th class="num">ρ(selectivity, capPVI)</th><th class="num">ρ(selectivity, CLUB)</th><th>reading</th></tr></thead>
+      <thead><tr><th>attack</th><th class="num">ρ(selectivity, V_cap)</th><th class="num">ρ(selectivity, CLUB)</th><th>reading</th></tr></thead>
       <tbody>
         <tr><td><strong>deep decoder</strong></td><td class="num accent">+0.83</td><td class="num">—</td><td>re-correlates with MI</td></tr>
         <tr><td>iterative corrector</td><td class="num accent">+0.71</td><td class="num accent">+0.71</td><td>re-correlates</td></tr>

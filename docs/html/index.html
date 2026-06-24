@@ -53,6 +53,12 @@
           <a href="perm-cover.html">permutation cover</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
     </span>
   </div>
 
@@ -75,9 +81,9 @@
     <p class="lede">A confidential-inference deployment releases some function of a private input: an activation crossing a trust boundary, a sentence embedding in a vector store, an obfuscated embedding table. The question for each released object is how much of the secret it leaks, and whether an attack-independent measure predicts how much an attacker recovers.</p>
     <div class="prose">
       <p><strong>Threat model (public weights).</strong> The default anchor is <code>WEIGHTS-PUB</code>: the adversary knows the model weights and the embedding table, so norms, Gram matrices, and attention scores are known functions of the secret, and the adversary can synthesize unlimited training pairs at any defense parameter. Comparisons between admissible attacks are therefore fair. Per-page deviations are stated in that page.</p>
-      <p><strong>Probe is not the attack.</strong> A probe is an independent measure that correlates with attack recovery, never the attack reporting its own bits. A measure that could not be computed without running the attack is the attack in disguise, and any correlation it shows is circular. The probes here are geometry-only or channel-matched: a capacity-matched token-identity reader, a spectral channel mutual-information ceiling, geometry-only error bounds.</p>
+      <p><strong>Probe is not the attack.</strong> A probe is an independent measure that correlates with attack recovery, never the attack reporting its own bits. A measure that could not be computed without running the attack is the attack in disguise, and any correlation it shows is circular. The probes here are geometry-only or channel-matched: a capacity-matched token-identity reader, a Gaussian channel-capacity MI ceiling, geometry-only error bounds.</p>
       <p><strong>One metric, two axes.</strong> Every measure reports on one comparable scale, <strong>bits</strong>, beside a per-secret human readout: token-identity perplexity and top-k, text token-F1 and ROUGE, permutation recovery-rate and rank correlation, embedding token-F1 and cosine, membership AUC. The reporting layer (<code>src/talens/report.py</code>) enforces this convention across all eight measure families.</p>
-      <p><strong>How to read this site.</strong> The cards below group by released surface: the residual stream, the pooled or per-position embedding, the key/value cache, and the permuted embedding table. Each links a page that runs the loop end to end. The <a href="synthesis.html">cross-surface synthesis</a> places all thirteen loops on one standardized table; two further cross-cutting pages give the reporting foundation every page shares and a cryptographic zero-leakage reference that bounds the leakage scale from below.</p>
+      <p><strong>How to read this site.</strong> The cards below group by released surface: the residual stream, the pooled or per-position embedding, the key/value cache, and the permuted embedding table. Each links a page that runs the loop end to end. The <a href="synthesis.html">cross-surface synthesis</a> places all thirteen loops on one standardized table; further cross-cutting pages give the reporting foundation every page shares, the probe registry that names every leakage measure, and a cryptographic zero-leakage reference that bounds the leakage scale from below.</p>
     </div>
   </section>
 
@@ -108,7 +114,7 @@
         <p class="one">When does the mutual information a probe sees get realized as recovery by an attack, and when does the attack fall short?</p>
         <dl>
           <dt>secret</dt><dd>token behind a noised residual representation</dd>
-          <dt>probe</dt><dd>mutual-information family (PVI, contrastive upper bound, description length)</dd>
+          <dt>probe</dt><dd>mutual-information family (capacity-matched predictive V-information (<code>V_cap</code>), variational MI upper bound (<code>CLUB</code>), surplus description length (<code>SDL</code>))</dd>
           <dt>attack</dt><dd>ridge baseline against an information-efficient decoder</dd>
           <dt>finding</dt><dd>under propagated input-layer differential privacy a ridge attack decorrelates from the probe; an information-efficient attack re-correlates, exact nearest-neighbour at the input layer and a channel-aware decoder at depth; the gap is attack efficiency, not probe failure, and is absent under at-layer noise</dd>
           <dt>read</dt><dd><a href="resid-dp-attacks.html">residual under differential privacy →</a></dd>
@@ -121,7 +127,7 @@
         <p class="one">Token identity survives in the residual stream at every depth, and an attack-independent measure ranks how well the attack recovers it.</p>
         <dl>
           <dt>secret</dt><dd>input-token identity behind a residual hidden state at depth</dd>
-          <dt>probe</dt><dd>capacity-matched token-identity reader and a contrastive mutual-information upper bound</dd>
+          <dt>probe</dt><dd>capacity-matched predictive V-information (<code>V_cap</code>) and variational MI upper bound (<code>CLUB</code>)</dd>
           <dt>attack</dt><dd>cosine nearest-neighbour, linear ridge, and learned two-layer inverters with embedding retrieval</dd>
           <dt>finding</dt><dd>shuffle-subtracted recovery stays between 0.39 and 0.69 at all nine sampled depths with the memorization floor at zero; a learned inverter beats the linear one at the final layer; the reader tracks recovery across depth at rank correlation 0.85, and a Fano certificate turns recovery into an information lower bound</dd>
           <dt>read</dt><dd><a href="resid-depth-inversion.html">depth inversion →</a></dd>
@@ -134,7 +140,7 @@
         <p class="one">A single last-token residual is decoded back to full text by an adapter into a frozen decoder.</p>
         <dl>
           <dt>secret</dt><dd>source text behind one last-token residual hidden state at layer 10</dd>
-          <dt>probe</dt><dd>spectral channel mutual-information capacity ceiling</dd>
+          <dt>probe</dt><dd>Gaussian channel-capacity MI ceiling (<code>I_G</code>)</dd>
           <dt>attack</dt><dd>trained adapter into a frozen language-model decoder</dd>
           <dt>finding</dt><dd>recovery grows with sequence length rather than decaying; the capacity ceiling exceeds the sequence entropy by a wide margin, so the capacity probe is vacuous across the operating range; recovery is extraction-limited, not capacity-limited</dd>
           <dt>read</dt><dd><a href="resid-rep2text.html">Rep2Text inversion →</a></dd>
@@ -147,9 +153,9 @@
         <p class="one">Fresh per-prompt row mixing with optional shield rows, against a source-separation adversary.</p>
         <dl>
           <dt>secret</dt><dd>the per-row activation behind a freshly mixed residual feeding attention</dd>
-          <dt>probe</dt><dd>whitened-row negentropy</dd>
+          <dt>probe</dt><dd>whitened-row negentropy separability (<code>J</code>)</dd>
           <dt>attack</dt><dd>joint-diagonalization source separation and amortized ridge inversion</dd>
-          <dt>finding</dt><dd>fresh row mixing defeats per-row source separation and amortized inversion, but an orthogonal mixing exposes the exact feature Gram; the row-negentropy probe does not track the separation margin (0.29 to 0.51), which locates the leak in a feature-Gram channel the probe does not read</dd>
+          <dt>finding</dt><dd>fresh row mixing defeats per-row source separation and amortized inversion, but an orthogonal mixing exposes the exact feature Gram; the whitened-row negentropy probe does not track the separation margin (0.29 to 0.51), which locates the leak in a feature-Gram channel the probe does not read</dd>
           <dt>read</dt><dd><a href="resid-gelo.html">GELO defense →</a></dd>
         </dl>
       </div>
@@ -160,7 +166,7 @@
         <p class="one">A split activation is sparsified and perturbed before it crosses the trust boundary.</p>
         <dl>
           <dt>secret</dt><dd>token identity behind a split-layer residual activation</dd>
-          <dt>probe</dt><dd>spectral channel mutual-information and a Fano recovery ceiling</dd>
+          <dt>probe</dt><dd>Gaussian channel-capacity MI ceiling (<code>I_G</code>) and a Fano recovery ceiling</dd>
           <dt>attack</dt><dd>ridge and learned two-layer inverters</dd>
           <dt>finding</dt><dd>the perturbation budget is the load-bearing parameter, collapsing recovery by a moderate budget; the matched measure tracks recovery at rank correlation 0.958 including the learned inverter, with no probe-attack gap; the information-theoretic converse is valid but slack</dd>
           <dt>read</dt><dd><a href="resid-split.html">split inference →</a></dd>
@@ -173,9 +179,9 @@
         <p class="one">Recover source text from a released sentence embedding with a faithful pretrained corrector.</p>
         <dl>
           <dt>secret</dt><dd>source text behind a released embedding</dd>
-          <dt>probe</dt><dd>spectral channel mutual information <code>I_G(σ)</code>, a geometry-only converse ceiling</dd>
+          <dt>probe</dt><dd>Gaussian channel-capacity MI ceiling <code>I_G(σ)</code>, a geometry-only converse ceiling</dd>
           <dt>attack</dt><dd>pretrained Vec2Text corrector (Morris et al., 2023)</dd>
-          <dt>finding</dt><dd>the attack fails on the per-position residual stream, which has no pooled bottleneck, and succeeds on a pooled retrieval embedding; the spectral channel-MI ceiling is the matched probe and bounds recovery under differential privacy</dd>
+          <dt>finding</dt><dd>the attack fails on the per-position residual stream, which has no pooled bottleneck, and succeeds on a pooled retrieval embedding; the Gaussian channel-capacity MI ceiling is the matched probe and bounds recovery under differential privacy</dd>
           <dt>read</dt><dd><a href="vec2text.html">Vec2Text inversion →</a></dd>
         </dl>
       </div>
@@ -199,7 +205,7 @@
         <p class="one">Learned heteroscedastic noise shaped to a mutual-information budget, against embedding inversion.</p>
         <dl>
           <dt>secret</dt><dd>source text behind a pooled sentence embedding</dd>
-          <dt>probe</dt><dd>spectral channel mutual-information generalized to a diagonal noise covariance</dd>
+          <dt>probe</dt><dd>Gaussian channel-capacity MI ceiling (<code>I_G</code>) generalized to a diagonal noise covariance</dd>
           <dt>attack</dt><dd>pretrained Vec2Text corrector</dd>
           <dt>finding</dt><dd>within a fixed noise shape the capacity ceiling predicts recovery perfectly, but across noise shapes at a matched budget it is shape-blind (rank correlation 0.48) while read-subspace distortion predicts recovery at 0.97; a valid converse that is not a matched predictor</dd>
           <dt>read</dt><dd><a href="embed-sgt.html">Stained Glass defense →</a></dd>
@@ -212,7 +218,7 @@
         <p class="one">An embedding table is hidden by permuting feature columns and adding noise; the adversary must re-identify each obfuscated row.</p>
         <dl>
           <dt>secret</dt><dd>the row-to-token correspondence of an obfuscated embedding table</dd>
-          <dt>probe</dt><dd>attack-independent mutual information on the permutation-invariant signature</dd>
+          <dt>probe</dt><dd>variational MI upper bound (<code>CLUB</code>) on the permutation-invariant signature</dd>
           <dt>attack</dt><dd>full sorted-row matcher against a 64-bin quantile baseline</dd>
           <dt>finding</dt><dd>the baseline collapses under small noise while the probe shows leakage persists; the full sorted row, the maximal invariant of the column permutation, recovers it, adding 0.60 recovery where the baseline has lost three quarters of its accuracy; the probe tracks the strong matcher across the sweep</dd>
           <dt>read</dt><dd><a href="perm-cover.html">permutation cover →</a></dd>
@@ -225,7 +231,7 @@
         <p class="one">A blind-source-separation adversary tries to recover the activation rows behind the key/query/value and residual surfaces; on plaintext there is no hidden mixing to invert.</p>
         <dl>
           <dt>secret</dt><dd>the per-dimension activation rows behind <code>kq</code>, <code>kqv_out</code>, and <code>resid_post</code></dd>
-          <dt>probe</dt><dd>attack-independent whitened-row negentropy (the separability functional, computed without joint diagonalization)</dd>
+          <dt>probe</dt><dd>whitened-row negentropy separability (<code>J</code>), computed without joint diagonalization</dd>
           <dt>attack</dt><dd>joint-diagonalization separators (single-observation and across stacked observations), graded against a matched random-demixing floor</dd>
           <dt>finding</dt><dd>every demixing returns a basis of one fixed subspace, so the raw recovery score (0.776) is subspace membership, not separation; the genuine margin is 0.027 and flat in the observation count; the negentropy probe tracks the genuine margin at 0.92 while anticorrelating with the raw score</dd>
           <dt>read</dt><dd><a href="kv-accumulation.html">source separation →</a></dd>
@@ -238,10 +244,22 @@
         <p class="one">A key/value cache obfuscated by feature mixing, token mixing, and an additive mask.</p>
         <dl>
           <dt>secret</dt><dd>the per-row activation behind the obfuscated key/value cache</dd>
-          <dt>probe</dt><dd>whitened-row negentropy</dd>
+          <dt>probe</dt><dd>whitened-row negentropy separability (<code>J</code>)</dd>
           <dt>attack</dt><dd>joint-diagonalization source separation, single and accumulated across observations</dd>
           <dt>finding</dt><dd>the feature mix is the only channel that reduces source-separation recovery; token mixing and block size are recovery-irrelevant; the probe ranks defense families rather than acting as a within-channel oracle</dd>
           <dt>read</dt><dd><a href="kv-cloak.html">KV-Cloak decoupling →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag crypto">cross-cutting</span>
+        <h3>Probe registry</h3>
+        <p class="one">One canonical name and symbol for every attack-independent leakage measure, with the quantity it reports and the module that computes it.</p>
+        <dl>
+          <dt>scope</dt><dd>the seven measures used across the surfaces, named once</dd>
+          <dt>axis</dt><dd>symbol, canonical name, quantity, what it bounds, source module</dd>
+          <dt>finding</dt><dd>the Gaussian channel-capacity ceiling and the key/value shared spectral capacity share a formula but are distinct measures on distinct channels, and are kept apart</dd>
+          <dt>read</dt><dd><a href="probes-registry.html">probe registry →</a></dd>
         </dl>
       </div>
 
@@ -256,7 +274,7 @@
       <div class="section-meta">the shared metric layer</div>
     </header>
     <div class="prose">
-      <p>Every surface page renders its sweep on one convention: a canonical bits column beside a per-secret human readout. The reporting layer supplies a single canonical-bits extractor across the eight measure families, a formatter that keeps small bit values legible, and one standardized leakage row that carries both axes. It is cross-surface infrastructure rather than a surface, implemented in <code>src/talens/report.py</code>.</p>
+      <p>Every surface page renders its sweep on one convention: a canonical bits column beside a per-secret human readout. The reporting layer supplies a single canonical-bits extractor across the eight measure families, a formatter that keeps small bit values legible, and one standardized leakage row that carries both axes. It is cross-surface infrastructure rather than a surface, implemented in <code>src/talens/report.py</code>. The <a href="probes-registry.html">probe registry</a> names every measure that fills the bits column and states the quantity each one reports.</p>
     </div>
   </section>
 

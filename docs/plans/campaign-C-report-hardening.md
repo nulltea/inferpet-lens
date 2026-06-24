@@ -72,7 +72,7 @@ NAV TAXONOMY (set by the 2026-06-24 restructure): the topnav is `index · synthe
 
 steps: (a) write the registry as the dedicated page `docs/html/probes-registry.html` (do NOT recreate metric-std.html) — each row = symbol, canonical name, quantity, one-line "what it bounds / why attack-independent", and the source `src/talens/measures/*` module; add a new `probes` navgroup to the canonical topnav and put this page in it; (b) sweep every `docs/html/*.html` and replace each probe mention with the canonical name + symbol (lead with the name, keep the symbol for table headers); (c) reconcile synthesis.html's existing probe-glossary paragraph to point at / match the registry (the `metric-std` link was already removed in the restructure).
 acceptance: every probe mention in `docs/html/` uses a registry name+symbol verbatim (grep audit); `probes-registry.html` exists under a new `probes` navgroup (present in EVERY page's topnav) + index; synthesis.html glossary defers to the registry; no page still says "spectral channel-MI" as an umbrella or conflates `I_G` with shared-spectral-capacity.
-- [ ] run-phase: c2-probe-registry
+- [x] run-phase: c2-probe-registry
 
 ### Task 3: restructure resid-capacity-pvi — it is the V_cap probe, not a surface
 recipe: consolidate

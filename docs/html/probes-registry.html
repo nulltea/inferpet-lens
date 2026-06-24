@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — probe registry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css?v=2">
+</head>
+<body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="synthesis.html">synthesis</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">defenses</span>
+        <div class="navgroup-menu">
+          <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="resid-gelo.html">GELO</a>
+          <a href="resid-split.html">split inference (PriPert)</a>
+          <a href="embed-sgt.html">Stained Glass</a>
+          <a href="kv-cloak.html">KV-Cloak</a>
+          <a href="perm-cover.html">permutation cover</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">probes</span>
+        <div class="navgroup-menu">
+          <a class="current" href="probes-registry.html">probe registry</a>
+        </div>
+      </div>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Probe registry<br><em>— canonical names</em></h1>
+      <p class="subtitle">One canonical name and symbol for every attack-independent leakage measure on this site, with the quantity it reports and the module that computes it. Each surface and defense page uses these names verbatim, so a probe means the same thing on every page.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- §01 INTRODUCTION -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">one name per measure</div>
+    </header>
+    <div class="prose">
+      <p class="lede">A probe is an attack-independent measure that correlates with attack recovery; it is never the attack reporting its own bits. Each probe reads one channel of the released representation and reports leakage in bits. This page fixes the name and symbol for each so the cross-surface comparison stays legible.</p>
+      <p>The site previously named the same measure several ways, and two distinct spectral quantities were both called spectral capacity. Two corrections are load-bearing. First, the geometry-only Gaussian ceiling <code>I_G</code> is a converse on embedding-inversion leakage; it is not an umbrella term for spectral probes. Second, the shared spectral capacity used as a secondary key/value diagnostic is a different quantity from <code>I_G</code>, computed on a different channel, and the two are not interchangeable. The table below is the single source for both.</p>
+      <p>All measures report on one comparable scale, bits, beside a per-secret human readout (perplexity, token-F1, recovery-rate, cosine, or membership AUC). The reporting convention lives in <code>src/talens/report.py</code>; the estimators live in <code>src/talens/measures/</code>.</p>
+    </div>
+  </section>
+
+  <!-- §02 THE REGISTRY -->
+  <section id="registry">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">The registry</h2>
+      <div class="section-meta">symbol · name · quantity · what it bounds · module</div>
+    </header>
+    <table class="spec">
+      <thead>
+        <tr>
+          <th>symbol</th>
+          <th>canonical name</th>
+          <th>quantity reported</th>
+          <th>what it bounds · why attack-independent</th>
+          <th>module</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>I_G</code></td>
+          <td>Gaussian channel-capacity MI ceiling</td>
+          <td>mutual-information ceiling (converse, geometry-only)</td>
+          <td>upper-bounds the embedding-inversion leakage <code>I(X;Y)</code> and ceilings any attack's recovery via Fano and rate–distortion; computed from the embedding covariance spectrum and noise variance <code>(Σ, σ)</code> alone, so it never runs an inverter.</td>
+          <td><code>measures/spectral_channel_mi.py</code></td>
+        </tr>
+        <tr>
+          <td><code>CLUB</code></td>
+          <td>variational MI upper bound</td>
+          <td>mutual-information upper bound (learned)</td>
+          <td>upper-bounds <code>I(representation; token-embedding)</code> from a learned variational network; brackets the leakage from above without solving the inversion the attack performs.</td>
+          <td><code>measures/club.py</code></td>
+        </tr>
+        <tr>
+          <td><code>V_cap</code></td>
+          <td>capacity-matched predictive V-information</td>
+          <td>V-information (capacity-bounded reader accuracy)</td>
+          <td>the top-1 accuracy and bits of a capacity-bounded token-identity reader on a class-prior null; capacity-matching makes the estimator well-posed when feature dimension exceeds validation size. Reads token identity, not the attack's reconstruction map.</td>
+          <td><code>measures/vinfo_capacity.py</code></td>
+        </tr>
+        <tr>
+          <td><code>J</code></td>
+          <td>whitened-row negentropy separability</td>
+          <td>independent-component separability resource (bits)</td>
+          <td>Hyvärinen negentropy of the whitened rows, summed over rows; higher means more non-Gaussian and more separable by joint-diagonalization. A function of whitened-row moments only, computable with the source-separation attack deleted.</td>
+          <td><code>measures/bss_separability.py</code></td>
+        </tr>
+        <tr>
+          <td>—</td>
+          <td>Bhattacharyya–Fano error bounds</td>
+          <td>two-sided bounds on the decode error</td>
+          <td>a union-Bhattacharyya upper bound and a Fano lower bound on the MAP (nearest-neighbour) decode error of the embedding-DP channel; both from the codebook geometry and σ, never from the attack's observations.</td>
+          <td><code>measures/channel_error_bounds.py</code></td>
+        </tr>
+        <tr>
+          <td><code>SDL</code></td>
+          <td>surplus description length</td>
+          <td>complexity-aware code length (bits)</td>
+          <td>the prequential online code length minus the all-data floor (Whitney SDL); the extra bits paid to learn the representation-to-label map, a complexity-aware leakage signal independent of any one attack.</td>
+          <td><code>measures/mdl.py</code></td>
+        </tr>
+        <tr>
+          <td>—</td>
+          <td>shared spectral capacity</td>
+          <td>key/value accumulation diagnostic (bits)</td>
+          <td>secondary diagnostic for the joint-diagonalization accumulation channel: the spectral capacity of the averaged row covariance across the observation stack against a median-eigenvalue noise floor. <strong>Not <code>I_G</code></strong>: a different channel and a different quantity, reported only as a key/value secondary diagnostic.</td>
+          <td><code>measures/bss_separability.py</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="prose">These names are distinct measures, not synonyms or subtypes of one another, and the matched probe differs by surface. Lead with the canonical name in prose; the symbol is for table headers. Per-probe Algorithm, Method, and Rationale pages link from this registry.</p>
+  </section>
+
+  <!-- §03 THE TWO SPECTRAL QUANTITIES -->
+  <section id="distinction">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Two spectral quantities, not one</h2>
+      <div class="section-meta">I_G vs shared spectral capacity</div>
+    </header>
+    <div class="prose">
+      <p><code>I_G</code> and the shared spectral capacity share the waterfilling form <code>½ Σᵢ log₂(1 + λᵢ/σ²)</code> but are different measures on different channels and must not be conflated.</p>
+      <p><strong>Gaussian channel-capacity MI ceiling, <code>I_G</code>.</strong> Channel <code>Y = e₀ + N(0, σ²I)</code> on the released embedding; <code>Σ = Cov(e₀)</code> over the secret prior, <code>σ²</code> the defense noise. It is a converse: an upper bound on the embedding-inversion leakage that ceilings recovery for every attack. Matched probe for embedding inversion under the Gaussian mechanism.</p>
+      <p><strong>Shared spectral capacity.</strong> Channel is the averaged row covariance <code>C̄ = (1/T) Σₜ UₜUₜᵀ/d</code> over a stack of <code>T</code> key/value observations; <code>σ²</code> is the median of the lower-half eigenvalues, an empirical floor. It is a secondary diagnostic for the joint-diagonalization accumulation attack, not a converse on text leakage. The key/value pages carry it beside the whitened-row negentropy <code>J</code>, never as <code>I_G</code>.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      <h5>Estimators (this repo)</h5>
+      <ul>
+        <li><code>src/talens/measures/spectral_channel_mi.py</code> · <code>I_G</code></li>
+        <li><code>src/talens/measures/club.py</code> · <code>CLUB</code></li>
+        <li><code>src/talens/measures/vinfo_capacity.py</code> · <code>V_cap</code></li>
+        <li><code>src/talens/measures/bss_separability.py</code> · <code>J</code> · shared spectral capacity</li>
+        <li><code>src/talens/measures/channel_error_bounds.py</code> · Bhattacharyya–Fano</li>
+        <li><code>src/talens/measures/mdl.py</code> · <code>SDL</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Reporting convention</h5>
+      <ul>
+        <li><code>src/talens/report.py</code> · bits canonical + per-secret readout</li>
+        <li><a href="synthesis.html">cross-surface synthesis</a> · every probe across surfaces</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Per-probe pages</h5>
+      <ul>
+        <li>Algorithm · Method · Rationale per probe (in preparation)</li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
