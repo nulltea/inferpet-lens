@@ -47,7 +47,7 @@ run_id: b-r1-rep2text
 gate: review refine-logs/resid-rep2text/REVIEW_STATE.json
 spawn-depth: 0
 objective: implement Rep2Text (adapter→frozen-decoder, last-token resid @ L10 → full text, arXiv 2511.06571) on Qwen3; recovery (ROUGE/token-F1) vs sequence length; does a matched residual-stream probe track it?
-- [ ] run-phase: b-r1-rep2text
+- [x] run-phase: b-r1-rep2text
 
 ### Task 4: residual — depth-inversion + baseline inverters
 recipe: full
@@ -98,3 +98,13 @@ gate: review refine-logs/attn-cover-invariance/REVIEW_STATE.json
 spawn-depth: 0
 objective: state+prove the unpublished cover-invariance lemma (an orthogonal/permutation cover leaves softmax(QKᵀ) and MI(tokens;QK) untouched) and confirm empirically: inject an orthogonal-rotation Transform and verify attn_score recovery and the MI probe are unchanged; HTML page.
 - [ ] run-phase: b-a1-attn-invariance
+
+### Task 9: matched V-information probe for resid-rep2text
+recipe: full
+gpu: true
+surface: resid-rep2text-v2
+run_id: resid-rep2text-followup-1
+gate: review refine-logs/resid-rep2text-v2/REVIEW_STATE.json
+spawn-depth: 1
+objective: the capacity probe (spectral channel-MI) is vacuous on the plaintext L10 residual because capacity is slack (claim:rep2text-capacity-nonbinding-extraction-limited). Build a matched EXTRACTABLE-information probe (𝒱-information, Xu 2020) under the decoder's hypothesis class and test whether it tracks Rep2Text recovery across length where the capacity probe failed; add a stronger-attack capacity ablation (more epochs/data/k, larger decoder) + derangement null + empirical per-token entropy to separate attack-weakness from representation limits.
+- [ ] run-phase: resid-rep2text-followup-1

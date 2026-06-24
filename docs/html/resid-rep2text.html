@@ -1,0 +1,228 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — Rep2Text residual inversion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label current">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+          <a href="resid-rep2text.html" class="current">Rep2Text inversion</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+          <a href="kv-cloak.html">KV-Cloak decoupling</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Rep2Text<br><em>— extraction, not capacity</em></h1>
+      <p class="subtitle">Rep2Text trains a small adapter that maps a single last-token residual vector into soft-prompt embeddings for a frozen decoder, which then regenerates the input text. On the layer-10 residual of a 4-billion-parameter model, this attack recovers a statistically significant but small amount of input-specific information at every sequence length, and that amount does not fall as sequences grow longer. A single residual vector is therefore not a binding information bottleneck at this depth: its measured channel capacity of about 2856 bits far exceeds the entropy of even the longest prompts. As a result, a geometry-only capacity probe does not predict recovery across sequence length. Recovery here is limited by what a bounded decoder can extract, not by channel capacity.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the attack, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      Rep2Text (<a href="https://arxiv.org/abs/2511.06571">arXiv 2511.06571</a>) inverts a hidden
+      representation back to text with an adapter-plus-decoder design: a trained multilayer perceptron
+      maps one representation vector to a short sequence of soft-prompt embeddings, and a frozen
+      pretrained language model decodes those embeddings autoregressively into a token sequence. Only
+      the adapter is trained; the decoder weights are fixed.
+    </p>
+    <div class="prose">
+      <p>Here the secret is the input text, the representation is the last-token residual stream after
+      block 10 of Qwen3-4B (one 2560-dimensional vector per prompt), and the frozen decoder is Qwen3-1.7B,
+      which shares the Qwen3 tokenizer so recovery is scored in a single token space. The threat model is
+      that the adversary holds the public model and an auxiliary corpus on which to train the adapter, but
+      not the target's private text. Recovery is graded by token-level F1 and ROUGE-L against the true
+      input tokens; the privacy parameter swept is isotropic Gaussian noise added to the residual.</p>
+      <p>The question is the one this project asks of every surface: does an attack-independent
+      information measure predict how well the attack recovers the secret? The candidate measure is the
+      geometry-only spectral channel mutual information of the residual ensemble, already validated for
+      sentence-embedding inversion. A single residual vector is a natural bottleneck candidate, since one
+      fixed-dimensional vector must encode an entire variable-length prefix. The headline is that this
+      bottleneck does not bind at layer 10: capacity exceeds the secret entropy by more than a factor of
+      two, so the capacity measure is uninformative about recovery across sequence length, and the true
+      constraint is extractability.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">adapter, decoder, controls, probe</div>
+    </header>
+    <div class="prose">
+      <p>The adapter is a three-layer perceptron mapping the standardized 2560-dimensional residual to
+      eight soft-prompt embeddings of the decoder. It is trained by teacher-forced next-token prediction
+      through the frozen decoder for ten passes over 762 prompts; the cross-entropy falls from 3.07 to
+      2.09 nats. Recovery is evaluated by greedy generation from the soft prompts on 138 held-out prompts,
+      stratified into six length buckets of 23 prompts each. The corpus is 1965 natural-language prompts
+      drawn from question and instruction datasets, stratified to span 6 to 59 words.</p>
+      <p>Two controls subtract priors that are not residual-specific leakage. The mean-residual control
+      feeds every test prompt the ensemble-mean vector; it recovers 0.002 token-F1, confirming the metric
+      registers no per-prompt information when none is present. The shuffled-residual control feeds a
+      different prompt's residual, averaged over five independent draws; it recovers about 0.108 token-F1,
+      which is the frozen decoder's language and common-token prior. Genuine leakage is the difference
+      between real and shuffled recovery, with paired bootstrap 95% confidence intervals over 5000
+      resamples.</p>
+      <p>The probe is the spectral channel mutual information
+      <code>I_G(σ) = ½ Σ log₂(1 + λ_i/σ²)</code> of the residual covariance spectrum, evaluated at the
+      injected noise level plus a fixed geometry-only reference floor. It is computed from the covariance
+      and the noise level alone; it never trains a decoder, never reads target text, and cannot be
+      computed by running the attack. The rate-distortion ceiling it assigns to a length-<code>L</code>
+      secret is <code>r(L) = min(I_G, H_X(L)) / H_X(L)</code>, where <code>H_X(L) = L·h</code> is the
+      secret entropy under an upper per-token-entropy proxy.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 3 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">recovery by length, capacity, the noise sweep</div>
+    </header>
+    <div class="prose">
+      <p>Recovery rises with sequence length rather than falling. Genuine residual-specific leakage is
+      positive at every length and every bootstrap confidence interval excludes zero, so the leakage is
+      real, but it is small: the largest gap is +0.089 token-F1 at 59 tokens, and most of the raw
+      recovery is the decoder's prior. The leakage is largest for the longest prompts, the opposite of
+      what a binding bottleneck would produce.</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>length (tokens)</th><th>real F1</th><th>shuffled F1</th><th>leakage gap</th><th>95% interval</th></tr></thead>
+      <tbody>
+        <tr><td>9</td><td>0.076</td><td>0.045</td><td>+0.031</td><td>[+0.016, +0.048]</td></tr>
+        <tr><td>14</td><td>0.088</td><td>0.074</td><td>+0.015</td><td>[+0.002, +0.027]</td></tr>
+        <tr><td>21</td><td>0.146</td><td>0.105</td><td>+0.041</td><td>[+0.024, +0.059]</td></tr>
+        <tr><td>28</td><td>0.138</td><td>0.115</td><td>+0.023</td><td>[+0.010, +0.036]</td></tr>
+        <tr><td>39</td><td>0.209</td><td>0.156</td><td>+0.054</td><td>[+0.028, +0.079]</td></tr>
+        <tr><td>59</td><td>0.244</td><td>0.155</td><td>+0.089</td><td>[+0.040, +0.147]</td></tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>The measured capacity of the residual ensemble at the reference floor is 2856 bits. The longest
+      bucket averages 59 tokens (about 1019 bits under the upper proxy), and the capped maximum length of
+      64 tokens is at most 1102 bits; a realistic per-token estimate gives 470 to 650 bits. Capacity
+      therefore exceeds the secret entropy by more than a factor of two at every tested length. At the
+      plaintext operating point the rate-distortion ceiling equals 1 for every length, so its length-only
+      rank correlation with recovery is undefined (a constant predictor); across the full
+      length-by-noise grid of 36 points it is 0.18.</p>
+      <p>Injecting noise to force capacity downward confirms the mechanism. Capacity falls from 2856 bits
+      to 24 bits across the sweep while recovery falls only from 0.150 to 0.077; the genuine leakage gap
+      stays flat at about +0.038 until more than 80% of capacity is removed, then collapses. The two
+      quantities agree in rank order across the sweep, but the agreement is uninformative near the
+      plaintext operating point: capacity must be largely destroyed before recovery responds.</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>noise σ</th><th>capacity I_G (bits)</th><th>real F1</th><th>leakage gap</th></tr></thead>
+      <tbody>
+        <tr><td>0.05</td><td>2856</td><td>0.150</td><td>+0.038</td></tr>
+        <tr><td>0.27</td><td>1019</td><td>0.145</td><td>+0.038</td></tr>
+        <tr><td>0.53</td><td>520</td><td>0.143</td><td>+0.034</td></tr>
+        <tr><td>1.06</td><td>219</td><td>0.131</td><td>+0.017</td></tr>
+        <tr><td>2.11</td><td>78</td><td>0.119</td><td>+0.008</td></tr>
+        <tr><td>4.22</td><td>24</td><td>0.077</td><td>−0.001</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 4 THEORY ═════ -->
+  <section id="theory">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Theory</h2>
+      <div class="section-meta">why a capacity probe cannot rank recovery when capacity is slack</div>
+    </header>
+    <div class="prose">
+      <p>The failure of the capacity probe to predict recovery across length is not an artifact of the
+      data; it follows from a short lemma. Fix one residual covariance and hold it constant across
+      lengths, so the spectral channel mutual information <code>I_G(σ)</code> is a function of the
+      covariance and the noise level alone and is independent of the secret length. A length-<code>L</code>
+      secret has positive entropy <code>H_X(L) = L·h</code> with per-token entropy <code>h &gt; 0</code>,
+      and the probe assigns the normalized throughput ceiling
+      <code>r(L) = min(I_G, H_X(L)) / H_X(L)</code>, used here only as a cross-length ranking proxy.</p>
+      <p><strong>Capacity-slack vacuity.</strong> If capacity is slack over the tested range, that is
+      <code>I_G(σ) ≥ H_X(L_max)</code>, then for every tested length <code>H_X(L) ≤ H_X(L_max) ≤ I_G</code>,
+      so <code>min(I_G, H_X(L)) = H_X(L)</code> and <code>r(L) = 1</code> identically. For two or more
+      lengths the proxy is then rank-constant, its sample variance is zero, and its Spearman correlation
+      with any recovery profile is undefined; under the constant-input convention it is reported as zero,
+      meaning no rank signal. No property of the recovery profile enters the argument, so the conclusion
+      holds independent of the attack.</p>
+      <p>The proxy only begins to discriminate by length once <code>L &gt; I_G/h</code>. With capacity
+      2856 bits and an upper per-token entropy of about 17.2 bits, this requires sequences longer than
+      167 tokens; under a realistic 8 to 11 bits per token the threshold rises to 260 to 358 tokens. Both
+      are far beyond the 59-token maximum tested, which is exactly why the measured correlation is near
+      zero. A stronger attack raises recovery toward, but never above, the saturated ceiling, so no
+      increase in attack strength can make the capacity probe discriminate by length in this regime. The
+      proof is verified by cross-model review.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 5 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">what the matched probe must measure; scope</div>
+    </header>
+    <div class="prose">
+      <p>The result refines an earlier negative finding on the per-position residual stream, where an
+      iterative embedding-feedback inverter gained nothing because that surface has no bottleneck. The
+      single last-token vector was the natural place to expect a bottleneck to appear, and at layer 10 it
+      does not: capacity is slack, recovery is limited by extractability, and a capacity measure is the
+      wrong matched probe. The measure that should track recovery here is an extractable-information
+      quantity computed under the decoder's hypothesis class, rather than channel capacity. Building that
+      measure, alongside a stronger-attack ablation to separate attack weakness from representation
+      limits, is the queued follow-up.</p>
+      <p>Scope. The findings are for one source and decoder pair, layer 10, a single trained adapter and
+      seed, and 23 prompts per length bucket. The shuffled null is a permutation rather than a strict
+      derangement, which makes the leakage estimate conservative rather than inflated; the entropy term is
+      an upper proxy, which does not affect the length ranking. The capacity-slack lemma is general; the
+      empirical refutation is scoped to this setup.</p>
+    </div>
+  </section>
+
+</div></body></html>

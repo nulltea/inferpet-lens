@@ -1,0 +1,21 @@
+{
+  "date": "2026-06-24",
+  "auditor": "codex gpt-5.5 xhigh (cross-model, read-only)",
+  "overall_verdict": "warn",
+  "integrity_status": "warn",
+  "checks": {
+    "gt_provenance": {"status": "warn", "details": "GT = true input token ids from corpus text (PIQA/MMLU/IFEval), not model-derived (PASS). WARN: shuffled null is a permutation not a derangement (possible fixed points -> conservative gap); standardization uses full-ensemble stats incl test (negligible, applied identically to controls)."},
+    "score_normalization": {"status": "pass", "details": "Raw token-F1 / ROUGE-L LCS; plain means; low raw values (0.002 mean control, 0.076-0.244 real). No self-normalization."},
+    "result_existence": {"status": "pass", "details": "I_G=2856.477, per-bucket gaps +0.031/+0.015/+0.041/+0.023/+0.054/+0.089, across-sigma rho 1.0/0.943, rd_proxy rho 0.176 all present in rep2text_results.json and match narrative rounding; computed by called code."},
+    "dead_code": {"status": "warn", "details": "Core metrics + probe + correlations live. WARN: planned 'prior-only/random' third control absent (only mean+shuffled implemented); a leftover unused var (ctrl_recs)."},
+    "scope": {"status": "warn", "details": "One source/decoder pair, L10, single seed, single adapter, N=23/bucket. Narrative now scoped 'for this setup'; multi-seed/decoder/layer sweeps explicitly cut."},
+    "probe_not_attack": {"status": "pass", "details": "spectral_channel_mi computed from residual covariance spectrum + fixed geometry-only sigma_ref ONLY; never sees target text / generated ids / decoder outputs; cannot be computed by running the attack. NOT circular. WARN(minor): probe sigma = sqrt(inject^2+sigma_ref^2) so scalar offset by the floor; H_X=L*log2(vocab) flagged as upper proxy."},
+    "eval_type": "real_gt"
+  },
+  "claims": [
+    {"id": "C1-refuted", "impact": "supported", "note": "bottleneck length-decay refuted for this setup"},
+    {"id": "genuine-leakage-significant", "impact": "supported", "note": "all bootstrap 95% CIs exclude 0; conservative null"},
+    {"id": "C2-capacity-probe-vacuous-across-length", "impact": "supported", "note": "rho=0.176; capacity slack"},
+    {"id": "C2-across-sigma-ordinal-not-prediction", "impact": "needs_qualifier", "note": "ordinal rho=1.0/0.94 but binding only after >80% capacity destruction"}
+  ]
+}
