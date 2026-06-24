@@ -108,11 +108,17 @@ footer, not its internal id or verdict in prose.
   NOT inside `.diagram-frame` (that boxes them). Results tables MUST carry **both axes** per the metric
   convention: a `bits` column (canonical) and the per-secret human readout (perplexity / token-F1 /
   recovery-rate / cosine / AUC). One row per sweep point (plaintext → defense parameter).
-- **`.diagram-frame` + `.diagram-cap`** — **SVG figures/diagrams only** (never tables). A deterministic
-  SVG from `/figure-spec` (architecture/flow) or a `/paper-figure` plot (bits-vs-recovery curve)
-  embedded inline; caption in `.diagram-cap`. Reuse the trust-zone palette classes (`.box-tee`
+- **`.diagram-frame` + `.diagram-cap`** — **method/architecture diagrams only** (never tables, never
+  result plots). A deterministic SVG from `/figure-spec` (architecture/flow) of the surface→attack→probe
+  pipeline embedded inline; caption in `.diagram-cap`. A measured relationship (the bits-vs-recovery
+  curve, a sweep, a tradeoff frontier) is a result plot and uses `.plot-frame` below, not this. Reuse the trust-zone palette classes (`.box-tee`
   terracotta, `.box-gpu` slate, `.arrow-*`) for split-TEE/GPU diagrams. **Method-diagram depth rules,
   the full palette vocabulary, and the interactive-D3 step-through pattern: `DIAGRAM-STYLE.md`.**
+- **`.plot-frame` + `.plot-cap`** — **result/data plots** (the measured bits-vs-recovery relationship,
+  leakage-vs-depth heatmaps, privacy–utility curves), distinct from the method diagram above. Inline
+  SVG, complete without JS, with `source:` provenance like the tables. **The plot idiom, the five
+  Group-A plot types, the axis/heatmap/colorbar CSS vocabulary, and the accessibility rules:
+  `PLOT-STYLE.md`.** The Results section should carry the bits-vs-recovery plot, not only the table.
 - **`.prose` / `.lede`** — narrative; `.lede` for the section's opening emphasis line.
 - **`.cgrid`** — card grid for parallel items (e.g. condition C0/C1/C2 comparisons).
 

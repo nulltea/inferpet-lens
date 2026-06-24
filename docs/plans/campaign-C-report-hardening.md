@@ -194,7 +194,7 @@ decision — split axis = visualization-family, harness-first (grilled 2026-06-2
 
 steps: (a) add a results-plot CSS block to `css/site.css` — `.plot-frame` (mirrors `.diagram-frame`), `.plot-cap`, `.axis`, `.tick`, `.gridline`, `.heatmap`/`.cell`, `.colorbar`, plus a sequential color-ramp var; (b) write `docs/html/PLOT-STYLE.md` (linked from STYLE.md) — the plot idiom, the five A-plot types, provenance + accessibility (titles, reduced-motion) rules, and when D3 is warranted; (c) implement the A1 bits-vs-recovery scatter (x=bits, y=recovery, one point per sweep param, polyline in sweep order, Spearman ρ annotated) on `vec2text.html` (its `(bits, recovery)` data is already on disk) as the reference implementation; (d) cleanup pass.
 acceptance: `css/site.css` carries the `.plot-frame` block; `docs/html/PLOT-STYLE.md` exists and is linked from STYLE.md; `vec2text.html` shows a compliant A1 scatter with ρ annotated, rendering without JS, with JSON provenance; cleanup pass run.
-- [ ] run-phase: c9-viz-harness
+- [x] run-phase: c9-viz-harness
 
 ### Task 9: visual reporting Phase 1 — A1 bits-vs-recovery scatter across all sweep pages
 recipe: consolidate

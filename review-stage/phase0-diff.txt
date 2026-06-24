@@ -1,0 +1,272 @@
+diff --git a/docs/html/STYLE.md b/docs/html/STYLE.md
+index 8f8a65f..83b6764 100644
+--- a/docs/html/STYLE.md
++++ b/docs/html/STYLE.md
+@@ -113,6 +113,11 @@ footer, not its internal id or verdict in prose.
+   embedded inline; caption in `.diagram-cap`. Reuse the trust-zone palette classes (`.box-tee`
+   terracotta, `.box-gpu` slate, `.arrow-*`) for split-TEE/GPU diagrams. **Method-diagram depth rules,
+   the full palette vocabulary, and the interactive-D3 step-through pattern: `DIAGRAM-STYLE.md`.**
++- **`.plot-frame` + `.plot-cap`** — **result/data plots** (the measured bits-vs-recovery relationship,
++  leakage-vs-depth heatmaps, privacy–utility curves), distinct from the method diagram above. Inline
++  SVG, complete without JS, with `source:` provenance like the tables. **The plot idiom, the five
++  Group-A plot types, the axis/heatmap/colorbar CSS vocabulary, and the accessibility rules:
++  `PLOT-STYLE.md`.** The Results section should carry the bits-vs-recovery plot, not only the table.
+ - **`.prose` / `.lede`** — narrative; `.lede` for the section's opening emphasis line.
+ - **`.cgrid`** — card grid for parallel items (e.g. condition C0/C1/C2 comparisons).
+ 
+diff --git a/docs/html/css/site.css b/docs/html/css/site.css
+index 3e52162..9887721 100644
+--- a/docs/html/css/site.css
++++ b/docs/html/css/site.css
+@@ -23,6 +23,17 @@
+   --crypto: #5e4a7a; /* crypto / DP — muted plum */
+   --crypto-soft: #d6cce2;
+   --warn: #a3460a; /* hazard — deep amber */
++  /* result-plot ramps (PLOT-STYLE.md) — sequential parchment→terracotta for heatmaps,
++     diverging navy↔amber for interference/Gram matrices */
++  --ramp-0: #f4f1ec;
++  --ramp-1: #e7d4bf;
++  --ramp-2: #dcb185;
++  --ramp-3: #ce8a4e;
++  --ramp-4: #b85a32;
++  --ramp-5: #7a2f12;
++  --div-neg: #2a5092; /* client navy — negative */
++  --div-pos: #a3460a; /* warn amber — positive */
++  --plot-series: #2a5092; /* primary data series — navy (no trust-zone semantics) */
+ }
+ 
+ * {
+@@ -623,6 +634,160 @@ h3:hover .heading-anchor,
+   font-weight: 500;
+ }
+ 
++/* ────── RESULT PLOTS (PLOT-STYLE.md) ────── */
++/* data-plot analogue of .diagram-frame: bits-vs-recovery scatters (A1), layer×param
++   heatmaps (A2), Gram/interference matrices (A3), privacy–utility curves (A4),
++   eigenspectra (A5). Inline SVG, complete without JS. */
++.plot-frame {
++  border: 1px solid var(--ink);
++  background: var(--paper);
++  padding: 28px 32px 30px;
++  margin: 8px 0 36px;
++  overflow-x: auto;
++}
++.plot-cap {
++  display: flex;
++  justify-content: space-between;
++  gap: 16px;
++  font-size: 10px;
++  text-transform: uppercase;
++  letter-spacing: 0.18em;
++  color: var(--ink-3);
++  margin-bottom: 20px;
++}
++.plot-cap .l {
++  color: var(--ink);
++  font-weight: 500;
++}
++.plot-cap .r {
++  text-align: right;
++}
++
++svg.plot {
++  display: block;
++  width: 100%;
++  height: auto;
++  font-family: "JetBrains Mono", monospace;
++  font-size: 11px;
++}
++/* axes + grid */
++svg.plot .axis {
++  stroke: var(--ink);
++  stroke-width: 1.25;
++}
++svg.plot .tick {
++  stroke: var(--ink-3);
++  stroke-width: 1;
++}
++svg.plot .tick-label {
++  fill: var(--ink-2);
++  font-size: 10px;
++}
++svg.plot .gridline {
++  stroke: var(--paper-3);
++  stroke-width: 1;
++  stroke-dasharray: 2 3;
++}
++svg.plot .axis-label {
++  fill: var(--ink);
++  font-size: 10.5px;
++  text-transform: uppercase;
++  letter-spacing: 0.12em;
++}
++/* data series (scatter + sweep path; .b = second/contrast series) */
++svg.plot .plot-line {
++  fill: none;
++  stroke: var(--plot-series);
++  stroke-width: 1.75;
++}
++svg.plot .plot-line.b {
++  stroke: var(--warn);
++  stroke-dasharray: 5 3;
++}
++svg.plot .plot-point {
++  fill: var(--plot-series);
++  stroke: var(--paper);
++  stroke-width: 1.5;
++}
++svg.plot .plot-point.b {
++  fill: var(--warn);
++}
++svg.plot .point-label {
++  fill: var(--ink-2);
++  font-size: 9.5px;
++}
++/* reference line (accessible cap / noise floor / plaintext marker) */
++svg.plot .ref-line {
++  stroke: var(--ink-3);
++  stroke-width: 1;
++  stroke-dasharray: 4 4;
++}
++svg.plot .ref-label {
++  fill: var(--ink-3);
++  font-size: 9px;
++  text-transform: uppercase;
++  letter-spacing: 0.1em;
++}
++/* rank-correlation / annotation badge */
++svg.plot .stat-badge {
++  fill: var(--ink);
++  font-family: "Fraunces", serif;
++  font-size: 17px;
++  font-variation-settings: "wght" 520;
++}
++svg.plot .stat-sub {
++  fill: var(--ink-3);
++  font-size: 8.5px;
++  text-transform: uppercase;
++  letter-spacing: 0.1em;
++}
++/* heatmap cells + axes (A2 / A3 / B2) */
++svg.plot .cell {
++  stroke: var(--paper);
++  stroke-width: 1;
++}
++svg.plot .cell-label {
++  font-size: 9px;
++  text-anchor: middle;
++}
++svg.plot .heatmap-axis {
++  fill: var(--ink-2);
++  font-size: 9.5px;
++}
++/* colorbar legend (sits below an .svg heatmap) */
++.colorbar {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++  margin-top: 14px;
++  font-size: 9px;
++  text-transform: uppercase;
++  letter-spacing: 0.1em;
++  color: var(--ink-3);
++}
++.colorbar .bar {
++  height: 10px;
++  width: 168px;
++  border: 1px solid var(--ink-3);
++}
++.colorbar .bar.seq {
++  background: linear-gradient(
++    90deg,
++    var(--ramp-0),
++    var(--ramp-2),
++    var(--ramp-4),
++    var(--ramp-5)
++  );
++}
++.colorbar .bar.div {
++  background: linear-gradient(
++    90deg,
++    var(--div-neg),
++    var(--paper),
++    var(--div-pos)
++  );
++}
++
+ svg.flow {
+   display: block;
+   width: 100%;
+diff --git a/docs/html/vec2text.html b/docs/html/vec2text.html
+index 9445635..1825a4e 100644
+--- a/docs/html/vec2text.html
++++ b/docs/html/vec2text.html
+@@ -353,6 +353,68 @@
+     <div class="prose"><p><code>I_G</code> matches CLUB's predictiveness (ρ=+1.00 on token-F1/cos/positional-token-acc; <strong>+0.71 on the harder exact-match readout</strong>, floored at 0 for every ε&lt;∞ — = CLUB, ≫ V_cap +0.54) and ≫ V_cap, at <strong>~28× lower cost</strong>, geometry-only and decomposable. C2 ceilings held with <strong>0 observed violations</strong> (consistent with the converse). Caveat: at N=96 &lt; d=768 the covariance is rank-deficient, so <code>d_eff</code>/localization is undersampled — needs n≫d.</p>
+     <p class="src-note" style="font-size:13px;opacity:.7;">Source: <code>results/spectral_mi_probe_eval.json</code> (N=96). <strong>*localizes</strong>: T4 gives the localization bound in <em>theory</em>; empirical eigen-ablation is deferred under the rank-deficient Σ. Spearman is on token-F1/cos/positional-token-acc; exact-match (floored) is +0.71.</p></div>
+ 
++    <div class="plot-frame">
++      <div class="plot-cap"><span class="l">FIG · A1 — leakage bits vs attack recovery</span><span class="r">source: results/spectral_mi_probe_eval.json · N=96</span></div>
++      <svg class="plot" viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scatter of the I_G leakage ceiling in bits against Vec2Text token-F1 recovery across the DP epsilon sweep; the two fall together, Spearman rho equals plus one.">
++        <title>I_G bits vs token-F1 recovery across the DP sweep (Spearman ρ = +1.00)</title>
++        <!-- gridlines -->
++        <line class="gridline" x1="238" y1="20" x2="238" y2="384"/>
++        <line class="gridline" x1="412" y1="20" x2="412" y2="384"/>
++        <line class="gridline" x1="586" y1="20" x2="586" y2="384"/>
++        <line class="gridline" x1="64" y1="293" x2="656" y2="293"/>
++        <line class="gridline" x1="64" y1="202" x2="656" y2="202"/>
++        <line class="gridline" x1="64" y1="111" x2="656" y2="111"/>
++        <line class="gridline" x1="64" y1="20" x2="656" y2="20"/>
++        <!-- accessible-cap reference line (min{H(e0)=479, I_G}) -->
++        <line class="ref-line" x1="231" y1="20" x2="231" y2="384"/>
++        <text class="ref-label" x="235" y="33">accessible cap · 479 b</text>
++        <!-- axes -->
++        <line class="axis" x1="64" y1="20" x2="64" y2="384"/>
++        <line class="axis" x1="64" y1="384" x2="656" y2="384"/>
++        <!-- x ticks -->
++        <line class="tick" x1="64" y1="384" x2="64" y2="389"/>
++        <line class="tick" x1="238" y1="384" x2="238" y2="389"/>
++        <line class="tick" x1="412" y1="384" x2="412" y2="389"/>
++        <line class="tick" x1="586" y1="384" x2="586" y2="389"/>
++        <text class="tick-label" x="64" y="401" text-anchor="middle">0</text>
++        <text class="tick-label" x="238" y="401" text-anchor="middle">500</text>
++        <text class="tick-label" x="412" y="401" text-anchor="middle">1000</text>
++        <text class="tick-label" x="586" y="401" text-anchor="middle">1500</text>
++        <!-- y ticks -->
++        <line class="tick" x1="60" y1="384" x2="64" y2="384"/>
++        <line class="tick" x1="60" y1="293" x2="64" y2="293"/>
++        <line class="tick" x1="60" y1="202" x2="64" y2="202"/>
++        <line class="tick" x1="60" y1="111" x2="64" y2="111"/>
++        <line class="tick" x1="60" y1="20" x2="64" y2="20"/>
++        <text class="tick-label" x="56" y="387" text-anchor="end">0</text>
++        <text class="tick-label" x="56" y="296" text-anchor="end">.25</text>
++        <text class="tick-label" x="56" y="205" text-anchor="end">.50</text>
++        <text class="tick-label" x="56" y="114" text-anchor="end">.75</text>
++        <text class="tick-label" x="56" y="23" text-anchor="end">1.0</text>
++        <!-- sweep path (plaintext ∞ → ε=128) -->
++        <polyline class="plot-line" points="620,93 173,220 141,275 111,326 88,351"/>
++        <!-- data points -->
++        <circle class="plot-point" cx="620" cy="93" r="4.5"/>
++        <circle class="plot-point" cx="173" cy="220" r="4.5"/>
++        <circle class="plot-point" cx="141" cy="275" r="4.5"/>
++        <circle class="plot-point" cx="111" cy="326" r="4.5"/>
++        <circle class="plot-point" cx="88" cy="351" r="4.5"/>
++        <!-- per-point ε labels -->
++        <text class="point-label" x="610" y="90" text-anchor="end">ε=∞</text>
++        <text class="point-label" x="182" y="217">1024</text>
++        <text class="point-label" x="150" y="272">512</text>
++        <text class="point-label" x="120" y="323">256</text>
++        <text class="point-label" x="97" y="354">128</text>
++        <!-- rank-correlation badge -->
++        <text class="stat-badge" x="648" y="50" text-anchor="end">ρ = +1.00</text>
++        <text class="stat-sub" x="648" y="64" text-anchor="end">Spearman · I_G vs token-F1</text>
++        <!-- axis labels -->
++        <text class="axis-label" x="360" y="423" text-anchor="middle">I_G — Gaussian channel-capacity MI ceiling (bits)</text>
++        <text class="axis-label" x="20" y="202" text-anchor="middle" transform="rotate(-90 20 202)">recovery — Vec2Text token-F1</text>
++      </svg>
++      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">The attack-independent ceiling <code>I_G</code> falls monotonically with the recovery it bounds across the ε sweep (∞→128); co-monotone, ρ=+1.00. Raw <code>I_G</code> beyond the accessible cap (479 b, dashed) does not raise recovery: above the cap the ceiling is slack.</span></div>
++    </div>
++
+     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B10 — privacy–utility tradeoff</h4>
+     <table class="spec">
+       <thead><tr><th>ε</th><th class="num">Utility nDCG@10</th><th class="num">R@10</th><th class="num">k′/k</th><th class="num">‖ Leak exact</th><th class="num">tF1</th></tr></thead>

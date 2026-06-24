@@ -10,9 +10,9 @@ before drawing, and **research the source paper's figure first** (rule R0 below)
 | class | what it shows | tool | interactive? |
 |---|---|---|---|
 | **Schematic method diagram** (mandatory per page) | the surface→attack and surface→probe pipeline, trust boundaries, the algorithmic/training sequence | hand-authored SVG (trust-zone palette) as baseline; **D3.js via the `/d3-viz` skill** when a sequence or boundary benefits from interaction | yes, where it aids understanding |
-| **Data plot** | bits-vs-recovery curve, sweep, tradeoff frontier | `paper-figure` / hand SVG | static for now (**Plotly deferred** — too heavy) |
+| **Data plot** | bits-vs-recovery curve, sweep, tradeoff frontier | hand-authored inline SVG (`.plot-frame`) per **`PLOT-STYLE.md`** | static for now (**Plotly deferred** — too heavy) |
 
-This file governs the **schematic method diagram**. Data plots follow `paper-figure`.
+This file governs the **schematic method diagram**. Data plots follow **`PLOT-STYLE.md`** (the `.plot-frame` idiom), not this file.
 
 ---
 

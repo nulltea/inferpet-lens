@@ -353,6 +353,68 @@
     <div class="prose"><p><code>I_G</code> matches CLUB's predictiveness (ρ=+1.00 on token-F1/cos/positional-token-acc; <strong>+0.71 on the harder exact-match readout</strong>, floored at 0 for every ε&lt;∞ — = CLUB, ≫ V_cap +0.54) and ≫ V_cap, at <strong>~28× lower cost</strong>, geometry-only and decomposable. C2 ceilings held with <strong>0 observed violations</strong> (consistent with the converse). Caveat: at N=96 &lt; d=768 the covariance is rank-deficient, so <code>d_eff</code>/localization is undersampled — needs n≫d.</p>
     <p class="src-note" style="font-size:13px;opacity:.7;">Source: <code>results/spectral_mi_probe_eval.json</code> (N=96). <strong>*localizes</strong>: T4 gives the localization bound in <em>theory</em>; empirical eigen-ablation is deferred under the rank-deficient Σ. Spearman is on token-F1/cos/positional-token-acc; exact-match (floored) is +0.71.</p></div>
 
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · A1 — leakage bits vs attack recovery</span><span class="r">source: results/spectral_mi_probe_eval.json · N=96</span></div>
+      <svg class="plot" viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scatter of the I_G leakage ceiling in bits against Vec2Text token-F1 recovery across the DP epsilon sweep; the two fall together, Spearman rho equals plus one.">
+        <title>I_G bits vs token-F1 recovery across the DP sweep (Spearman ρ = +1.00)</title>
+        <!-- gridlines -->
+        <line class="gridline" x1="238" y1="20" x2="238" y2="384"/>
+        <line class="gridline" x1="412" y1="20" x2="412" y2="384"/>
+        <line class="gridline" x1="586" y1="20" x2="586" y2="384"/>
+        <line class="gridline" x1="64" y1="293" x2="656" y2="293"/>
+        <line class="gridline" x1="64" y1="202" x2="656" y2="202"/>
+        <line class="gridline" x1="64" y1="111" x2="656" y2="111"/>
+        <line class="gridline" x1="64" y1="20" x2="656" y2="20"/>
+        <!-- accessible-cap reference line (min{H(e0)=479, I_G}) -->
+        <line class="ref-line" x1="231" y1="20" x2="231" y2="384"/>
+        <text class="ref-label" x="235" y="33">accessible cap · 479 b</text>
+        <!-- axes -->
+        <line class="axis" x1="64" y1="20" x2="64" y2="384"/>
+        <line class="axis" x1="64" y1="384" x2="656" y2="384"/>
+        <!-- x ticks -->
+        <line class="tick" x1="64" y1="384" x2="64" y2="389"/>
+        <line class="tick" x1="238" y1="384" x2="238" y2="389"/>
+        <line class="tick" x1="412" y1="384" x2="412" y2="389"/>
+        <line class="tick" x1="586" y1="384" x2="586" y2="389"/>
+        <text class="tick-label" x="64" y="401" text-anchor="middle">0</text>
+        <text class="tick-label" x="238" y="401" text-anchor="middle">500</text>
+        <text class="tick-label" x="412" y="401" text-anchor="middle">1000</text>
+        <text class="tick-label" x="586" y="401" text-anchor="middle">1500</text>
+        <!-- y ticks -->
+        <line class="tick" x1="60" y1="384" x2="64" y2="384"/>
+        <line class="tick" x1="60" y1="293" x2="64" y2="293"/>
+        <line class="tick" x1="60" y1="202" x2="64" y2="202"/>
+        <line class="tick" x1="60" y1="111" x2="64" y2="111"/>
+        <line class="tick" x1="60" y1="20" x2="64" y2="20"/>
+        <text class="tick-label" x="56" y="387" text-anchor="end">0</text>
+        <text class="tick-label" x="56" y="296" text-anchor="end">.25</text>
+        <text class="tick-label" x="56" y="205" text-anchor="end">.50</text>
+        <text class="tick-label" x="56" y="114" text-anchor="end">.75</text>
+        <text class="tick-label" x="56" y="23" text-anchor="end">1.0</text>
+        <!-- sweep path (plaintext ∞ → ε=128) -->
+        <polyline class="plot-line" points="620,93 173,220 141,275 111,326 88,351"/>
+        <!-- data points -->
+        <circle class="plot-point" cx="620" cy="93" r="4.5"/>
+        <circle class="plot-point" cx="173" cy="220" r="4.5"/>
+        <circle class="plot-point" cx="141" cy="275" r="4.5"/>
+        <circle class="plot-point" cx="111" cy="326" r="4.5"/>
+        <circle class="plot-point" cx="88" cy="351" r="4.5"/>
+        <!-- per-point ε labels -->
+        <text class="point-label" x="610" y="90" text-anchor="end">ε=∞</text>
+        <text class="point-label" x="182" y="217">1024</text>
+        <text class="point-label" x="150" y="272">512</text>
+        <text class="point-label" x="120" y="323">256</text>
+        <text class="point-label" x="97" y="354">128</text>
+        <!-- rank-correlation badge -->
+        <text class="stat-badge" x="648" y="50" text-anchor="end">ρ = +1.00</text>
+        <text class="stat-sub" x="648" y="64" text-anchor="end">Spearman · I_G vs token-F1</text>
+        <!-- axis labels -->
+        <text class="axis-label" x="360" y="423" text-anchor="middle">I_G — Gaussian channel-capacity MI ceiling (bits)</text>
+        <text class="axis-label" x="20" y="202" text-anchor="middle" transform="rotate(-90 20 202)">recovery — Vec2Text token-F1</text>
+      </svg>
+      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">The attack-independent ceiling <code>I_G</code> falls monotonically with the recovery it bounds across the ε sweep (∞→128); co-monotone, ρ=+1.00. Raw <code>I_G</code> beyond the accessible cap (479 b, dashed) does not raise recovery: above the cap the ceiling is slack.</span></div>
+    </div>
+
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">B10 — privacy–utility tradeoff</h4>
     <table class="spec">
       <thead><tr><th>ε</th><th class="num">Utility nDCG@10</th><th class="num">R@10</th><th class="num">k′/k</th><th class="num">‖ Leak exact</th><th class="num">tF1</th></tr></thead>
