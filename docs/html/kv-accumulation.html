@@ -1,0 +1,396 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — KV/QKV source separation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label current">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html" class="current">source separation</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">KV/QKV<br><em>— source separation</em></h1>
+      <p class="subtitle">Can a blind-source-separation adversary recover the activation rows behind the key/query/value and residual surfaces? On the plaintext surface the answer is no: with no hidden mixing, every candidate demixing returns a basis of one fixed subspace, so the Hungarian-cosine recovery score is dominated by subspace membership, not by separation. Once recovery is graded against the matched <strong>random-demixing floor</strong>, the genuine margin is near zero and does not grow with the number of observations. A geometry-only <strong>negentropy</strong> probe predicts that genuine margin, and only that margin. This is the baseline against which the mixing defenses are measured.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the question, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      Blind source separation (BSS) recovers unknown sources from their observed mixture when the
+      mixing matrix is unknown. Ported to a transformer, the question is whether an adversary holding
+      the key/query/value products or the residual stream can separate the per-token activation rows
+      that produced them.
+    </p>
+    <div class="prose">
+      <p>The threat model is WEIGHTS-PUB: the adversary knows the weights and embeddings, observes the
+      surface in the clear, and runs the joint-diagonalization family of separators (single-observation
+      JADE; joint diagonalization across stacked observations). The secret is the set of activation
+      rows behind <code>kq</code>, <code>kqv_out</code>, and <code>resid_post</code>.</p>
+      <p>The headline finding is negative and exact. On the plaintext surface the effective mixing is
+      the identity: the observed operand equals its own source rows. There is no hidden mixing to
+      invert, so there are no concealed sources to recover, and the recovery score reported by the
+      attack measures something else entirely. Graded against the matched null, the genuine separation
+      margin has median 0.027 (on a cosine scale where the raw score reads 0.776), and its slope in the
+      number of stacked observations is +0.009 per doubling, i.e. flat. The matched negentropy probe
+      tracks the genuine margin at Spearman 0.92 across the kind-by-layer cells, while it anticorrelates
+      (−0.43) with the uncorrected raw score. This page is the plaintext reference point; the same
+      attacks and probe are re-run under the mixing defenses, where any rise in recovery is attributable
+      to the defense, not to separation of the plaintext.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 PRELIMINARIES ═════ -->
+  <section id="preliminaries">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Preliminaries</h2>
+      <div class="section-meta">surface, secret, threat model, attacks, probe</div>
+    </header>
+    <table class="spec">
+      <tbody>
+        <tr><td><strong>Surface</strong></td><td>Qwen3-4B activations: <code>kq</code> (key·query products), <code>kqv_out</code> (attention output), <code>resid_post</code> (post-block residual), at layers 0, 12, 20.</td></tr>
+        <tr><td><strong>Secret</strong></td><td>The activation rows behind each surface (the per-dimension source signals), and the tokens behind them.</td></tr>
+        <tr><td><strong>Threat model</strong></td><td>WEIGHTS-PUB · plaintext (identity transform). The adversary knows weights and embeddings and observes the surface directly.</td></tr>
+        <tr><td><strong>Operand</strong></td><td>For each prompt the attack forms a matrix <code>U</code> with up to 64 source rows and up to 256 feature columns. Under the identity transform <code>U = H</code>, the true source-row matrix.</td></tr>
+        <tr><td><strong>Attacks</strong></td><td><strong>gram_error</strong> (row-Gram fingerprint) · <strong>JADE</strong> (single-observation independent component analysis) · <strong>JD</strong> (joint diagonalization across a stack of observations).</td></tr>
+        <tr><td><strong>Recovery readout</strong></td><td>95th percentile of the Hungarian-aligned absolute cosine between recovered rows and true rows. A cosine in [0,1]; this is the natural per-secret readout for a separation surface (no token or text decode step).</td></tr>
+        <tr><td><strong>Matched probe</strong></td><td>Whitened-row <strong>negentropy</strong> (bits), the JADE separability functional, computed without running joint diagonalization. Companion: shared-spectral-capacity (bits), the joint-diagonalization accumulation functional.</td></tr>
+        <tr><td class="warn"><strong>Not applicable</strong></td><td>Token-sequence post-processors and weight-pair attacks do not cross the activation boundary under WEIGHTS-PUB (the true weights are known, so there is no obfuscated weight pair to attack).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 3 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">surface → separation attack → matched probe → floor-corrected margin</div>
+    </header>
+
+    <div class="diagram-frame">
+      <div class="diagram-cap">
+        <span class="l">FIG. 01 — operand → whitening → demixing (attack vs matched null) → floor-corrected margin · probe runs in parallel without the attack</span>
+        <span>navy = observed surface · slate = adversary separation · plum = matched null · amber = reported margin</span>
+      </div>
+      <svg class="flow" viewBox="0 0 1320 440" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <!-- ZONES -->
+        <rect x="0"    y="40"  width="360" height="380" class="zone-band zone-band-client"/>
+        <rect x="360"  y="40"  width="420" height="380" class="zone-band zone-band-gpu"/>
+        <rect x="780"  y="40"  width="540" height="380" class="zone-band zone-band-crypto"/>
+        <text x="20"  y="62" class="zone-label">Observed surface (plaintext)</text>
+        <text x="20"  y="78" class="zone-sublabel">operand U = H · rows = sources</text>
+        <text x="380" y="62" class="zone-label">Adversary — separation</text>
+        <text x="380" y="78" class="zone-sublabel">whiten · joint-diag rotation</text>
+        <text x="800" y="62" class="zone-label">Grading: which null?</text>
+        <line x1="360" y1="40" x2="360" y2="420" class="boundary"/>
+        <line x1="780" y1="40" x2="780" y2="420" class="boundary"/>
+
+        <!-- SURFACE -->
+        <rect x="20" y="150" width="170" height="80" class="box box-strong box-client"/>
+        <text x="34" y="176" class="box-label">operand U = H</text>
+        <text x="34" y="194" class="box-sub">s≤64 rows · T≤256 cols</text>
+        <text x="34" y="212" class="box-mono">rowspan(U) = 𝒮₀</text>
+
+        <!-- WHITEN -->
+        <rect x="210" y="150" width="130" height="80" class="box box-client"/>
+        <text x="224" y="176" class="box-label">whiten</text>
+        <text x="224" y="194" class="box-mono">Y = W·Ũ</text>
+        <text x="224" y="212" class="box-sub">(1/T)YYᵀ = I</text>
+
+        <!-- ATTACK rotation -->
+        <rect x="390" y="120" width="350" height="64" class="box box-strong box-gpu"/>
+        <text x="404" y="142" class="box-label">① joint-diag rotation B_jd</text>
+        <text x="404" y="160" class="box-mono">Ŝ = B_jd·Y   · diagonalize cumulants</text>
+        <text x="404" y="176" class="box-sub">raw p95-cosine(Ŝ, H) = 0.776</text>
+
+        <!-- MATCHED null -->
+        <rect x="390" y="220" width="350" height="64" class="box box-gpu"/>
+        <text x="404" y="242" class="box-label">② matched null: Haar-random B</text>
+        <text x="404" y="260" class="box-mono">same Y, same Hungarian pipeline</text>
+        <text x="404" y="276" class="box-sub">membership floor F_in = 0.708</text>
+
+        <!-- PROBE -->
+        <rect x="390" y="318" width="350" height="74" class="box box-client" style="opacity:.95;"/>
+        <text x="404" y="340" class="box-label">probe — negentropy (no joint-diag)</text>
+        <text x="404" y="358" class="box-mono">J(y) ≈ skew²/12 + exkurt²/48</text>
+        <text x="404" y="376" class="box-sub">geometry-only · attack-independent</text>
+
+        <!-- MARGIN -->
+        <rect x="810" y="120" width="240" height="78" class="box box-strong box-crypto"/>
+        <text x="824" y="144" class="box-label">matched margin</text>
+        <text x="824" y="162" class="box-mono">raw − F_in = 0.027</text>
+        <text x="824" y="180" class="box-sub">the genuine separation</text>
+
+        <rect x="810" y="232" width="240" height="78" class="box box-crypto" style="border-color:var(--warn);"/>
+        <text x="824" y="256" class="box-label" style="fill:var(--warn);">naive (mismatched) null</text>
+        <text x="824" y="274" class="box-mono">unrelated-Gaussian = 0.155</text>
+        <text x="824" y="292" class="box-sub">over-credits by 0.553</text>
+
+        <rect x="1070" y="176" width="230" height="78" class="box box-strong box-crypto"/>
+        <text x="1084" y="200" class="box-label">probe predicts margin</text>
+        <text x="1084" y="218" class="box-mono">ρ(negentropy, margin)=0.92</text>
+        <text x="1084" y="236" class="box-sub">ρ(negentropy, raw) = −0.43</text>
+
+        <!-- ARROWS -->
+        <path d="M190 190 L210 190" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <path d="M340 190 L390 152" class="arrow" marker-end="url(#ah)"/>
+        <path d="M340 190 L390 252" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <path d="M340 200 L390 350" class="arrow" marker-end="url(#ah)" style="opacity:.6;"/>
+        <path d="M740 152 L810 155" class="arrow" marker-end="url(#ah)"/>
+        <path d="M740 252 C775 252 775 165 810 162" class="arrow arrow-masked" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
+        <text x="752" y="210" class="arrow-label masked">− F_in</text>
+        <path d="M740 355 C900 355 1000 300 1070 250" class="arrow" marker-end="url(#ah)" style="opacity:.7;"/>
+        <path d="M1050 159 C1062 159 1062 200 1070 205" class="arrow" marker-end="url(#ah)" style="opacity:.6;"/>
+      </svg>
+    </div>
+
+    <div class="prose">
+      <p><strong>The separation pipeline.</strong> For each prompt the attack forms the operand,
+      centers and whitens it so the rows are uncorrelated and unit-scaled, then applies the
+      joint-diagonalization rotation that the separator selects from the whitened fourth-order
+      cumulants. The recovered rows are scored against the true rows by the Hungarian-aligned cosine,
+      reported at the 95th percentile. The companion joint-diagonalization attack repeats this across a
+      stack of observations to test for accumulation.</p>
+      <p><strong>The matched null is the load-bearing step.</strong> Under the identity transform the
+      whitened rows already span the operand's own row space, so any rotation, whether the separator's
+      or a random one, returns a basis of the same fixed subspace. The recovery score is therefore high
+      for reasons that have nothing to do with finding the right rotation. The matched control replaces
+      the separator's rotation with a uniformly random one, holding the whitened data and the alignment
+      step fixed; the genuine separation is the recovery above this floor. Grading instead against an
+      unrelated-Gaussian target measures a different quantity and inflates the apparent recovery.</p>
+      <p><strong>The probe runs in parallel and never calls the separator.</strong> The negentropy
+      probe is a function of the whitened-row moments only; it could be computed with the attack code
+      deleted. This is what lets it serve as an attack-independent predictor rather than the attack
+      reporting its own score.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 4 LEAKAGE MEASURES ═════ -->
+  <section id="measures">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Leakage Measures</h2>
+      <div class="section-meta">why each probe is attack-independent, what it bounds</div>
+    </header>
+    <table class="spec">
+      <tbody>
+        <tr><td><strong>Negentropy (bits)</strong></td><td>The summed Hyvärinen negentropy of the whitened rows, a fourth-moment separability surrogate related to the structure the single-observation separator exploits. It measures how far the rows are from Gaussian, hence how separable they are by independent component analysis. Computed from row skewness and excess kurtosis only; it does not run joint diagonalization, so it is independent of the separation attack.</td></tr>
+        <tr><td><strong>Shared-spectral-capacity (bits)</strong></td><td>The Gaussian water-filling capacity of the averaged row covariance over a stack of observations, the structure the joint-diagonalization attack accumulates. It mirrors the attack's stacking but computes only an eigenspectrum and a capacity, not a demixing. The accumulation-axis companion probe.</td></tr>
+        <tr><td><strong>Matched floor (cosine)</strong></td><td>Not a probe but the grading null: the expected Hungarian-cosine of a random rotation against the true rows. Holding it fixed, the genuine separation is recovery above this floor. Established analytically (every demixing returns a basis of one fixed subspace) and measured at 0.708.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 5 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">recovery, the floor correction, accumulation, probe-vs-margin</div>
+    </header>
+
+    <p class="lede">Median over the nine kind-by-layer cells, plaintext surface.</p>
+    <table class="spec">
+      <thead><tr><th>Quantity</th><th>Value</th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><td>JADE raw p95-cosine</td><td><code>0.776</code></td><td>apparent recovery</td></tr>
+        <tr><td>matched random-demixing floor</td><td><code>0.708</code></td><td>subspace-membership baseline</td></tr>
+        <tr><td class="accent"><strong>genuine margin</strong> (median of per-cell raw − floor)</td><td class="accent"><strong>0.027</strong></td><td>the real separation</td></tr>
+        <tr><td>unrelated-Gaussian floor (mismatched)</td><td><code>0.155</code></td><td>measures a different quantity</td></tr>
+        <tr><td>floor-mismatch gap (0.708 − 0.155)</td><td><code>0.553</code></td><td>how much the wrong null under-counts membership (≈ 71% of raw)</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The genuine margin is the median of the nine per-cell differences (raw − floor),
+    not the difference of the two column medians (0.776 − 0.708 = 0.067), which double-counts the
+    spread across cells. The genuine margin (0.027) is only about 3.4% of the raw score; the remaining
+    ≈ 96% is subspace-membership and floor artifact. The unrelated-Gaussian floor (0.155) is the value
+    reported by the shipped chance-floor routine on this surface.</p>
+
+    <p class="lede">Genuine margin by surface kind (across layers 0, 12, 20).</p>
+    <table class="spec">
+      <thead><tr><th>Kind</th><th>genuine margin</th><th>negentropy (bits)</th></tr></thead>
+      <tbody>
+        <tr><td><code>kq</code></td><td><code>≈ 0</code> (layer 12: −0.003)</td><td><code>3.6</code></td></tr>
+        <tr><td><code>kqv_out</code></td><td><code>0.02 – 0.03</code></td><td><code>47</code></td></tr>
+        <tr><td><code>resid_post</code></td><td><code>0.06 – 0.07</code></td><td><code>280</code></td></tr>
+      </tbody>
+    </table>
+
+    <p class="lede">Accumulation and probe-vs-recovery.</p>
+    <table class="spec">
+      <tbody>
+        <tr><td><strong>Accumulation slope</strong></td><td>Joint-diagonalization p95 slope in observation count, median over cells <code>+0.009</code> per doubling (flat); largest genuine margin at any cell and count <code>0.094</code> (residual, layer 20, eight observations); margins non-monotone in the count.</td></tr>
+        <tr><td class="accent"><strong>negentropy → genuine margin</strong></td><td>Spearman <code>0.92</code>, Pearson <code>0.95</code> (nine cells). Permutation test <code>p = 0.0013</code>. Drop any one kind: Spearman stays 0.77 to 0.89. Across kind means: Spearman 1.0. Within a kind across layers: no resolution (0.5, −0.5, 0.5).</td></tr>
+        <tr><td class="warn"><strong>negentropy → raw score</strong></td><td>Spearman <code>−0.43</code>. Against the uncorrected score the predictor inverts.</td></tr>
+        <tr><td><strong>shared-capacity → joint-diag p95</strong></td><td>Spearman <code>0.56</code> (36 points), below the 0.7 bar: the accumulation-axis probe is the weaker predictor.</td></tr>
+        <tr><td><strong>gram_error</strong></td><td>Row-Gram fingerprint error 0 at every cell: trivially, the row-Gram is the fingerprint when the operand is its own source. Protocol-confirming, not a recovery result.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 6 FINDINGS ═════ -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">what the plaintext surface supports</div>
+    </header>
+    <div class="prose">
+      <p><strong>The separation attack is ill-posed on the plaintext surface.</strong> With no hidden
+      mixing, every candidate demixing returns a basis of one fixed subspace, so the recovery score is
+      a measure of subspace membership and not of separation. The matched random-demixing floor is the
+      correct grading null. Against it the genuine margin (0.027) is only about 3.4% of the raw score;
+      the remaining ≈ 96% is membership baseline. The unrelated-Gaussian floor measures a different
+      quantity and under-counts the membership baseline by 0.553 (about 71% of the raw score). This is a
+      structural fact, proved in the analysis below; the magnitudes are measured.</p>
+      <p><strong>Recovery does not accumulate with observations.</strong> The slope in the number of
+      stacked observations is flat. Joint diagonalization across observations is informative only when a
+      single fixed unknown mixing is shared across them; under the identity transform there is no such
+      mixing for the stack to constrain. The flat slope is consistent with this and was confirmed
+      empirically.</p>
+      <p><strong>The matched probe predicts the genuine margin, and only the genuine margin.</strong>
+      The negentropy probe orders the kind-by-layer cells in agreement with the floor-corrected margin
+      at Spearman 0.92, with a permutation p-value of 0.0013, while it anticorrelates with the
+      uncorrected score. The result is exploratory: it rests on nine cells and is carried by the
+      ordering across the three surface kinds rather than by resolution within a kind. It establishes
+      that the choice of grading null is what makes or breaks the predictor.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 ANALYSIS ═════ -->
+  <section id="analysis">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Analysis</h2>
+      <div class="section-meta">the subspace-membership floor; proof sketch</div>
+    </header>
+    <div class="prose">
+      <p><strong>Subspace-membership floor.</strong> Assume the centered operand has full row rank and
+      at least twice as many columns as rows. Whitening produces rows that are orthonormal under the
+      sample inner product. For any invertible left-multiplication, the rows of the product are fixed
+      linear combinations of the operand rows, so they span exactly the operand's row space; the
+      converse holds because the multiplication is invertible. Hence every demixing output, whether the
+      separator's rotation or a random one, spans the same fixed subspace.</p>
+      <p>Because a whitened basis stays orthonormal under any orthogonal rotation, varying the rotation
+      only rotates one fixed orthonormal basis within that fixed subspace. The recovery score is
+      therefore a function of the fixed subspace and the fixed true rows, evaluated along a rotation
+      orbit, and its average over uniformly random rotations is a fixed baseline that does not depend on
+      whether the separator succeeded. The unrelated-Gaussian control instead replaces the true rows by
+      random targets that, with probability one, lie outside the subspace; it measures a different
+      functional. The only rotation-dependent quantity is recovery above the random-rotation baseline,
+      which is the reported margin. The size and sign of the gap between the two grading nulls are not
+      fixed by this argument; they are measured (0.708 against 0.155).</p>
+      <p>This argument is a structural invariance and a statement about which null is matched; it does
+      not bound the baseline in closed form. An attempt to lower-bound the baseline analytically did not
+      survive review and is not claimed. The flat accumulation slope is reported as a measurement
+      supported by the identifiability argument above, not as a theorem. The full statement and proof
+      are in the claim file cited in the footer.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 8 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">what leaks, the role of this baseline, limitations</div>
+    </header>
+    <div class="prose">
+      <p><strong>What leaks.</strong> On the plaintext surface, essentially nothing beyond subspace
+      membership, which is not separation. The residual stream shows the largest genuine margin (0.06
+      to 0.07) and the keys-times-queries product the smallest (near zero), an ordering the negentropy
+      probe reproduces.</p>
+      <p><strong>Why this baseline matters.</strong> A mixing-defense sweep, key/value cloaking or
+      residual mixing, is the next place where these separation attacks could become informative; this
+      plaintext baseline makes those sweeps interpretable. Because the plaintext margin is near zero and
+      flat, any rise in recovery observed under a mixing defense would be attributable to the defense's
+      mixing or mask rather than to separation of the underlying plaintext. This page fixes that
+      reference point and supplies the matched grading null the defense sweeps reuse.</p>
+      <p><strong>Limitations.</strong> The probe-vs-margin correlation rests on nine cells and resolves
+      surface kinds rather than layers within a kind; it is reported as exploratory with its permutation
+      test. The accumulation slope is measured on observation counts up to eight (sixteen was
+      unavailable at this corpus size). The qualitative result, that separation is ill-posed on
+      plaintext and the matched probe tracks the small genuine margin, is settled at this scope; a
+      larger corpus would tighten the slope interval on a flat line without changing the conclusion, so
+      the heavier run was not made.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Code</h5>
+      <ul>
+        <li><code>src/talens/attacks/bss.py</code> · the separation attacks</li>
+        <li><code>src/talens/measures/bss_separability.py</code> · the matched probe</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claim &amp; record</h5>
+      <ul>
+        <li><code>research-wiki/claims/kv-bss-subspace-floor-and-negentropy-probe.md</code></li>
+        <li><code>research-wiki/experiments/b-kv1-accumulation-bss.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>JADE · Cardoso &amp; Souloumiac 1993</li>
+        <li>Independent component analysis · Comon 1994; Hyvärinen 1999</li>
+        <li>Shadow in the Cache / KV-Cloak · <a href="https://arxiv.org/abs/2508.09442">arXiv 2508.09442</a></li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

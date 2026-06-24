@@ -65,3 +65,4 @@
 {"from": "exp:cover-break-matched-deferred", "to": "claim:perm-llr-threshold", "type": "relates", "evidence": "negative companion: matched cover-break deferred (fastica unimplemented)", "added": "2026-06-23T21:19:52Z"}
 {"from": "exp:defenses-existing-leakage-utility", "to": "claim:defense-channel-selectivity-mechanism-dependent", "type": "supports", "evidence": "partial: channel-selectivity + mechanism-dependent calibration", "added": "2026-06-23T21:59:08Z"}
 {"from": "claim:defense-channel-selectivity-mechanism-dependent", "to": "claim:depth-decoupling-input-dp", "type": "supports", "evidence": "Shredder no-sign-flip corroborates input-DP decoupling as injection-locus property", "added": "2026-06-23T21:59:09Z"}
+{"from": "exp:b-kv1-accumulation-bss", "to": "claim:kv-bss-subspace-floor-and-negentropy-probe", "type": "supports", "evidence": "C2 ρ=0.92 (perm p=0.0013) tracks genuine margin; L1 proof PASS (Codex 019ef6e2, 2 rounds)", "added": "2026-06-23T23:56:36Z"}

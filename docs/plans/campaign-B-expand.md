@@ -27,7 +27,7 @@ run_id: b-kv1-accumulation
 gate: review refine-logs/kv-accumulation/REVIEW_STATE.json
 spawn-depth: 0
 objective: port the accumulation/BSS family (gram_error Gram-fingerprint, jd joint-diagonalization, jade) onto the KV/activation surface; does recovery scale with #observations T, and does a matched probe track it? (document sda/tfma/ia-weight as not-applicable per threat model.)
-- [ ] run-phase: b-kv1-accumulation
+- [x] run-phase: b-kv1-accumulation
 
 ### Task 2: KV/QKV — KV-CLOAK defense + sweep
 recipe: full

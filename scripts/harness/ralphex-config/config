@@ -18,6 +18,16 @@ finalize_enabled = false
 task_retry_count = 1
 session_timeout = 6h
 idle_timeout = 45m
+
+# --- 5-hour usage-window handling: WAIT it out, don't fail ---
+# Without wait_on_limit (>0) a usage-limit message falls through to fatal-error behavior and the
+# phase is skipped/circuit-broken. With it, ralphex's retry loop sleeps wait_on_limit and re-tries,
+# repeating until the window resets (run_campaign stays blocked on ralphex, so no false skip; the
+# watchdog's 8h stale window covers the <=5h wait; any in-flight run_step.sh run keeps going and the
+# retry re-attaches). Patterns pinned to the 5h-window messages only — admin/org limits stay fatal
+# (waiting can't clear them).
+wait_on_limit = 30m
+claude_limit_patterns = You've hit your limit,You've hit your session limit,Claude usage limit reached
 iteration_delay_ms = 2000
 
 # --- no worktrees (Q7 fully serial; gitignored skills would vanish in a worktree anyway) ---

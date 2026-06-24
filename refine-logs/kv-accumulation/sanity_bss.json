@@ -1,0 +1,55 @@
+{
+  "jade_recover_true_sources_p95": 0.7410905622437776,
+  "jade_gaussian_selfsubspace_p95": 0.7031561413500589,
+  "whiten_cov_offdiag_max": 8.455458555545192e-16,
+  "whiten_cov_diag_err": 1.1102230246251565e-15,
+  "gram_mix": {
+    "attack": "gram_error",
+    "kind": "mix",
+    "layer": 0,
+    "n": 24,
+    "cos_norm_distance": 0.0,
+    "row_gram_spectrum_error": 0.0
+  },
+  "jd_gauss": {
+    "attack": "jd",
+    "kind": "gauss",
+    "layer": 0,
+    "p95_per_t": {
+      "1": 0.7148048889529952,
+      "2": 0.6760436559246121,
+      "4": 0.6991353980423872,
+      "8": 0.7303671517229072
+    },
+    "n_per_t": {
+      "1": 24,
+      "2": 24,
+      "4": 24,
+      "8": 24
+    }
+  },
+  "negentropy_mix": {
+    "probe": "negentropy",
+    "kind": "mix",
+    "layer": 0,
+    "n": 24,
+    "negentropy_bits": 0.6213716622343131,
+    "negentropy_bits_per_row": 0.051780971852859424
+  },
+  "negentropy_gauss": {
+    "probe": "negentropy",
+    "kind": "gauss",
+    "layer": 0,
+    "n": 24,
+    "negentropy_bits": 0.06030272563925619,
+    "negentropy_bits_per_row": 0.005025227136604683
+  },
+  "_checks": {
+    "whitening produces identity covariance": true,
+    "JADE recovery of true sources beats Gaussian self-subspace floor": true,
+    "gram_error~0 under Identity (U==H)": true,
+    "JD flat across T on independent stacks": true,
+    "negentropy(non-Gaussian) > negentropy(Gaussian)": true
+  },
+  "_all_pass": true
+}

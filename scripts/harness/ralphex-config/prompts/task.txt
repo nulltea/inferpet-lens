@@ -21,7 +21,17 @@ STEP 0 — SELECT THE PHASE
     run_id:   <unique-id>
     objective: <one line>
 - If NO Task has `[ ]`, output exactly: <<<RALPHEX:ALL_TASKS_DONE>>>
-- ANNOUNCE (<=200 words): phase number + title, recipe, gpu flag, objective, key files.
+- RECOVER PRIOR CONTEXT (you are likely a FRESH session re-entering a partially-done phase — the
+  previous session has no memory link to you): BEFORE starting new work, read the tail of this
+  campaign's ralphex progress log `.ralphex/progress/progress-<PLAN>.txt` (PLAN = basename of
+  {{PLAN_FILE}} without `.md`) — it is the full narrative of ALL prior sessions/iterations — and
+  inspect `refine-logs/<surface>/` (notes, partial results, `runs/<name>/run.log` + `run.exit`).
+  RESUME from where prior sessions left off: re-attach to any in-flight run by calling
+  `run_step.sh <name>` with the SAME name (it returns the finished result or blocks on the running
+  one); reuse code/artifacts already written. Do NOT restart the phase from scratch or relaunch a
+  run that already exists.
+- ANNOUNCE (<=200 words): phase number + title, recipe, gpu flag, objective, key files, and a
+  one-line note of what prior context you recovered (or "fresh start" if none).
 
 STEP 1 — HEARTBEAT + WATCHDOG (liveness, so a silent death is detectable)
 - FIRST action: `mkdir -p refine-logs/<surface> && touch refine-logs/<surface>/.heartbeat`
@@ -31,9 +41,19 @@ STEP 1 — HEARTBEAT + WATCHDOG (liveness, so a silent death is detectable)
 STEP 2 — RUN THE RECIPE INLINE (re-touch the heartbeat after every sub-skill)
 GPU RULE (hard): every command touching real Qwen3 activations / capture / probes / attacks MUST
 be wrapped in `scripts/run_in_rocm.sh`. One GPU process at a time — never launch a second GPU
-container; kill stray containers first; wait on long runs, do not poll-spin. `/run-experiment`
-stays in LOCAL mode (wraps run_in_rocm.sh); run sweep points SERIALLY (no /experiment-queue
-fan-out). Write all artifacts under refine-logs/<surface>/; never overwrite another surface.
+container; kill stray containers first. `/run-experiment` stays in LOCAL mode (wraps run_in_rocm.sh);
+run sweep points SERIALLY (no /experiment-queue fan-out). Write all artifacts under
+refine-logs/<surface>/; never overwrite another surface.
+DURABLE RUNS (critical): launch EVERY pilot/experiment/heavy command through the resumable wrapper:
+    TALENS_SURFACE=<surface> scripts/harness/run_step.sh <name> -- <cmd...>
+e.g. `TALENS_SURFACE=<surface> scripts/harness/run_step.sh pilot -- scripts/run_in_rocm.sh python3 ...`.
+The wrapper runs the command DETACHED (it survives even if this session dies), NEVER duplicates a run
+that is already active or finished (one-GPU-safe), and BLOCKS streaming the run's log until it
+completes, returning the real exit code. NEVER background a run yourself and then end your turn to
+"wait for it": ending your turn terminates this session and the loop restarts the phase in a fresh,
+memory-less session. If you ARE a fresh session re-entering a phase, just call run_step.sh with the
+SAME <name> again — it re-attaches to the in-flight run or returns the finished result (resume, do not
+relaunch). Run logs/results live under refine-logs/<surface>/runs/<name>/.
 PERF GATE (before ANY GPU run): refine the run plan with `/auto-review-loop` against
 `scripts/harness/perf_gate.md` until it returns ready (optimal scope + max GPU utilization).
 

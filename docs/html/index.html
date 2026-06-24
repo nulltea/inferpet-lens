@@ -36,6 +36,12 @@
           <a href="bnn-attack.html">Bayes-NN bounds</a>
         </div>
       </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+        </div>
+      </div>
       <a href="perm-cover.html">permutation</a>
       <a href="defenses-existing.html">defenses</a>
     </span>
@@ -141,6 +147,19 @@
       </div>
 
       <div class="card">
+        <span class="tag storage">KV / QKV</span>
+        <h3>Source separation</h3>
+        <p class="one">A blind-source-separation adversary tries to recover the activation rows behind the key/query/value and residual surfaces; on plaintext there is no hidden mixing to invert.</p>
+        <dl>
+          <dt>secret</dt><dd>the per-dimension activation rows behind <code>kq</code>, <code>kqv_out</code>, and <code>resid_post</code></dd>
+          <dt>probe</dt><dd>attack-independent whitened-row negentropy (the separability functional, computed without joint diagonalization)</dd>
+          <dt>attack</dt><dd>joint-diagonalization separators (single-observation and across stacked observations), graded against a matched random-demixing floor</dd>
+          <dt>finding</dt><dd>every demixing returns a basis of one fixed subspace, so the raw recovery score (0.776) is subspace membership, not separation; the genuine margin is 0.027 and flat in the observation count; the negentropy probe tracks the genuine margin at 0.92 while anticorrelating with the raw score</dd>
+          <dt>read</dt><dd><a href="kv-accumulation.html">source separation →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
         <span class="tag client">defenses</span>
         <h3>Implemented defenses</h3>
         <p class="one">Two deployed defenses swept from plaintext through their privacy parameter, graded for leakage against recovery.</p>
@@ -223,6 +242,7 @@
         <li><a href="resid-capacity-pvi.html">capacity-matched leakage</a></li>
         <li><a href="resid-dp-attacks.html">residual under differential privacy</a></li>
         <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
+        <li><a href="kv-accumulation.html">KV/QKV source separation</a></li>
         <li><a href="perm-cover.html">permutation cover</a> · <a href="defenses-existing.html">implemented defenses</a></li>
         <li><a href="metric-std.html">the metric convention</a></li>
       </ul>
