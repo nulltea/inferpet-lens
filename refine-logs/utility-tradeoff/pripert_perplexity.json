@@ -5,6 +5,7 @@
   "n_prompts": 64,
   "config": {
     "mode": "pripert",
+    "shredder_bs": "0.0,0.109,0.218,0.381,0.545,0.817",
     "corpus": "corpora/release-gate-512.txt",
     "max_prompts": 64,
     "epsilons": "inf,256,128,96,64",
@@ -12,13 +13,14 @@
     "clip_percentile": 99.9,
     "layer": 8,
     "rho": 0.25,
+    "sigma_ref": 7.6429,
     "betas": "0.0,0.25,0.5,1.0,2.0",
     "seed": 20260625,
     "out": "refine-logs/utility-tradeoff/pripert_perplexity.json"
   },
   "layer": 8,
   "rho": 0.25,
-  "sigma_ref": 11.338349690039953,
+  "sigma_ref": 7.6429,
   "records": [
     {
       "param_name": "beta",
@@ -48,9 +50,9 @@
       "param_value": 0.25,
       "rho": 0.25,
       "layer": 8,
-      "sigma": 2.8345874225099883,
+      "sigma": 1.910725,
       "utility_metric": "perplexity",
-      "utility_value": 58181.37237064111,
+      "utility_value": 4351.105077270272,
       "n_tokens": 840,
       "sec": 4.6
     },
@@ -59,20 +61,20 @@
       "param_value": 0.5,
       "rho": 0.25,
       "layer": 8,
-      "sigma": 5.669174845019977,
+      "sigma": 3.82145,
       "utility_metric": "perplexity",
-      "utility_value": 4293961.836891062,
+      "utility_value": 767652.9448105361,
       "n_tokens": 840,
-      "sec": 4.8
+      "sec": 4.6
     },
     {
       "param_name": "beta",
       "param_value": 1.0,
       "rho": 0.25,
       "layer": 8,
-      "sigma": 11.338349690039953,
+      "sigma": 7.6429,
       "utility_metric": "perplexity",
-      "utility_value": 2146111.566930769,
+      "utility_value": 2779228.621430836,
       "n_tokens": 840,
       "sec": 4.6
     },
@@ -81,9 +83,9 @@
       "param_value": 2.0,
       "rho": 0.25,
       "layer": 8,
-      "sigma": 22.676699380079906,
+      "sigma": 15.2858,
       "utility_metric": "perplexity",
-      "utility_value": 4898029.916329917,
+      "utility_value": 3059272.006732223,
       "n_tokens": 840,
       "sec": 4.6
     }

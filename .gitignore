@@ -37,3 +37,4 @@ scripts/harness/campaign.env
 
 # detached campaign run logs
 refine-logs/_campaign-logs/
+refine-logs/utility-tradeoff/.heartbeat

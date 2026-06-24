@@ -177,7 +177,7 @@ required subdeliverables, in priority order (this phase mixes one GPU run with b
   3. BACKFILL the placeholders Tasks 4 and 6 left: the probe-page plaintext-reference rows (SDL, shared-spectral-capacity) and the queued model-required readouts.
 perf gate: this is the only GPU phase — pass scripts/harness/perf_gate.md (optimal scope, max GPU utilization) before launch; ONE GPU process at a time via run_step.sh; estimate wall-time and trim to representative layers/params first; batch the piggybacked emissions into the same capture where possible.
 acceptance: `refine-logs/utility-tradeoff/leakage_utility.json` exists with the schema above (it is Task 11's input contract); `queue_results.json` records both consumed queue files (items emitted + backfilled, or re-marked TODO with a reason); synthesis.html utility column populated (or explicit TODO + reason) for every defense sweep, lossy rows a real task metric, invertible rows recon-error + overhead; the Task-4/Task-6 placeholders are replaced (or re-marked TODO + reason); perf gate passed before launch.
-- [ ] run-phase: c7-utility
+- [x] run-phase: c7-utility
 
 ### Task 8: visual reporting Phase 0 — plotting harness + PLOT-STYLE.md + the A1 baseline
 recipe: consolidate

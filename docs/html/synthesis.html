@@ -139,10 +139,10 @@
     <table class="spec">
       <thead><tr><th>ε (layer 0)</th><th class="num">V_cap reader acc (probe)</th><th class="num">CLUB (bits)</th><th class="num">ridge recovery (TTRSR)</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>∞</td><td class="num">0.882</td><td class="num">3850</td><td class="num">0.809</td><td class="num">TODO</td></tr>
-        <tr><td>1024</td><td class="num">0.878</td><td class="num">3640</td><td class="num">0.661</td><td class="num">TODO</td></tr>
-        <tr><td>512</td><td class="num">0.846</td><td class="num">3340</td><td class="num">0.428</td><td class="num">TODO</td></tr>
-        <tr><td>256</td><td class="num">0.684</td><td class="num">2810</td><td class="num">0.140</td><td class="num">TODO</td></tr>
+        <tr><td>∞</td><td class="num">0.882</td><td class="num">3850</td><td class="num">0.809</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 75.6</td></tr>
+        <tr><td>1024</td><td class="num">0.878</td><td class="num">3640</td><td class="num">0.661</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 101</td></tr>
+        <tr><td>512</td><td class="num">0.846</td><td class="num">3340</td><td class="num">0.428</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 705</td></tr>
+        <tr><td>256</td><td class="num">0.684</td><td class="num">2810</td><td class="num">0.140</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 2.7e4</td></tr>
       </tbody>
     </table>
     <p class="prose">Held fixed: layer 0, reader <code>pca_softmax</code> dim 64. Model gemma-2-2b. ρ(reader acc, recovery) = <strong>+0.96</strong> at L0. The same correlation by depth (input-DP propagated): L0 <strong>+0.96</strong>, L5 +0.68, L12 +0.43, L20 <strong>−0.21</strong>, while CLUB attenuates in parallel but stays positive (+0.96 → +0.29). The depth divergence is the finding; per-point rows at L20 were not tabulated in the source. Source: <code>refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md</code>.</p>
@@ -163,11 +163,11 @@
     <table class="spec spec--wide">
       <thead><tr><th>ε (r)</th><th class="num">CLUB (bits)</th><th class="num">V_cap acc</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>∞ (0.00)</td><td class="num">3084</td><td class="num">0.981</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>512 (0.45)</td><td class="num">2942</td><td class="num">0.977</td><td class="num">0.993</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>256 (0.91)</td><td class="num">2624</td><td class="num">0.935</td><td class="num">0.202</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>128 (1.82)</td><td class="num">1912</td><td class="num">0.736</td><td class="num">0.020</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>64 (3.63)</td><td class="num">—</td><td class="num">—</td><td class="num">0.002</td><td class="num">0.993</td><td class="num">TODO</td></tr>
+        <tr><td>∞ (0.00)</td><td class="num">3084</td><td class="num">0.981</td><td class="num">1.000</td><td class="num">1.000</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 75.6</td></tr>
+        <tr><td>512 (0.45)</td><td class="num">2942</td><td class="num">0.977</td><td class="num">0.993</td><td class="num">1.000</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 705</td></tr>
+        <tr><td>256 (0.91)</td><td class="num">2624</td><td class="num">0.935</td><td class="num">0.202</td><td class="num">1.000</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 2.7e4</td></tr>
+        <tr><td>128 (1.82)</td><td class="num">1912</td><td class="num">0.736</td><td class="num">0.020</td><td class="num">1.000</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 2.6e6</td></tr>
+        <tr><td>64 (3.63)</td><td class="num">—</td><td class="num">—</td><td class="num">0.002</td><td class="num">0.993</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 1.8e8</td></tr>
       </tbody>
     </table>
     <p class="prose">Held fixed: layer 0, Zipf prior over the real embedding table, pool 2048. Model gemma-2-2b. The Bayes-nearest-neighbour decode is the exact channel optimum: it stays at ~1.0 while ridge collapses 50×, an uplift of +0.98 by r = 1.82. Ridge still tracks the probe positively here (+0.76 to +0.88); the gap is attack efficiency, not lost information. Source: <code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code>.</p>
@@ -189,11 +189,11 @@
     <table class="spec spec--wide">
       <thead><tr><th>layer</th><th class="num">V_cap reader acc (probe)</th><th class="num">CLUB (bits)</th><th class="num">cosine-NN floor</th><th class="num">ridge recovery</th><th class="num">learned mlp2</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>L0</td><td class="num">0.939</td><td class="num">3426</td><td class="num">0.000</td><td class="num">0.685</td><td class="num">0.639</td><td class="num">TODO</td></tr>
-        <tr><td>L8</td><td class="num">0.797</td><td class="num">3003</td><td class="num">0.000</td><td class="num">0.588</td><td class="num">0.581</td><td class="num">TODO</td></tr>
-        <tr><td>L16</td><td class="num">0.691</td><td class="num">2792</td><td class="num">0.000</td><td class="num">0.533</td><td class="num">0.494</td><td class="num">TODO</td></tr>
-        <tr><td>L24</td><td class="num">0.769</td><td class="num">3062</td><td class="num">0.000</td><td class="num">0.603</td><td class="num">0.576</td><td class="num">TODO</td></tr>
-        <tr><td>L32</td><td class="num">0.685</td><td class="num">2970</td><td class="num">0.000</td><td class="num">0.390</td><td class="num accent">0.542</td><td class="num">TODO</td></tr>
+        <tr><td>L0</td><td class="num">0.939</td><td class="num">3426</td><td class="num">0.000</td><td class="num">0.685</td><td class="num">0.639</td><td class="num" title="no lossy defense applied — depth is a read location, not a privacy parameter; clean-model perplexity is unchanged across depth">lossless</td></tr>
+        <tr><td>L8</td><td class="num">0.797</td><td class="num">3003</td><td class="num">0.000</td><td class="num">0.588</td><td class="num">0.581</td><td class="num" title="no lossy defense — clean-model read location">lossless</td></tr>
+        <tr><td>L16</td><td class="num">0.691</td><td class="num">2792</td><td class="num">0.000</td><td class="num">0.533</td><td class="num">0.494</td><td class="num" title="no lossy defense — clean-model read location">lossless</td></tr>
+        <tr><td>L24</td><td class="num">0.769</td><td class="num">3062</td><td class="num">0.000</td><td class="num">0.603</td><td class="num">0.576</td><td class="num" title="no lossy defense — clean-model read location">lossless</td></tr>
+        <tr><td>L32</td><td class="num">0.685</td><td class="num">2970</td><td class="num">0.000</td><td class="num">0.390</td><td class="num accent">0.542</td><td class="num" title="no lossy defense — clean-model read location">lossless</td></tr>
       </tbody>
     </table>
     <p class="prose">Recovery is shuffle-subtracted selectivity (real − label-shuffle); the cosine-NN memorization floor is 0.000 at every depth under the vocab-disjoint split, so the recovery is genuine generalizing inversion, not memorization. Model Qwen3-4B; representative layers shown (full grid is nine depths). Recovery stays 0.39–0.69 at every depth and the learned inverter beats ridge at L32 (+0.153). ρ(V_cap reader acc, best recovery) = <strong>+0.85</strong>; CLUB +0.78. Source: <code>refine-logs/resid-depth-inversion/RESULTS_STANDARDIZED.md</code>.</p>
@@ -202,12 +202,12 @@
     <table class="spec spec--wide">
       <thead><tr><th>length (tokens)</th><th class="num">I_G (bits)</th><th class="num">real token-F1</th><th class="num">shuffled null</th><th class="num">leakage gap</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>9</td><td class="num">2856</td><td class="num">0.076</td><td class="num">0.045</td><td class="num">+0.031</td><td class="num">TODO</td></tr>
-        <tr><td>14</td><td class="num">2856</td><td class="num">0.088</td><td class="num">0.074</td><td class="num">+0.015</td><td class="num">TODO</td></tr>
-        <tr><td>21</td><td class="num">2856</td><td class="num">0.146</td><td class="num">0.105</td><td class="num">+0.041</td><td class="num">TODO</td></tr>
-        <tr><td>28</td><td class="num">2856</td><td class="num">0.138</td><td class="num">0.115</td><td class="num">+0.023</td><td class="num">TODO</td></tr>
-        <tr><td>39</td><td class="num">2856</td><td class="num">0.209</td><td class="num">0.156</td><td class="num">+0.054</td><td class="num">TODO</td></tr>
-        <tr><td>59</td><td class="num">2856</td><td class="num">0.244</td><td class="num">0.155</td><td class="num accent">+0.089</td><td class="num">TODO</td></tr>
+        <tr><td>9</td><td class="num">2856</td><td class="num">0.076</td><td class="num">0.045</td><td class="num">+0.031</td><td class="num" title="no defense — input length is an input property, not a privacy parameter; clean-model utility unchanged">lossless</td></tr>
+        <tr><td>14</td><td class="num">2856</td><td class="num">0.088</td><td class="num">0.074</td><td class="num">+0.015</td><td class="num" title="no defense — clean-model read">lossless</td></tr>
+        <tr><td>21</td><td class="num">2856</td><td class="num">0.146</td><td class="num">0.105</td><td class="num">+0.041</td><td class="num" title="no defense — clean-model read">lossless</td></tr>
+        <tr><td>28</td><td class="num">2856</td><td class="num">0.138</td><td class="num">0.115</td><td class="num">+0.023</td><td class="num" title="no defense — clean-model read">lossless</td></tr>
+        <tr><td>39</td><td class="num">2856</td><td class="num">0.209</td><td class="num">0.156</td><td class="num">+0.054</td><td class="num" title="no defense — clean-model read">lossless</td></tr>
+        <tr><td>59</td><td class="num">2856</td><td class="num">0.244</td><td class="num">0.155</td><td class="num accent">+0.089</td><td class="num" title="no defense — clean-model read">lossless</td></tr>
       </tbody>
     </table>
     <p class="prose">The probe is constant (2856 bits) across length because capacity far exceeds the sequence entropy (H ≤ 1102 bits at 64 tokens), so the length-only correlation is undefined and the full length × noise grid gives ρ = 0.18: the capacity probe is vacuous. Recovery is significant at every length (all bootstrap 95% CIs exclude 0) but grows with length rather than decaying. Model Qwen3-4B last-token residual at layer 10. Source: <code>refine-logs/resid-rep2text/EXPERIMENT_RESULTS.md</code>.</p>
@@ -235,17 +235,17 @@
         <tr><td>100</td><td class="num">1780</td><td class="num">20.8</td><td class="num">0.692</td><td class="num">0.666</td><td class="num">0.026</td></tr>
       </tbody>
     </table>
-    <p class="prose">Held fixed: shield fraction 0, median over layers {0,12,20}. Model Qwen3-4B. At κ=1 the orthogonal mixing publishes the exact feature Gram (rel-err 2.5e-16), the load-bearing leak; the row source-separation margin stays near the random-demix floor (≤ 0.05) and amortized ridge inversion fails (p95 0.288 < floor 0.667). ρ(J, genuine margin) = <strong>0.51</strong> shield-0, 0.29 over all 45 cells, both below the 0.6 bar: a failed/weak measurement loop. The source diagnoses this as a likely probe mismatch (the whitened-row negentropy probe is not matched to the feature-Gram channel that leaks) but does not rule out a weak attack; a stronger source-separation suite and a feature-Gram-matched probe are the queued follow-up. Source: <code>refine-logs/resid-gelo/RESULTS.md</code>.</p>
+    <p class="prose">Held fixed: shield fraction 0, median over layers {0,12,20}. Model Qwen3-4B. At κ=1 the orthogonal mixing publishes the exact feature Gram (rel-err 2.5e-16), the load-bearing leak; the row source-separation margin stays near the random-demix floor (≤ 0.05) and amortized ridge inversion fails (p95 0.288 < floor 0.667). ρ(J, genuine margin) = <strong>0.51</strong> shield-0, 0.29 over all 45 cells, both below the 0.6 bar: a failed/weak measurement loop. The source diagnoses this as a likely probe mismatch (the whitened-row negentropy probe is not matched to the feature-Gram channel that leaks) but does not rule out a weak attack; a stronger source-separation suite and a feature-Gram-matched probe are the queued follow-up. Source: <code>refine-logs/resid-gelo/RESULTS.md</code>. <strong>Utility:</strong> lossless by construction — GELO is an invertible row-mix (orthogonal at κ=1, otherwise an exact change of basis), so the trusted enclave un-mixes exactly: measured TEE reconstruction rel-err ≈ 4e-8 (κ=1) to 3e-7 (κ=100), apply overhead ≈ 6–9 ms per prompt; no task-metric degradation (<code>refine-logs/utility-tradeoff/invertible_utility.json</code>).</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Split inference (PriPert) · perturbation budget</h4>
     <table class="spec spec--wide">
       <thead><tr><th>β (perturbation)</th><th class="num">I_G (bits)</th><th class="num">best-inverter recovery</th><th class="num">Fano ceiling</th><th class="num">accessible (bits)</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>0</td><td class="num">∞</td><td class="num">0.608</td><td class="num">1.000</td><td class="num">11.0</td><td class="num">TODO</td></tr>
-        <tr><td>0.25</td><td class="num">166.7</td><td class="num">0.223</td><td class="num">1.000</td><td class="num">11.0</td><td class="num">TODO</td></tr>
-        <tr><td>0.5</td><td class="num">55.7</td><td class="num">0.019</td><td class="num">1.000</td><td class="num">11.0</td><td class="num">TODO</td></tr>
-        <tr><td>1</td><td class="num">20.6</td><td class="num">0.005</td><td class="num">1.000</td><td class="num">11.0</td><td class="num">TODO</td></tr>
-        <tr><td>2</td><td class="num">10.0</td><td class="num">0.002</td><td class="num">0.986</td><td class="num">10.0</td><td class="num">TODO</td></tr>
+        <tr><td>0</td><td class="num">∞</td><td class="num">0.608</td><td class="num">1.000</td><td class="num">11.0</td><td class="num" title="ρ=0.25 sparsify-only; plaintext (ρ=1,β=0) ppl 70.3 — sparsification alone is near-lossless">ppl 72.7</td></tr>
+        <tr><td>0.25</td><td class="num">166.7</td><td class="num">0.223</td><td class="num">1.000</td><td class="num">11.0</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 4351</td></tr>
+        <tr><td>0.5</td><td class="num">55.7</td><td class="num">0.019</td><td class="num">1.000</td><td class="num">11.0</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 7.7e5</td></tr>
+        <tr><td>1</td><td class="num">20.6</td><td class="num">0.005</td><td class="num">1.000</td><td class="num">11.0</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 2.8e6</td></tr>
+        <tr><td>2</td><td class="num">10.0</td><td class="num">0.002</td><td class="num">0.986</td><td class="num">10.0</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 3.1e6</td></tr>
       </tbody>
     </table>
     <p class="prose">Held fixed: layer 8, sparsity ratio 0.25. Model Qwen3-4B. Perturbation is the load-bearing parameter (recovery collapses by β ≈ 0.5), and the learned mlp2 inverter beats ridge at moderate β (β=0.25: 0.283 vs 0.094). ρ(I_G, best recovery) = <strong>+0.958</strong> over the full 32-cell sweep (+0.915 against the learned inverter). The Fano converse is valid but slack: it binds in only 1 of 32 cells (β=2 here), far past the empirical recovery floor at β ≈ 0.5. Source: <code>refine-logs/resid-split/RESULTS_STANDARDIZED.md</code>.</p>
@@ -255,28 +255,28 @@
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Vec2Text · Gaussian differential privacy</h4>
     <table class="spec spec--wide">
-      <thead><tr><th>ε</th><th class="num">σ/C</th><th class="num">I_G (bits)</th><th class="num">token-F1</th><th class="num">exact match</th><th class="num">utility (release cos)</th></tr></thead>
+      <thead><tr><th>ε</th><th class="num">σ/C</th><th class="num">I_G (bits)</th><th class="num">token-F1</th><th class="num">exact match</th><th class="num">utility: retrieval nDCG@10</th></tr></thead>
       <tbody>
-        <tr><td>base (0-step)</td><td class="num">—</td><td class="num">—</td><td class="num">0.48</td><td class="num">0.00</td><td class="num">0.85</td></tr>
-        <tr><td>∞ (Vec2Text)</td><td class="num">0</td><td class="num">1597</td><td class="num accent">0.80</td><td class="num accent">0.18</td><td class="num">0.96</td></tr>
-        <tr><td>1024</td><td class="num">.005</td><td class="num">312</td><td class="num">0.45</td><td class="num">0</td><td class="num">0.83</td></tr>
-        <tr><td>512</td><td class="num">.010</td><td class="num">220</td><td class="num">0.30</td><td class="num">0</td><td class="num">0.69</td></tr>
-        <tr><td>256</td><td class="num">.019</td><td class="num">135</td><td class="num">0.16</td><td class="num">0</td><td class="num">0.44</td></tr>
-        <tr><td>128</td><td class="num">.038</td><td class="num">68</td><td class="num">0.09</td><td class="num">0</td><td class="num">0.24</td></tr>
+        <tr><td>base (0-step)</td><td class="num">—</td><td class="num">—</td><td class="num">0.48</td><td class="num">0.00</td><td class="num">—</td></tr>
+        <tr><td>∞ (Vec2Text)</td><td class="num">0</td><td class="num">1597</td><td class="num accent">0.80</td><td class="num accent">0.18</td><td class="num">1.000</td></tr>
+        <tr><td>1024</td><td class="num">.005</td><td class="num">312</td><td class="num">0.45</td><td class="num">0</td><td class="num">0.998</td></tr>
+        <tr><td>512</td><td class="num">.010</td><td class="num">220</td><td class="num">0.30</td><td class="num">0</td><td class="num">0.992</td></tr>
+        <tr><td>256</td><td class="num">.019</td><td class="num">135</td><td class="num">0.16</td><td class="num">0</td><td class="num">0.970</td></tr>
+        <tr><td>128</td><td class="num">.038</td><td class="num">68</td><td class="num">0.09</td><td class="num">0</td><td class="num">0.897</td></tr>
       </tbody>
     </table>
-    <p class="prose">Model GTR-T5-base, pooled, N=96. ρ(I_G, token-F1) = <strong>+1.00</strong> (= CLUB, at ~28× lower cost), +0.71 on exact match; 0 ceiling violations. Retrieval utility (nDCG@10, separate N=256 eval) degrades far more gracefully than leakage: 1.00 at ε=∞, 0.99 at 512, 0.97 at 256, 0.90 at 128, so the operating window ε ≈ 256–512 keeps retrieval near-lossless while exact reconstruction is already dead. Source: <code>vec2text.html</code> · <code>results/spectral_mi_probe_eval.json</code>.</p>
+    <p class="prose">Model GTR-T5-base, pooled, N=96. ρ(I_G, token-F1) = <strong>+1.00</strong> (= CLUB, at ~28× lower cost), +0.71 on exact match; 0 ceiling violations. Retrieval utility (nDCG@10, separate N=256 eval) degrades far more gracefully than leakage: 1.00 at ε=∞, 0.99 at 512, 0.97 at 256, 0.90 at 128, so the operating window ε ≈ 256–512 keeps retrieval near-lossless while exact reconstruction is already dead. The utility column is this retrieval nDCG@10 (the downstream task metric); the release-cosine fidelity proxy is tabulated for the Stained Glass surface below. Source: <code>results/spectral_mi_probe_eval.json</code> (I_G + token-F1) · <code>refine-logs/utility-tradeoff/gtr_retrieval.json</code> (nDCG@10).</p>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 6px;">Bayes-NN · geometry-only error bounds</h4>
     <table class="spec spec--wide">
       <thead><tr><th>ε (r)</th><th class="num">equivocation H(V|Y) (bits)</th><th class="num">Fano lower bound</th><th class="num">BNN error (attack)</th><th class="num">union upper bound</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>128 (1.82)</td><td class="num">≈0</td><td class="num">0.0000</td><td class="num">0.0001</td><td class="num">0.0001</td><td class="num">TODO</td></tr>
-        <tr><td>80 (2.91)</td><td class="num">30 mbit</td><td class="num">0.0000</td><td class="num">0.0058</td><td class="num">0.0125</td><td class="num">TODO</td></tr>
-        <tr><td>64 (3.63)</td><td class="num">0.35</td><td class="num">0.0000</td><td class="num">0.0628</td><td class="num">0.3460</td><td class="num">TODO</td></tr>
-        <tr><td>48 (4.84)</td><td class="num">2.16</td><td class="num">0.1052</td><td class="num">0.3409</td><td class="num">1.0000</td><td class="num">TODO</td></tr>
-        <tr><td>32 (7.27)</td><td class="num">6.16</td><td class="num">0.4689</td><td class="num">0.7781</td><td class="num">1.0000</td><td class="num">TODO</td></tr>
-        <tr><td>16 (14.53)</td><td class="num">9.73</td><td class="num">0.7939</td><td class="num">0.9765</td><td class="num">1.0000</td><td class="num">TODO</td></tr>
+        <tr><td>128 (1.82)</td><td class="num">0.27 mbit</td><td class="num">0.0000</td><td class="num">0.0001</td><td class="num">0.0001</td><td class="num" title="release is a single noised token embedding for NN decode; legitimate utility ≡ decode success = 1−BNN error (same operation as the attack), so there is no separate downstream task metric">n/a</td></tr>
+        <tr><td>80 (2.91)</td><td class="num">30 mbit</td><td class="num">0.0000</td><td class="num">0.0058</td><td class="num">0.0125</td><td class="num" title="decode ≡ attack (single noised-embedding NN); no separate task metric">n/a</td></tr>
+        <tr><td>64 (3.63)</td><td class="num">0.35</td><td class="num">0.0000</td><td class="num">0.0628</td><td class="num">0.3460</td><td class="num" title="decode ≡ attack; no separate task metric">n/a</td></tr>
+        <tr><td>48 (4.84)</td><td class="num">2.16</td><td class="num">0.1052</td><td class="num">0.3409</td><td class="num">1.0000</td><td class="num" title="decode ≡ attack; no separate task metric">n/a</td></tr>
+        <tr><td>32 (7.27)</td><td class="num">6.16</td><td class="num">0.4689</td><td class="num">0.7781</td><td class="num">1.0000</td><td class="num" title="decode ≡ attack; no separate task metric">n/a</td></tr>
+        <tr><td>16 (14.53)</td><td class="num">9.73</td><td class="num">0.7939</td><td class="num">0.9765</td><td class="num">1.0000</td><td class="num" title="decode ≡ attack; no separate task metric">n/a</td></tr>
       </tbody>
     </table>
     <p class="prose">Model gemma-2-2b embedding table at layer 0, pool 2048, uniform prior. The two attack-independent bounds bracket the measured Bayes-nearest-neighbour error at 10/10 ε; ρ(Fano lower, error) = +0.94, ρ(union upper, error) = +0.89. The upper bound is tight at low noise (ε=80: 0.0058 vs 0.0125), the lower tracks at high noise; the load-bearing evidence is the bracketing, not the rank correlation. Source: <code>refine-logs/bnn-error-bounds/EXPERIMENT_RESULTS.md</code>.</p>
@@ -328,7 +328,7 @@
         <tr><td>full (eq. 9)</td><td class="num">0.72</td><td class="num">16.32</td><td class="num accent">0.126</td><td class="num">0.157</td></tr>
       </tbody>
     </table>
-    <p class="prose">Held fixed: layer 0, mean over block size and mask scale and seed. Model Qwen3-4B key cache. Only channels containing the feature mix drive recovery to the random-demix floor (0.626 → 0.126) and collapse the negentropy probe (1045 → 1.5 bits); token mix and block size are inert. The feature mix also defeats the accumulation attack (it stays at the floor across T while plaintext climbs 0.49 → 0.75). ρ(J, recovery) = <strong>+0.71</strong> aggregate over 270 cells, +0.77 channel-mean; the probe ranks channel families, it is not a within-channel oracle. Source: <code>refine-logs/kv-cloak/RESULTS.md</code>.</p>
+    <p class="prose">Held fixed: layer 0, mean over block size and mask scale and seed. Model Qwen3-4B key cache. Only channels containing the feature mix drive recovery to the random-demix floor (0.626 → 0.126) and collapse the negentropy probe (1045 → 1.5 bits); token mix and block size are inert. The feature mix also defeats the accumulation attack (it stays at the floor across T while plaintext climbs 0.49 → 0.75). ρ(J, recovery) = <strong>+0.71</strong> aggregate over 270 cells, +0.77 channel-mean; the probe ranks channel families, it is not a within-channel oracle. Source: <code>refine-logs/kv-cloak/RESULTS.md</code>. <strong>Utility:</strong> lossless by construction — every KV-Cloak channel (feature mix M, token mix S·P̂, mask) is an invertible operation the enclave reverses with its key material: measured TEE reconstruction rel-err ≈ 3e-8 (feature-mix-only and full channels), apply overhead ≈ 1 ms per block; no task-metric degradation (<code>refine-logs/utility-tradeoff/invertible_utility.json</code>).</p>
 
     <!-- ===== PERMUTATION ===== -->
     <h3 style="font-family:'Fraunces',serif;margin:28px 0 4px;">Permutation cover and deployed defenses</h3>
@@ -337,13 +337,13 @@
     <table class="spec spec--wide">
       <thead><tr><th>noise α_e</th><th class="num"><code>CLUB</code> (bits, probe)</th><th class="num">64-bin baseline recovery</th><th class="num">full sorted-row recovery</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>0.0</td><td class="num">245</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>0.1</td><td class="num">243</td><td class="num">0.977</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>0.2</td><td class="num">240</td><td class="num">0.565</td><td class="num accent">0.999</td><td class="num">TODO</td></tr>
-        <tr><td>0.35</td><td class="num">235</td><td class="num">0.204</td><td class="num accent">0.804</td><td class="num">TODO</td></tr>
-        <tr><td>0.5</td><td class="num">230</td><td class="num">0.099</td><td class="num">0.442</td><td class="num">TODO</td></tr>
-        <tr><td>0.75</td><td class="num">219</td><td class="num">0.037</td><td class="num">0.140</td><td class="num">TODO</td></tr>
-        <tr><td>1.0</td><td class="num">206</td><td class="num">0.023</td><td class="num">0.054</td><td class="num">TODO</td></tr>
+        <tr><td>0.0</td><td class="num">245</td><td class="num">1.000</td><td class="num">1.000</td><td class="num" title="α_e is a probe-calibration knob on the embedding table (perm-core regime); the deployed AloePri defense is the keymat change-of-basis (lossless, see AloePri-regime table)">calib. cover</td></tr>
+        <tr><td>0.1</td><td class="num">243</td><td class="num">0.977</td><td class="num">1.000</td><td class="num" title="perm-core calibration knob; deployed defense is keymat (lossless)">calib. cover</td></tr>
+        <tr><td>0.2</td><td class="num">240</td><td class="num">0.565</td><td class="num accent">0.999</td><td class="num" title="perm-core calibration knob; deployed defense is keymat (lossless)">calib. cover</td></tr>
+        <tr><td>0.35</td><td class="num">235</td><td class="num">0.204</td><td class="num accent">0.804</td><td class="num" title="perm-core calibration knob; deployed defense is keymat (lossless)">calib. cover</td></tr>
+        <tr><td>0.5</td><td class="num">230</td><td class="num">0.099</td><td class="num">0.442</td><td class="num" title="perm-core calibration knob; deployed defense is keymat (lossless)">calib. cover</td></tr>
+        <tr><td>0.75</td><td class="num">219</td><td class="num">0.037</td><td class="num">0.140</td><td class="num" title="perm-core calibration knob; deployed defense is keymat (lossless)">calib. cover</td></tr>
+        <tr><td>1.0</td><td class="num">206</td><td class="num">0.023</td><td class="num">0.054</td><td class="num" title="perm-core calibration knob; deployed defense is keymat (lossless)">calib. cover</td></tr>
       </tbody>
     </table>
     <p class="prose">Model gemma-2 embedding table. The 64-bin baseline collapses where the leakage has not gone (α_e=0.35: 0.204) while the full sorted-row matcher, the maximal invariant of the column permutation, recovers 0.804, an uplift of +0.60; the probe barely moves (245 → 235 bits, −4%). ρ(CLUB, recovery) = +1.00 (baseline), <strong>+0.976</strong> (full sort): the independent probe tracks the strong matcher across the sweep. Source: <code>refine-logs/perm-cover/RESULTS_STANDARDIZED.md</code>.</p>
@@ -352,24 +352,24 @@
     <table class="spec spec--wide">
       <thead><tr><th>Shredder noise b</th><th class="num">permutation recovery</th><th class="num">token-id recovery (L0)</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>0.000</td><td class="num">1.000</td><td class="num">0.747</td><td class="num">TODO</td></tr>
-        <tr><td>0.109</td><td class="num">0.977</td><td class="num">—</td><td class="num">TODO</td></tr>
-        <tr><td>0.218</td><td class="num">0.565</td><td class="num">—</td><td class="num">TODO</td></tr>
-        <tr><td>0.381</td><td class="num">0.204</td><td class="num">—</td><td class="num">TODO</td></tr>
-        <tr><td>0.545</td><td class="num">0.099</td><td class="num">—</td><td class="num">TODO</td></tr>
-        <tr><td>0.817</td><td class="num">0.037</td><td class="num">0.670</td><td class="num">TODO</td></tr>
+        <tr><td>0.000</td><td class="num">1.000</td><td class="num">0.747</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 75.6</td></tr>
+        <tr><td>0.109</td><td class="num">0.977</td><td class="num">—</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 74.7</td></tr>
+        <tr><td>0.218</td><td class="num">0.565</td><td class="num">—</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 74.8</td></tr>
+        <tr><td>0.381</td><td class="num">0.204</td><td class="num">—</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 78.1</td></tr>
+        <tr><td>0.545</td><td class="num">0.099</td><td class="num">—</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 90.4</td></tr>
+        <tr><td>0.817</td><td class="num">0.037</td><td class="num">0.670</td><td class="num" title="perplexity (LM, 64 prompts)">ppl 140</td></tr>
       </tbody>
     </table>
     <p class="prose">Model gemma-2-2b. The same noise that drives permutation recovery from 1.00 to 0.04 (a 27× collapse) leaves token-id recovery essentially intact (0.747 → 0.670 at L0): a single scalar privacy level does not reduce leakage uniformly across secret kinds. This Shredder table is recovery-only: the source reports the embedding probe as numerically unstable (NaN across seeds), so channel-selectivity is read from recovery, and the probe enters as the per-family bits-to-recovery correlation: within input-DP ρ = 0.64 (token) / 0.81 (permutation), within Shredder 0.39 / 0.43, and pooling the two degrades it. Source: <code>refine-logs/defenses-existing/RESULTS_STANDARDIZED.md</code>.</p>
     <table class="spec spec--wide">
       <thead><tr><th>AloePri regime · α_e</th><th class="num">CLUB (bits, probe)</th><th class="num">VMA recovery</th><th class="num">utility</th></tr></thead>
       <tbody>
-        <tr><td>perm-core · 0.00</td><td class="num">252</td><td class="num">1.000</td><td class="num">TODO</td></tr>
-        <tr><td>perm-core · 0.20</td><td class="num">250</td><td class="num">0.561</td><td class="num">TODO</td></tr>
-        <tr><td>perm-core · 0.35</td><td class="num">246</td><td class="num">0.212</td><td class="num">TODO</td></tr>
-        <tr><td>perm-core · 0.50</td><td class="num">240</td><td class="num">0.088</td><td class="num">TODO</td></tr>
-        <tr><td>perm-core · 1.50</td><td class="num">181</td><td class="num">0.007</td><td class="num">TODO</td></tr>
-        <tr><td>keymat · 0.00</td><td class="num">−2.4 (≈0)</td><td class="num">0.000</td><td class="num">TODO</td></tr>
+        <tr><td>perm-core · 0.00</td><td class="num">252</td><td class="num">1.000</td><td class="num" title="perm-core is the VMA-calibration regime; deployed AloePri = keymat (next rows, lossless)">calib. cover</td></tr>
+        <tr><td>perm-core · 0.20</td><td class="num">250</td><td class="num">0.561</td><td class="num" title="perm-core calibration regime">calib. cover</td></tr>
+        <tr><td>perm-core · 0.35</td><td class="num">246</td><td class="num">0.212</td><td class="num" title="perm-core calibration regime">calib. cover</td></tr>
+        <tr><td>perm-core · 0.50</td><td class="num">240</td><td class="num">0.088</td><td class="num" title="perm-core calibration regime">calib. cover</td></tr>
+        <tr><td>perm-core · 1.50</td><td class="num">181</td><td class="num">0.007</td><td class="num" title="perm-core calibration regime">calib. cover</td></tr>
+        <tr><td>keymat · 0.00</td><td class="num">−2.4 (≈0)</td><td class="num">0.000</td><td class="num" title="invertible-in-TEE: keymat P̂Q̂=I, reconstruction rel-err ≈ 8e-7; +9.0 ms apply overhead (refine-logs/utility-tradeoff/invertible_utility.json)">lossless</td></tr>
       </tbody>
     </table>
     <p class="prose">The dense key-matrix change of basis is the load-bearing defense: with zero added noise it already drives recovery to chance and the independent probe to its estimator floor. The permutation core alone is breakable up to α_e ≈ 0.35; there ρ(CLUB, recovery) = +0.976. Source: <code>refine-logs/defenses-existing/RESULTS_STANDARDIZED.md</code>.</p>
@@ -404,8 +404,8 @@
       <tbody>
         <tr>
           <td>Downstream-task utility</td>
-          <td>The utility columns above are mostly TODO. No surface records the protected model's downstream-task utility (accuracy or perplexity) versus the defense parameter. The only measured utility data are release-fidelity proxies on the two sentence-embedding defenses (Vec2Text release cosine and retrieval nDCG@10; Stained Glass release cosine and total distortion).</td>
-          <td>TODO: record a downstream-task utility column for each defense sweep so the leakage–utility frontier is plotted rather than leakage alone.</td>
+          <td>Now recorded for every defense sweep, defense-class-aware. Lossy defenses carry a real task metric aligned to the recovery sweep: language-model perplexity for input-DP and the split-inference cover (PriPert) on Qwen3-4B/gemma-2-2b, perplexity for Shredder, retrieval nDCG@10 for the differentially-private sentence-embedding surface, and release-cosine + distortion for Stained Glass. Invertible-in-TEE defenses (orthogonal GELO, KV-Cloak, AloePri keymat) are lossless by construction, so utility is the TEE-side reconstruction error (≈ 1e-7) plus the apply overhead, not a degraded task metric. The clean-model leakage studies that apply no defense (depth inversion, Rep2Text length) carry no utility cost. The full per-row dataset is <code>refine-logs/utility-tradeoff/leakage_utility.json</code>.</td>
+          <td>Done: the leakage–utility frontier is now plottable per surface (the privacy–utility Pareto plot is the visual-reporting follow-up).</td>
         </tr>
         <tr>
           <td>Common recovery scale</td>

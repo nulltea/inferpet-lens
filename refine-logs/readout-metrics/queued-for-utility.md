@@ -41,3 +41,8 @@ paired — so it is explicitly **not** queued. If Task 7 emits the clean-model c
 per-token predictive distribution is cheap to dump in the same pass, perplexity could be added to
 the token-id rows as an optional enhancement, but no page is blocked on it.
 </content>
+
+
+---
+
+**RESOLVED by Task 7 (c7-utility) 2026-06-25.** All queued items emitted/backfilled; see `refine-logs/utility-tradeoff/queue_results.json`. SDL + shared-spectral-capacity plaintext baselines were emitted CPU-only from clean Qwen3 captures already on disk (no GPU); BNN H(V|Y) was a display-precision backfill from `results/bnn_error_bounds_validation_dense.json` (full-precision values were already stored). Probe pages `probe-sdl.html` / `probe-shared-spectral-capacity.html` §04 and `bnn-attack.html` H(V|Y) column backfilled.

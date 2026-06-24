@@ -45,11 +45,35 @@ def rows_input_dp():
     return out
 
 
+def rows_input_dp_capacity_pvi():
+    """gemma-2-2b L0 input-DP, capacity-PVI sweep variant (synthesis residual table): V_cap acc + CLUB
+    + ridge recovery (resid-capacity-pvi L0) x perplexity. Same DP mechanism as R1, different N/probe run."""
+    util = {r["param_value"]: r for r in _load(UT / "dp_perplexity.json")["records"]}
+    # synthesis.html residual input-DP @L0 table (source: resid-capacity-pvi / b2 L0 run)
+    T = {  # eps: (vcap_acc, club_bits, ridge_ttrsr)
+        None: (0.882, 3850, 0.809), 1024.0: (0.878, 3640, 0.661),
+        512.0: (0.846, 3340, 0.428), 256.0: (0.684, 2810, 0.140)}
+    out = []
+    for eps, (vcap, club, ridge) in T.items():
+        u = util.get(eps)
+        out.append({
+            "surface": "residual-input-dp-l0-capacity", "defense": "input-dp", "param_name": "epsilon",
+            "param_value": eps, "leakage_bits": club, "bits_kind": "club_mi_upper_bound",
+            "vcap_reader_acc": vcap, "recovery": ridge, "recovery_metric": "ridge_token_ttrsr",
+            "utility_metric": "perplexity", "utility_value": (u["utility_value"] if u else None),
+            "provenance": "recovery+bits: refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md (L0 input-DP "
+                          "V_cap/CLUB/ridge table, gemma-2-2b); utility: refine-logs/utility-tradeoff/dp_perplexity.json "
+                          "(same per-token-embedding DP mechanism as the R1 rows, so the perplexity curve applies to both)"})
+    return out
+
+
 def rows_pripert():
     """Qwen3-4B resid L8/rho=0.25 PriPert: I_G bits + best-inverter selectivity x perplexity."""
     sweep = _load(REPO / "refine-logs/resid-split/runs/sweep/pripert_sweep.json")["records"]
     cells = {r["beta"]: r for r in sweep if r.get("layer") == 8 and abs(r.get("rho", 9) - 0.25) < 1e-6}
-    util = {r["param_value"]: r for r in _load(UT / "pripert_perplexity.json")["records"]}
+    udoc = _load(UT / "pripert_perplexity.json")
+    util = {r["param_value"]: r for r in udoc["records"]}
+    sigma_ref = udoc.get("sigma_ref")  # σ floor the utility run used (aligned to the sweep)
     out = []
     for beta, c in sorted(cells.items()):
         inv = c["inverters"]
@@ -64,9 +88,11 @@ def rows_pripert():
             "bits_kind": "spectral_channel_mi_i_g", "i_g_is_inf": pr.get("i_g_is_inf"),
             "fano_recovery_ceiling": pr.get("fano_recovery_ceiling"),
             "recovery": best, "recovery_metric": "best_inverter_token_ttrsr_selectivity",
+            "sigma_sweep": c.get("sigma"), "sigma_utility": (u.get("sigma") if u else None),
             "utility_metric": "perplexity", "utility_value": (u["utility_value"] if u else None),
             "provenance": "recovery+bits: refine-logs/resid-split/runs/sweep/pripert_sweep.json (L8,ρ=0.25); "
-                          "utility: refine-logs/utility-tradeoff/pripert_perplexity.json"})
+                          "utility: refine-logs/utility-tradeoff/pripert_perplexity.json. Aligned by ABSOLUTE σ: "
+                          f"utility run used σ_ref={sigma_ref} (the sweep's plaintext meanRMS), so sigma_sweep==sigma_utility at every β."})
     # plaintext anchor (ρ=1,β=0) perplexity
     anchor = next((r for r in _load(UT / "pripert_perplexity.json")["records"] if r.get("plaintext_anchor")), None)
     if anchor:
@@ -154,29 +180,58 @@ def rows_invertible():
     return out
 
 
-def rows_shredder_todo():
-    return [{
-        "surface": "residual-split-shredder", "defense": "shredder", "param_name": "b",
-        "param_value": None, "leakage_bits": None, "bits_kind": "TODO", "recovery": None,
-        "recovery_metric": "TODO", "utility_metric": "perplexity", "utility_value": None,
-        "provenance": "TODO + reason: no recovery sweep on disk to align utility to; a full Shredder "
-                      "recovery+bits+utility sweep is a new experiment, out of scope for this utility-backfill "
-                      "phase. Shredder is the learned-Laplace sibling of PriPert's Gaussian split-noise arm "
-                      "(scripts/defenses/shredder.py); its tradeoff is bracketed by the PriPert rows."}]
+def rows_shredder():
+    """gemma-2-2b Shredder static-Laplace: permutation+token-id recovery (defenses-existing R1) x perplexity."""
+    util = {r["param_value"]: r for r in _load(UT / "shredder_perplexity.json")["records"]}
+    # recovery from refine-logs/defenses-existing/RESULTS_STANDARDIZED.md R1 (b: perm_rec, tokid_rec_L0)
+    R = {0.0: (1.000, 0.747), 0.109: (0.977, None), 0.218: (0.565, None), 0.381: (0.204, None),
+         0.545: (0.099, None), 0.817: (0.037, 0.670)}
+    out = []
+    for b, u in sorted(util.items()):
+        perm, tokid = R.get(b, (None, None))
+        out.append({
+            "surface": "embedding-shredder", "defense": "shredder", "param_name": "shredder_b",
+            "param_value": b, "leakage_bits": None,
+            "bits_kind": "n/a (source embedding probe NaN across seeds; recovery-only per defenses-existing)",
+            "recovery": perm, "recovery_metric": "permutation_vma_recovery",
+            "recovery_secondary": tokid, "recovery_secondary_metric": "token_id_recovery_L0",
+            "utility_metric": "perplexity", "utility_value": u["utility_value"],
+            "provenance": "recovery: refine-logs/defenses-existing/RESULTS_STANDARDIZED.md R1; "
+                          "utility: refine-logs/utility-tradeoff/shredder_perplexity.json"})
+    return out
 
 
 def main():
     UT.mkdir(parents=True, exist_ok=True)
     rows = []
     rows += rows_input_dp()
+    rows += rows_input_dp_capacity_pvi()
     rows += rows_pripert()
     rows += rows_vec2text_dp()
     rows += rows_sgt()
     rows += rows_invertible()
-    rows += rows_shredder_todo()
+    rows += rows_shredder()
+    # row_status: machine-readable coverage tag (so consumers need not parse prose/provenance)
+    for r in rows:
+        if r.get("utility_value") is None and r.get("recovery") is None and r.get("leakage_bits") is None:
+            r["row_status"] = "todo"
+        elif r.get("plaintext_anchor"):
+            r["row_status"] = "anchor"
+        elif r.get("utility_metric") in ("recon_error", "overhead_ms"):
+            r["row_status"] = "invertible_context"
+        elif r.get("recovery") is None and r.get("leakage_bits") is None and r.get("utility_value") is not None:
+            r["row_status"] = "utility_only"
+        elif r.get("utility_value") is not None and (r.get("recovery") is not None or r.get("leakage_bits") is not None):
+            r["row_status"] = "aligned"
+        else:
+            r["row_status"] = "partial"
     (UT / "leakage_utility.json").write_text(json.dumps({
         "schema": ["surface", "defense", "param_name", "param_value", "leakage_bits", "bits_kind",
-                   "recovery", "recovery_metric", "utility_metric", "utility_value", "provenance"],
+                   "recovery", "recovery_metric", "utility_metric", "utility_value", "provenance", "row_status"],
+        "row_status_values": {"aligned": "leakage+recovery+utility at the same sweep point",
+                              "anchor": "plaintext/no-defense baseline", "utility_only": "utility measured; no recovery/bits sweep point",
+                              "invertible_context": "invertible-in-TEE: utility=recon_error+overhead, recovery is context",
+                              "partial": "some axes present", "todo": "explicit TODO + reason in provenance"},
         "note": "Task-7 leakage-utility dataset. Lossy defenses: utility=task metric (perplexity / "
                 "retrieval nDCG@10 / release-cosine). Invertible-in-TEE defenses: utility=recon_error(~0)"
                 "+overhead_ms (lossless by construction). One row per sweep point.",

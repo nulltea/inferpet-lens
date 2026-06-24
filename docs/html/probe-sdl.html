@@ -208,12 +208,22 @@
     <header class="section-head">
       <div class="section-num">§04</div>
       <h2 class="section-title">Plaintext reference</h2>
-      <div class="section-meta">queued — no clean-model across-layers reading on disk</div>
+      <div class="section-meta">clean Qwen3-4B residual, token-identity label, across depth</div>
     </header>
-    <p class="lede">A clean-model, across-layers baseline is not yet on disk: the minimum-description-length pass was disabled during the 36-layer control sweep, so only a single at-layer point exists.</p>
+    <p class="lede">Clean-model surplus description length of the token identity given the residual, per layer, with the label-shuffle control (the Hewitt–Liang floor). Computed on the clean Qwen3-4B <code>resid_post</code> capture already on disk — no defense, no attack.</p>
+    <table class="spec">
+      <thead><tr><th>clean residual (Qwen3-4B), layer</th><th class="num">SDL surplus (bits)</th><th class="num">shuffle floor (bits)</th><th class="num">selectivity (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>L0</td><td class="num">8640</td><td class="num">−1587</td><td class="num">10228</td></tr>
+        <tr><td>L8</td><td class="num">1620</td><td class="num">−3869</td><td class="num">5489</td></tr>
+        <tr><td>L16</td><td class="num">295</td><td class="num">−15698</td><td class="num">15993</td></tr>
+        <tr><td>L24</td><td class="num">299</td><td class="num">2233</td><td class="num">−1933</td></tr>
+        <tr><td>L32</td><td class="num">882</td><td class="num">−3129</td><td class="num">4011</td></tr>
+      </tbody>
+    </table>
+    <p class="src-note" style="font-size:13px;opacity:.7;">Source: <code>refine-logs/utility-tradeoff/plaintext_baselines.json</code> (prequential <code>online_code_length</code>, token-identity reader, max-classes 256; selectivity = real surplus − shuffle surplus). Emitted on the clean Qwen3-4B <code>resid_post</code> depth-grid capture (no GPU run launched — read from the existing cache).</p>
     <div class="prose">
-      <p><strong>On disk now:</strong> one at-layer point at layer 12 (zero-noise level of the at-layer Gaussian sweep), surplus selectivity 13898 bits, in <code>results/mdl_probe_check.json</code>. There is no plaintext depth or layer sweep.</p>
-      <p><strong>Queued onto the leakage–utility measurement (Task 7):</strong> a small clean-model plaintext-across-layers emission of the surplus description length, on the same clean model as the other probes, so this page can show a baseline reading per layer beside the predictive reader. This page is backfilled after that single GPU run; no GPU run is launched from the probe-page phase. The queued item is recorded in <code>refine-logs/probe-pages/queued-for-utility.md</code>.</p>
+      <p><strong>Reading (with the documented caveat):</strong> the shuffle floor is large and unstable across depth (it goes strongly negative at L0/L8/L16/L32), and selectivity flips sign at L24. This is the high-dimensional MDL/SDL overfit signature — the prequential code compresses the shuffled labels below the held-out floor at <code>d=2560</code>, so the per-layer surplus is a noisy estimator, not a clean baseline. This is exactly the estimator pathology that motivated the capacity-matched predictive reader (<a href="probe-vcap.html"><code>V_cap</code></a>) over raw description-length probes; the <a href="probe-vcap.html"><code>V_cap</code></a> page carries the stable across-depth baseline.</p>
     </div>
   </section>
 

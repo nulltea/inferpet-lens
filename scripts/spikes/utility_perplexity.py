@@ -96,7 +96,8 @@ def layer_rms(model, tok, prompts, layer, device):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--mode", required=True, choices=["input-dp", "pripert"])
+    ap.add_argument("--mode", required=True, choices=["input-dp", "pripert", "shredder"])
+    ap.add_argument("--shredder-bs", default="0.0,0.109,0.218,0.381,0.545,0.817")
     ap.add_argument("--corpus", default="corpora/release-gate-512.txt")
     ap.add_argument("--max-prompts", type=int, default=64)
     ap.add_argument("--epsilons", default="inf,256,128,96,64")  # input-dp
@@ -104,6 +105,8 @@ def main() -> None:
     ap.add_argument("--clip-percentile", type=float, default=99.9)
     ap.add_argument("--layer", type=int, default=8)            # pripert cut layer
     ap.add_argument("--rho", type=float, default=0.25)         # pripert sparsity
+    ap.add_argument("--sigma-ref", type=float, default=None,
+                    help="pripert: override the plaintext meanRMS σ floor (align to the recovery sweep)")
     ap.add_argument("--betas", default="0.0,0.25,0.5,1.0,2.0")  # pripert noise budget
     ap.add_argument("--seed", type=int, default=20260625)
     ap.add_argument("--out", required=True)
@@ -114,7 +117,7 @@ def main() -> None:
     prompts = [ln.strip() for ln in Path(args.corpus).read_text().splitlines() if ln.strip()][: args.max_prompts]
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    model_id = "unsloth/gemma-2-2b" if args.mode == "input-dp" else "Qwen/Qwen3-4B"
+    model_id = "Qwen/Qwen3-4B" if args.mode == "pripert" else "unsloth/gemma-2-2b"
     tok = AutoTokenizer.from_pretrained(model_id)
     model = AutoModelForCausalLM.from_pretrained(
         model_id, torch_dtype=torch.bfloat16, attn_implementation="eager", device_map=device).eval()
@@ -155,10 +158,36 @@ def main() -> None:
             records.append(rec); save({"clip_C": C, "z_dp": z})
             print(f"[util] ε={es:>5} σ={sigma:.4f} ppl={ppl:.3f} ({rec['sec']}s)", flush=True)
 
+    elif args.mode == "shredder":
+        from defenses.shredder import ShredderStaticLaplace
+
+        class _ShredHook:  # fresh Laplace draw per prompt (increment prompt_index each call)
+            def __init__(self, cover):
+                self.cover, self._n = cover, 0
+
+            def __call__(self, m, i, o):
+                out = self.cover(o.detach().float(), prompt_index=self._n).to(o.dtype)
+                self._n += 1
+                return out
+
+        for bs in args.shredder_bs.split(","):
+            b = float(bs)
+            cover = ShredderStaticLaplace(b=b, seed=args.seed)
+            hk = model.model.embed_tokens.register_forward_hook(_ShredHook(cover))
+            t0 = time.time()
+            ppl, ntok = perplexity(model, tok, prompts, device)
+            hk.remove()
+            rec = {"param_name": "shredder_b", "param_value": b, "utility_metric": "perplexity",
+                   "utility_value": ppl, "n_tokens": ntok, "sec": round(time.time() - t0, 1)}
+            records.append(rec); save({})
+            print(f"[util] shredder b={b:<6} ppl={ppl:.3f} ({rec['sec']}s)", flush=True)
+
     else:  # pripert
         L = args.layer
-        sigma_ref = layer_rms(model, tok, prompts, L, device)
-        print(f"[util] Qwen3 L{L} plaintext meanRMS={sigma_ref:.4f} (σ floor base)", flush=True)
+        measured_rms = layer_rms(model, tok, prompts, L, device)
+        sigma_ref = args.sigma_ref if args.sigma_ref is not None else measured_rms
+        print(f"[util] Qwen3 L{L} measured meanRMS={measured_rms:.4f}; σ_ref used={sigma_ref:.4f} "
+              f"({'sweep-aligned override' if args.sigma_ref is not None else 'self-measured'})", flush=True)
         # true no-defense plaintext anchor (no hook): the ρ=1,β=0 baseline perplexity
         t0 = time.time()
         ppl0, ntok0 = perplexity(model, tok, prompts, device)

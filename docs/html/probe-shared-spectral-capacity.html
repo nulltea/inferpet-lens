@@ -200,12 +200,20 @@
     <header class="section-head">
       <div class="section-num">§04</div>
       <h2 class="section-title">Plaintext reference</h2>
-      <div class="section-meta">queued — no clean-model across-layers reading on disk</div>
+      <div class="section-meta">clean Qwen3-4B KV stack, by layer × kind</div>
     </header>
-    <p class="lede">A clean-model, across-layers baseline is not yet on disk: this diagnostic was measured only at layer 0 on the KV-Cloak channel sweep, not as a clean-model depth sweep.</p>
+    <p class="lede">Shared spectral capacity of the averaged row covariance (single-observation, T=1) on the clean Qwen3-4B key and value stacks, per layer — no defense, no attack. This is the baseline the negentropy probe reads beside.</p>
+    <table class="spec">
+      <thead><tr><th>clean KV (Qwen3-4B), layer</th><th class="num">shared spectral capacity, key (bits)</th><th class="num">shared spectral capacity, value (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>L0</td><td class="num">69.3</td><td class="num">57.3</td></tr>
+        <tr><td>L12</td><td class="num">68.8</td><td class="num">61.0</td></tr>
+        <tr><td>L20</td><td class="num">71.6</td><td class="num">60.7</td></tr>
+      </tbody>
+    </table>
+    <p class="src-note" style="font-size:13px;opacity:.7;">Source: <code>refine-logs/utility-tradeoff/plaintext_baselines.json</code> (<code>shared_spectral_capacity_bits</code>, averaged-row-covariance water-filling, T=1, median over windows). Emitted on the clean Qwen3-4B k/v capture already on disk — no GPU run launched. The earlier layer-0 KV-Cloak channel reading (identity 18.24 bits) used a different subsampling and block geometry; this clean per-kind reading is the canonical baseline.</p>
     <div class="prose">
-      <p><strong>On disk now:</strong> the layer-0 KV-Cloak channel sweep reads the shared spectral capacity at 18.24 bits on the identity (clean) channel, 20.94 bits with the feature mix only, and 16.32 bits with the full defense, in <code>refine-logs/kv-cloak/RESULTS.md</code>. There is no clean-model across-layers sweep.</p>
-      <p><strong>Queued onto the leakage–utility measurement (Task 7):</strong> a small clean-model plaintext-across-layers emission of the shared spectral capacity by layer and channel kind, so this page can show a baseline reading beside the negentropy probe. This page is backfilled after that single GPU run; no GPU run is launched from the probe-page phase. The queued item is recorded in <code>refine-logs/probe-pages/queued-for-utility.md</code>.</p>
+      <p><strong>Reading:</strong> the clean shared spectral capacity is flat across depth (key ≈ 69–72 bits, value ≈ 57–61 bits) and the key stack carries slightly more capacity than the value stack at every layer — the secondary diagnostic beside the negentropy <code>J</code> probe, distinct from the Gaussian channel-capacity ceiling <code>I_G</code>.</p>
     </div>
   </section>
 

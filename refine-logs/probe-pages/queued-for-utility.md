@@ -16,3 +16,8 @@ Notes for Task 7:
 - `SDL` reuses the `src/talens/measures/mdl.py` estimator (token-identity reader, prequential pass).
 - shared spectral capacity reuses `src/talens/measures/bss_separability.py` on the clean KV stack.
 - Representative layers are sufficient (match the depth grid already used on the depth-inversion page); a full 36-layer sweep is not required for the baseline reading.
+
+
+---
+
+**RESOLVED by Task 7 (c7-utility) 2026-06-25.** All queued items emitted/backfilled; see `refine-logs/utility-tradeoff/queue_results.json`. SDL + shared-spectral-capacity plaintext baselines were emitted CPU-only from clean Qwen3 captures already on disk (no GPU); BNN H(V|Y) was a display-precision backfill from `results/bnn_error_bounds_validation_dense.json` (full-precision values were already stored). Probe pages `probe-sdl.html` / `probe-shared-spectral-capacity.html` §04 and `bnn-attack.html` H(V|Y) column backfilled.
