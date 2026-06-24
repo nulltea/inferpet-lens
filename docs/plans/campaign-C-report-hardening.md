@@ -152,7 +152,7 @@ decision — no-GPU render pass (grilled 2026-06-24). Source each readout in thi
 
 steps: (a) audit every `.spec` table on every `docs/html/*.html` for bits columns lacking a paired readout; (b) backfill the readout from source-order (1)/(2); (c) write the list of source-order-(3) items to refine-logs/readout-metrics/queued-for-utility.md (merge with Task 4's queue) so Task 7 emits them once; (d) update synthesis.html so every probe-bits and recovery cell carries its native-units companion; (e) cleanup pass on edited pages.
 acceptance: every bits column on synthesis.html and the per-surface pages has a paired per-secret readout (real value, or an explicit "queued onto Task 7" placeholder); the millibit/`n/a` legibility contract holds; the Task-7 queue file lists all model-required-missing readouts; no GPU run launched by this task; cleanup pass run.
-- [ ] run-phase: c6-readout-metrics
+- [x] run-phase: c6-readout-metrics
 
 ### Task 7: leakage–utility — measure downstream utility + emit the queued model-required gaps (ONLY GPU phase)
 recipe: full

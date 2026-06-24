@@ -726,11 +726,16 @@ const RES=[ // eps, r, bnn_err, lower, upper, H(V|Y) bits  — dense sweep
   c.fillStyle='#b85a32';c.fillText('— measured BNN error',X(8.4),Yv(0.30));
   c.fillStyle='#5e4a7a';c.fillText('-- union-Bhattacharyya (upper)',X(8.4),Yv(0.22));
   c.fillStyle='#2a5092';c.fillText('-- Fano equivocation (lower)',X(8.4),Yv(0.14));
-  // table
+  // table — H(V|Y) bits rendered via the format_bits contract (src/talens/report.py):
+  // sub-0.1 bit → millibits so it never collapses to 0.00; a 2dp-source value that rounds
+  // to zero shows ≈0 (negligible equivocation), distinct from n/a and from an asserted exact 0.
+  const fmtBits=x=>{ if(x===0) return '≈0'; const a=Math.abs(x);
+    if(a>=0.1) return x.toFixed(2);
+    const m=x*1000; return (Math.abs(m)>=10? m.toFixed(0): m.toFixed(1))+' mbit'; };
   let html='';
   RES.forEach(d=>{ html+='<tr class="inside"><td class="n">'+d[0]+'</td><td class="n">'+d[1].toFixed(2)
     +'</td><td class="n">'+d[2].toFixed(4)+'</td><td class="n">'+d[3].toFixed(4)+'</td><td class="n">'
-    +d[4].toFixed(2)+'</td><td class="n">'+d[5].toFixed(2)+'</td><td class="flag">✓</td></tr>'; });
+    +d[4].toFixed(2)+'</td><td class="n">'+fmtBits(d[5])+'</td><td class="flag">✓</td></tr>'; });
   document.getElementById('resTable').innerHTML=html;
 })();
 

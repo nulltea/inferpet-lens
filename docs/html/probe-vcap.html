@@ -190,7 +190,7 @@
     </div>
 
     <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:18px 0 8px;">Estimator repair — capacity matching (layer 12, gemma-2-2b, single seed)</h4>
-    <div class="prose"><p>The original reader failed as a bits estimator: with more features than validation points it interpolated, and its information on a label-shuffled control fell to roughly −50 bits at every depth, an artifact rather than a leakage signal. Reducing the feature dimension below the validation count bounds that control near −1 bit at every depth, at about 0.57 times the cost.</p></div>
+    <div class="prose"><p>The original reader failed as a bits estimator: with more features than validation points it interpolated, and its information on a label-shuffled control fell to roughly −50 bits at every depth, an artifact rather than a leakage signal. Reducing the feature dimension below the validation count bounds that control near −1 bit at every depth, at about 0.57 times the cost. This table is an estimator-calibration diagnostic: the bits columns compare reader families' real-vs-shuffle information floors, so the bits value is itself the subject and there is no per-secret recovery target to pair it with. The probe's recovery readout (reader accuracy beside ridge inversion) appears in the plaintext reference below.</p></div>
     <table class="spec">
       <thead><tr><th>reader family</th><th class="num">real information (bits)</th><th class="num">shuffle floor (bits)</th><th class="num">cost vs original</th></tr></thead>
       <tbody>
