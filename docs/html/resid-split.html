@@ -1,0 +1,303 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — split inference under PriPert</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label current">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+          <a href="resid-rep2text.html">Rep2Text inversion</a>
+          <a href="resid-depth-inversion.html">depth inversion</a>
+          <a href="resid-split.html" class="current">split inference (PriPert)</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+          <a href="kv-cloak.html">KV-Cloak decoupling</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">Split inference under PriPert<br><em>— a matched measure tracks the attack, but its certificate is slack</em></h1>
+      <p class="subtitle">A split-inference adversary observes the residual activation at a cut layer
+      of a 4-billion-parameter model. The PriPert defense sparsifies that activation and adds a bounded
+      perturbation. Across a sweep of split layer, sparsity ratio, and perturbation budget, a
+      matched information measure computed without any attack predicts token-inversion recovery at a
+      rank correlation of 0.96, and tracks a stronger learned inverter at 0.92. The same measure gives
+      a valid error converse with no violations across 32 settings, yet that converse is numerically
+      slack: it binds only where recovery has already fallen to near zero.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the defense, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      Split inference cuts a network at one layer and sends the intermediate activation to an
+      untrusted server. PriPert (<a href="https://arxiv.org/abs/2605.23158">arXiv 2605.23158</a>)
+      defends that cut with two operations: activation sparsification, which keeps only the
+      largest-magnitude coordinates of each token position, and an additive perturbation bounded by a
+      per-row energy budget. The paper proves a reconstruction-error converse. This report applies the
+      defense to the residual stream of Qwen3-4B and asks the question this project asks of every
+      surface: does an attack-independent information measure predict how far the inversion attack
+      succeeds as the defense parameters vary, and does its formal converse bind in the regime where
+      the defense is actually used?
+    </p>
+    <div class="prose">
+      <p>The perturbation is realized as the channel-matched isotropic Gaussian whose capacity the
+      matched measure is the converse of, with energy fixed to the plaintext activation scale. This is
+      the attack-independent realization: it uses no inverter, so the defense is never defined by the
+      attack the library then runs against it. The fully adversarial perturbation that PriPert
+      optimizes against a surrogate inverter is the faithful upper-strength variant and is recorded as
+      out of scope for this per-position pipeline.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 PRELIMINARIES ═════ -->
+  <section id="preliminaries">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">Preliminaries</h2>
+      <div class="section-meta">surface, secret, threat model, defense, measures, attacks</div>
+    </header>
+    <table class="spec">
+      <tbody>
+        <tr><th>surface</th><td>residual activation after a transformer block, one vector per token position, at split layers 0, 8, 16, 24 of Qwen3-4B</td></tr>
+        <tr><th>secret</th><td>input-token identity at the position; graded recovery target is the token embedding</td></tr>
+        <tr><th>threat model</th><td>adversary holds public weights and the embedding table and observes only the defended activation at the cut</td></tr>
+        <tr><th>defense (PriPert)</th><td>keep the top fraction &rho; of coordinates per row by magnitude, then add isotropic Gaussian noise of standard deviation &beta; times the plaintext row scale, held fixed per layer</td></tr>
+        <tr><th>recovery readout</th><td>token-table retrieval top-1 rate, reported as selectivity = real minus label-shuffle floor; bootstrap 95% intervals over vocabulary-disjoint test rows</td></tr>
+        <tr><th>inverters</th><td>cosine nearest-neighbour over training activations (memorization baseline); linear ridge; learned two-layer perceptron</td></tr>
+        <tr><th>matched measure (bits)</th><td>spectral channel mutual information of the Gaussian channel, computed from the sparsified covariance and the noise level alone, with no inverter; yields a Fano accuracy ceiling</td></tr>
+        <tr><th>secondary measure</th><td>contrastive mutual-information upper bound between the defended activation and the token embedding</td></tr>
+        <tr><th>split / control</th><td>train and test token vocabularies disjoint; label-shuffle control fixes the frequency floor</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 3 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">capture, defense Transform, sweep, inverters, measures</div>
+    </header>
+    <div class="prose">
+      <p>Residual activations for 512 prompts were reused from a cached capture at four split layers.
+      PriPert was implemented as a representation transform applied to each captured activation before
+      the attacks and measures observe it: per row, the smallest-magnitude coordinates are zeroed to
+      leave a fraction &rho;, then independent Gaussian noise of standard deviation &beta; times the
+      mean plaintext row scale is added. The noise scale is referenced to the plaintext activation and
+      held fixed as &rho; varies, so that sparsification reduces signal against a constant noise floor.</p>
+      <p>Two sweeps were run. A perturbation sweep varies &beta; over 0, 0.25, 0.5, 1, and 2 at fixed
+      &rho; = 0.25, across all four layers. A sparsity sweep varies &rho; over 1, 0.25, and 0.05 at
+      fixed &beta; = 0.25, across all four layers. A plaintext setting at &rho; = 1, &beta; = 0 anchors
+      each layer. Each of the 32 resulting settings is attacked by all three inverters under the
+      vocabulary-disjoint split with a label-shuffle control and a bootstrap interval, and measured by
+      the matched spectral channel mutual information and the contrastive bound. The measures read only
+      the sparsified covariance and the noise level, never the inverter output, so they are
+      attack-independent by construction.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 4 MEASURES ═════ -->
+  <section id="measures">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">The matched measure and its converse</h2>
+      <div class="section-meta">channel mutual information, accessible bits, Fano ceiling</div>
+    </header>
+    <div class="prose">
+      <p>For the Gaussian channel that adds noise of variance &sigma;&sup2; to the sparsified
+      activation with covariance eigenvalues &lambda;<sub>i</sub>, the channel mutual information is the
+      sum over modes of one half the base-two logarithm of one plus &lambda;<sub>i</sub> over
+      &sigma;&sup2;. This is a maximum-entropy upper bound on the information any observer can hold about
+      the activation, and by the data-processing inequality an upper bound on information about the
+      token. Combined with the token entropy of about 11 bits over the candidate pool, it gives an
+      accessible-bit count and, through Fano's inequality, a ceiling on the top-1 recovery of any
+      estimator. The token entropy uses an idealized uniform prior over the candidate pool; the
+      evaluated secret is the test-row token, whose true distribution is not uniform, so the empirical
+      ceiling is at least as slack as reported. The measure is therefore both a predictor of recovery
+      and a formal converse, computed from geometry and the noise budget alone.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 5 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">suppression, measure tracking, the converse</div>
+    </header>
+    <div class="prose">
+      <p>The perturbation is the dominant parameter and its effect depends on depth. At a fixed
+      sparsity of &rho; = 0.25, recovery falls steeply with the perturbation budget at the middle
+      layers and more slowly at the deepest sampled layer, while the first layer resists. The first
+      layer is the post-block-0 residual, input-adjacent and with a small plaintext scale, so the
+      fixed-scale noise removes little: even at &beta; = 2 its recovery stays at 0.363. The sparsity ratio is the
+      secondary parameter and moves recovery appreciably only at its smallest value.</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>split layer</th><th>&beta;=0</th><th>&beta;=0.25</th><th>&beta;=0.5</th><th>&beta;=1</th><th>&beta;=2</th></tr></thead>
+      <tbody>
+        <tr><td>0</td><td>0.661</td><td>0.627</td><td>0.688</td><td>0.668</td><td>0.363</td></tr>
+        <tr><td>8</td><td>0.608</td><td>0.223</td><td>0.019</td><td>0.005</td><td>0.002</td></tr>
+        <tr><td>16</td><td>0.475</td><td>0.184</td><td>0.017</td><td>0.012</td><td>0.005</td></tr>
+        <tr><td>24</td><td>0.576</td><td>0.385</td><td>0.160</td><td>0.012</td><td>0.010</td></tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>Best-inverter top-1 recovery at &rho; = 0.25 by split layer and perturbation budget. The
+      learned perceptron is more robust to the perturbation than the linear inverter at moderate budget,
+      for example 0.283 against 0.094 at layer 8 with &beta; = 0.25, but both reach the floor together
+      at high budget.</p>
+    </div>
+    <table class="spec">
+      <thead><tr><th>correlate across the sweep (24 settings with finite measure)</th><th>rank correlation</th></tr></thead>
+      <tbody>
+        <tr><td>matched measure (bits) against best-inverter recovery</td><td>0.958</td></tr>
+        <tr><td>matched measure against the stronger learned inverter</td><td>0.915</td></tr>
+        <tr><td>contrastive bound against best recovery (secondary)</td><td>0.977</td></tr>
+        <tr><td>fixed-budget layer-by-sparsity slice (perturbation axis removed)</td><td>0.916</td></tr>
+        <tr><td>within-layer perturbation sweep at layers 8, 16, 24</td><td>1.000</td></tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>The matched measure tracks recovery across the joint sweep at a rank correlation of 0.958, and
+      tracks the stronger learned inverter at 0.915, so no measure-attack gap is observed for the tested
+      inverters. The within-layer perturbation sweep at the three responsive layers is perfectly
+      rank-ordered, which the theory below explains. The eight noiseless settings (&beta; = 0) have an
+      infinite measure and are excluded from the rank correlations.</p>
+      <p>The Fano ceiling has no violations across all 32 settings: measured recovery never exceeds the
+      converse. Yet the ceiling equals one, and so constrains nothing, in 31 of 32 settings, because the
+      measure stays far above the 11-bit idealized token entropy across the useful range. It falls below
+      that entropy in exactly one setting, layer 8 at &beta; = 2, where the measure is 10.0 bits and
+      recovery is already 0.002. Under the true non-uniform test-token distribution the ceiling is looser
+      still, so the slack conclusion only strengthens.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 6 FINDINGS ═════ -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">claims, grounds, scope</div>
+    </header>
+    <div class="prose">
+      <p><strong>PriPert suppresses inversion, perturbation-first and depth-dependent (Supported).</strong>
+      The additive perturbation is the dominant parameter; sparsification is secondary. Recovery
+      collapses to near zero by &beta; = 0.5 at layers 8 and 16 and by &beta; = 1 at layer 24, while the
+      input-adjacent first layer resists even the largest budget. The effect is therefore not a uniform
+      property of the defense but depends on where the cut is taken.</p>
+      <p><strong>The matched measure predicts recovery, including the stronger attack (Supported).</strong>
+      Computed with no inverter, the spectral channel mutual information tracks recovery across the joint
+      sweep at 0.958, holds at 0.916 once the perturbation axis is held fixed, and reaches the stronger
+      learned inverter at 0.915. The measure is a monotone predictor of recovery here, not a tight one.</p>
+      <p><strong>The converse is valid but slack (Supported, with the slack as the finding).</strong>
+      The Fano ceiling has no violations, so it is a sound converse, but it is numerically vacuous across
+      almost the entire sweep and binds only after recovery has already fallen to near zero. The empirical
+      recovery floor is reached far inside the information-theoretic converse.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 THEORY ═════ -->
+  <section id="theory">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Theory</h2>
+      <div class="section-meta">validity, perturbation-axis co-monotonicity, slack</div>
+    </header>
+    <div class="prose">
+      <p>Three results, proof-checked across models, separate what the measure proves from what it only
+      predicts. First, the measure is a valid converse: along the chain from token to sparsified
+      activation to observation, the data-processing inequality and the Gaussian maximum-entropy bound
+      cap the token information at the measure, and Fano's inequality turns that into a ceiling on the
+      recovery of any estimator. This certifies the absence of violations.</p>
+      <p>Second, along the perturbation axis at fixed sparsity, both the measure and the Bayes-optimal
+      recovery are non-increasing in the noise level: more noise lowers the measure by direct
+      differentiation, and lowers optimal recovery because added independent noise is a valid degradation
+      of the observation. Two quantities that are both monotone in the same parameter share a ranking,
+      which is the structural reason the within-layer perturbation sweep is perfectly rank-ordered. This
+      argument holds only along the perturbation axis. Monotonicity in the sparsity ratio is false in
+      general for the magnitude mask, because which coordinates survive is itself informative; the joint
+      and sparsity-axis correlations are therefore empirical, not theorems.</p>
+      <p>Third, the converse is slack by a counting argument. The ceiling constrains recovery only when
+      the measure falls below the token entropy, which forces the number of surviving spectral modes
+      below about twice that entropy, roughly twenty modes. A recovery attack reads the token from a few
+      predictive directions and fails once those are overwhelmed by noise, long before all but about
+      twenty of the thousands of modes fall below the noise level. On this high-rank residual the noise
+      that floors recovery leaves the measure far above
+      the token entropy, so the converse cannot bind in the regime where the defense is used.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 8 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">predictor versus certificate, scope, follow-up</div>
+    </header>
+    <div class="prose">
+      <p>On this surface the measure is useful as a predictor of the attack, not as a certificate.
+      It rank-tracks recovery across the joint defense sweep and follows even the stronger learned
+      inverter, so an analyst can infer the defense setting from the measure without running an attack.
+      Its formal converse is sound but loose, binding only after the perturbation has already removed
+      recovery. This repeats, for a perturbation defense, the slack-converse pattern found earlier on the
+      single-layer residual, where capacity was likewise non-binding while the measure still predicted
+      recovery.</p>
+      <p>Scope. The findings are for one model, one corpus, and a single noise seed, with the perturbation
+      realized as the channel-matched Gaussian rather than the adversarial perturbation PriPert optimizes,
+      and with intervals over test rows rather than seeds. The sparsity-axis and joint correlations are
+      empirical; only the perturbation-axis tracking is proved. The first-layer resistance, multiple
+      seeds, a second model, and the adversarial perturbation are the remaining follow-ups.</p>
+    </div>
+  </section>
+
+  <footer class="colophon">
+    <p>Tests PriPert, "Split Inference with Activation Sparsification and Adversarial Perturbation"
+    (<a href="https://arxiv.org/abs/2605.23158">arXiv 2605.23158</a>), on the Qwen3-4B residual stream.
+    Matched measure after the spectral channel mutual information; converse after Fano's inequality.
+    Four split layers, vocabulary-disjoint split with a label-shuffle control, perturbation and sparsity
+    sweeps over 32 settings.</p>
+  </footer>
+
+</div></body></html>

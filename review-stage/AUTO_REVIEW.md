@@ -1,33 +1,29 @@
-# Auto Review — resid-gelo (Task 5: GELO row-mixing defense)
+# Auto Review — resid-split / PriPert (Task 6, campaign-B-expand)
 
-## Round 1 — Score 8/10, verdict Almost
-Reviewer (gpt-5.5 xhigh, thread 019ef85c) read the report page, claim+proof, results, audit, code.
-No fraud, no page-vs-analysis.json number mismatch, register clean. Six presentation-precision fixes:
-1. masthead/intro overbroad on exact Gram leak (shield-0 scope); 2. Findings C1 over-phrased
-("defeats per-row separation" + margin<0.05 without scope); 3. page theory collapsed H̃→H (drop shield
-caveat in §2 table + L2/L3); 4. C1 table: margin is median-of-per-layer-margins, not diff-of-displayed-
-medians; 5. C2 "matched to the wrong channel" stated as settled vs hypothesis; 6. "cross-model
-verification" process-flavored.
+## Round 1 (2026-06-24) — Score 7/10, verdict Almost
+Codex (xhigh, thread 019ef899) reviewed report + claim + raw sweep directly. Confirmed: headline
+numbers match pripert_sweep.json (Spearman I_G-vs-best 0.958, I_G-vs-mlp2 0.915, CLUB 0.977,
+fixed-β slice 0.916, within-layer 1.0); probe attack-independent (cov(Sparsify(H))+σ, no inverter)
+— not circular; proved-vs-empirical boundary honest; slack converse not inflated; limits disclosed.
+Weaknesses: (1) Fano uses candidate-pool uniform prior, not the test-token distribution — label
+idealized; (2) single seed/model/corpus; (3) frame as fixed-plaintext-RMS Gaussian proxy; (4) wording
+"eight plaintext"→noiseless, L0 "input-embedding"→post-block-0; (5) stronger inverter.
 
 ### Actions taken
-Applied all six fixes: scoped the Gram leak to the exposed operand H̃ (exact HᵀH shield-0 / subtractable);
-re-scoped C1 to tested single-seed JADE, shield-0 median, 17/45 cells>0.05; introduced H̃ notation across
-§2 table and L1–L3; added the median-of-margins table note; softened C2 to "consistent with mismatched
-probe OR too-weak attack"; removed process phrasing.
+Applied #1 (idealized-prior labels in report §04/§05 + claim already had Assumption 2/Open Risk 4),
+#3 (Gaussian-proxy framing), #4 (wording) directly. #2 and #5 recorded as disclosed follow-ups
+(experiment breadth, out of scope for this surface deliverable's gate).
 
-## Round 2 — Score 9/10, verdict Ready
-The six concerns addressed; scope-honest, numbers aligned, reads as a rigorous internal research artifact.
-Two trivial wording nits named and applied (Discussion "residual feature Gram exactly" → exposed-operand
-with shield caveat; L3 "plaintext row space" → "exposed-operand row space").
-
-STOP: score 9 ≥ 6 AND verdict ready. Gate met.
+## Round 2 (2026-06-24) — Score 8.5/10, verdict READY
+Re-review confirmed fixes #1/#3/#4 resolved; one trivial editorial (claim C3 "idealized") then fixed.
+Gate met (score ≥6 AND verdict ∈ {ready, almost}). Status: completed.
 
 ## Method Description
-GELO is applied as a representation transform to Qwen3-4B resid_post (layers 0,12,20; cached capture),
-exposing U=A·H̃ with A a fresh secret per-prompt n×n row-mixing (orthogonal at κ=1), optionally with
-appended Gaussian shield rows. The sweep crosses κ(A)∈{1,3,10,30,100} × shield-frac∈{0,0.5,1.0}. Attack:
-whiten U then joint-diagonalize (JADE), graded by p95 Hungarian |cosine| to plaintext rows vs a matched
-random-orthogonal-demixing floor (genuine margin = recovery − floor). Anchor: amortized ridge U→H,
-held-out. Probe: geometry-only whitened-row negentropy (bits), joint-diag deletable. Finding: orthogonal A
-leaks the feature Gram exactly (C0); fresh row-mix holds per-row BSS near floor and defeats ridge (C1);
-the row-negentropy probe does not track the BSS margin to the 0.6 bar (C2, partial, follow-up queued).
+PriPert (arXiv 2605.23158) implemented as a scheme-agnostic talens Transform: per-row top-ρ magnitude
+sparsification + additive perturbation, realized as a channel-matched isotropic Gaussian with σ fixed
+to the plaintext row-RMS per layer (the attack-independent proxy for the paper's adversarial δ). Swept
+over split layer × ρ × β on cached Qwen3-4B resid_post; attacked by ridge/nn/mlp2 token-embedding
+inverters (vocab-disjoint split + shuffle control + bootstrap CI); measured by the matched spectral
+channel-MI probe I_G (Fano converse) + CLUB. Measurement loop: I_G rank-tracks recovery (incl. the
+stronger mlp2) along the perturbation axis (proved co-monotone) and across the joint sweep
+(empirical); the Fano converse is valid (0/32 violations) but slack.

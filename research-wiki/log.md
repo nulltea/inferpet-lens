@@ -77,3 +77,6 @@ _Append-only timeline._
 - `2026-06-24T05:19:21Z` Task4 resid-depth-inversion: registered claim:depth-inversion-certificate (proof-checker PASS) + exp:resid-depth-inversion-sweep, supports edge
 - `2026-06-24T06:34:44Z` add_claim: updated claim:gelo-orthogonal-gram-leak-rowmix-defeats-bss [status=verified] prov=refine-logs/resid-gelo/proof/PROOF_AUDIT.json
 - `2026-06-24T06:36:01Z` add_experiment: updated exp:b-r3-gelo [verdict=partial confidence=medium]
+- `2026-06-24T07:40:53Z` add_claim: updated claim:pripert-spectral-converse-slack-comonotone-tracking [status=verified] prov=refine-logs/resid-split/PROOF_CHECK_STATE.json
+- `2026-06-24T07:40:53Z` add_experiment: added exp:b-r4-split [verdict=yes confidence=medium]
+- `2026-06-24T07:42:15Z` b-r4-split: PriPert spectral converse — claim verified (proof L1-L3 PASS), exp verdict yes; C2 positive measurement loop, C3 slack converse

@@ -77,7 +77,7 @@ run_id: b-r4-split
 gate: review refine-logs/resid-split/REVIEW_STATE.json
 spawn-depth: 0
 objective: implement split-inference with the PriPert defense (activation sparsification + adversarial perturbation, arXiv 2605.23158) at split layer Q1; sweep split layer and sparsity ratio vs the ActInv/inversion attacks; relate the empirical error floor to the paper's formal converse (Thm 1); probe bits vs parameters.
-- [ ] run-phase: b-r4-split
+- [x] run-phase: b-r4-split
 
 ### Task 7: embedding — Stained-Glass (SGT) defense + sweep
 recipe: full
