@@ -1,0 +1,33 @@
+{
+  "source": "capture-0e716f8d4bf330c7.pt",
+  "n_prompts": 8,
+  "trunc_len_L": 32,
+  "layers": [
+    0,
+    12,
+    20
+  ],
+  "kinds": [
+    "kq",
+    "kqv_out"
+  ],
+  "selected_orig_indices": [
+    168,
+    180,
+    184,
+    246,
+    292,
+    340,
+    439,
+    505
+  ],
+  "kqv_out_shape": [
+    32,
+    4096
+  ],
+  "kq_shape": [
+    32,
+    32,
+    32
+  ]
+}

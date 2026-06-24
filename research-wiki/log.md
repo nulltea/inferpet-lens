@@ -68,3 +68,6 @@ _Append-only timeline._
 - `2026-06-23T21:57:46Z` add_claim: updated claim:defense-channel-selectivity-mechanism-dependent [status=drafted] prov=.aris/traces/result-to-claim/2026-06-23_defenses-existing_run01/ ; refine-logs/defenses-existing/PROOF_AUDIT.json
 - `2026-06-23T21:57:46Z` add_experiment: updated exp:defenses-existing-leakage-utility [verdict=partial confidence=medium]
 - `2026-06-23T21:59:09Z` consolidate defenses-existing: claim:defense-channel-selectivity-mechanism-dependent (drafted, proof PASS) + exp:defenses-existing-leakage-utility (partial); edges supports + corroborates depth-decoupling
+- `2026-06-24T01:45:05Z` add_claim: updated claim:kv-cloak-channel-decoupling-feature-mix-loadbearing [status=verified] prov=refine-logs/kv-cloak/proof/PROOF_AUDIT.md
+- `2026-06-24T01:45:06Z` proof-checker+result-to-claim: claim:kv-cloak-channel-decoupling verified; exp:b-kv2-cloak-channel-decoupling supports
+- `2026-06-24T01:45:23Z` add_experiment: updated exp:b-kv2-cloak-channel-decoupling [verdict=yes confidence=medium]

@@ -1,0 +1,28 @@
+{
+  "operand_shape": [
+    121,
+    1024
+  ],
+  "head_dim": 128,
+  "n_heads": 8,
+  "m_only_gram_cos": 2.146952091686826e-09,
+  "m_only_spec_rel_err": 5.706094601548958e-10,
+  "sp_only_spec_rel_err": 3.151844837200519e-09,
+  "sp_only_gram_cos": 1.410512245057518,
+  "scx_only_spec_rel_err": 1.2008124660577824e-15,
+  "a_only_spec_rel_err": 0.20029146052675398,
+  "a_only_gram_cos": 0.18997075509376743,
+  "S_orth_err": 5.551115123125783e-16,
+  "M_orth_err": 9.992007221626409e-16,
+  "_checks": {
+    "M-only leaves row-Gram invariant (gram_cos~0)": true,
+    "M-only spectrum invariant": true,
+    "S.Phat preserve Gram spectrum": true,
+    "S.Phat rotate full Gram (gram_cos>0)": true,
+    "SCX (perm) preserves spectrum": true,
+    "A changes the Gram spectrum (>> orthogonal channels)": true,
+    "S orthogonal": true,
+    "M orthogonal": true
+  },
+  "_all_pass": true
+}

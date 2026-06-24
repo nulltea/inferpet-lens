@@ -48,6 +48,19 @@ def _capturing_eager(module, query, key, value, attention_mask, scaling, dropout
     import torch.nn.functional as F
     from transformers.models.qwen3.modeling_qwen3 import repeat_kv
 
+    if _ATTN_BUF is not None and (_ATTN_BUF.get("want_k") or _ATTN_BUF.get("want_v")):
+        # raw stored KV-cache, pre-repeat_kv (per KV-head): (1, n_kv_heads, seq, head_dim).
+        # Store flattened to 2-D (seq, n_kv_heads*head_dim) so rows == tokens; the
+        # n_kv_heads / head_dim split is recoverable from shape (head_dim known to callers).
+        if _ATTN_BUF.get("want_k"):
+            k0 = key.detach()[0].permute(1, 0, 2).contiguous()  # (seq, n_kv_heads, head_dim)
+            sq, nh, hd = k0.shape
+            _ATTN_BUF["k"][module.layer_idx] = k0.reshape(sq, nh * hd).to(torch.float32).cpu()
+        if _ATTN_BUF.get("want_v"):
+            v0 = value.detach()[0].permute(1, 0, 2).contiguous()
+            sq, nh, hd = v0.shape
+            _ATTN_BUF["v"][module.layer_idx] = v0.reshape(sq, nh * hd).to(torch.float32).cpu()
+
     key_states = repeat_kv(key, module.num_key_value_groups)
     value_states = repeat_kv(value, module.num_key_value_groups)
 
@@ -130,7 +143,9 @@ def capture_representations(
     want_attn = "attn_score" in kinds
     want_kq = "kq" in kinds
     want_kqv = "kqv_out" in kinds
-    want_internal = want_kq or want_kqv
+    want_k = "k" in kinds
+    want_v = "v" in kinds
+    want_internal = want_kq or want_kqv or want_k or want_v
     tokenizer = model.tokenizer
     model_id = getattr(model.config, "_name_or_path", "unknown")
 
@@ -145,7 +160,11 @@ def capture_representations(
             prompt_token_ids.append(ids.tolist())
 
             if want_internal:
-                _ATTN_BUF = {"kq": {}, "kqv_out": {}, "want_kq": want_kq, "want_kqv": want_kqv}
+                _ATTN_BUF = {
+                    "kq": {}, "kqv_out": {}, "k": {}, "v": {},
+                    "want_kq": want_kq, "want_kqv": want_kqv,
+                    "want_k": want_k, "want_v": want_v,
+                }
 
             with model.trace(
                 prompt,
@@ -161,7 +180,7 @@ def capture_representations(
             elif want_attn:
                 n_layers = len(att)
             else:
-                n_layers = len(buf["kq"] or buf["kqv_out"])
+                n_layers = len(buf["kq"] or buf["kqv_out"] or buf["k"] or buf["v"])
             layer_set = layers if layers is not None else list(range(n_layers))
 
             for li in layer_set:
@@ -176,6 +195,10 @@ def capture_representations(
                     operands.setdefault(("kq", li), []).append(buf["kq"][li])
                 if want_kqv:
                     operands.setdefault(("kqv_out", li), []).append(buf["kqv_out"][li])
+                if want_k:
+                    operands.setdefault(("k", li), []).append(buf["k"][li])
+                if want_v:
+                    operands.setdefault(("v", li), []).append(buf["v"][li])
 
     _ATTN_BUF = None
     return CaptureSet(

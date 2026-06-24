@@ -1,0 +1,185 @@
+# Experiment Plan — KV-CLOAK defense + block-size sweep (Task B-2)
+
+> **SUPERSEDED (historical).** This plan predates the faithfulness correction: KV-CLOAK
+> obfuscates the *stored* KV-cache and leaves the attention output invariant by design, so the
+> faithful leakage surface is the raw per-head **K** (secret = K), not kqv_out/kq, and a fresh
+> long-prompt capture replaced the dev-24/sub-capture data. The ACTUAL run (raw `k`, layers
+> {0,12,20}, 48 prompts of 110-178 tokens, channels {m,sp,scx,naive,a,full}, b in {16,32,64},
+> alpha in {0,1,4}, seeds {0,1,2}, CPU+numba) and all results are in **RESULTS.md** (authoritative).
+> The design rationale below is retained for provenance only.
+
+**Problem**: Does KV-CLOAK (arXiv 2508.09442) — a reversible matrix obfuscation of the KV-cache,
+`K' = S·P̂·(K+A)·M` — actually deny the Task-1 BSS/accumulation adversary, and does an
+*attack-independent* matched probe predict the residual leakage as the block size `b` and the
+active channels are swept?
+**Method Thesis**: KV-CLOAK is a *composite* cover whose channels decouple onto orthogonal
+observable channels: the right-orthogonal feature mix `M` leaves the row-Gram `UUᵀ` exactly
+invariant (a Gram-blind cover); the left-orthogonal token mix `S` and one-time-pad permutation `P̂`
+act as a *similarity* on the row-Gram (spectrum-preserving, row-identity-scrambling); the additive
+beacon mask `A` is the **sole** channel that perturbs the Gram spectrum. Hence a geometry-only
+spectral / negentropy probe tracks the `A`-energy and is **blind to block size `b`**, while the
+BSS recovery-vs-plaintext metric declines with `b` (row scrambling) and never falls below its
+subspace-membership floor under `M`/`S`/`P̂` alone. This extends Task-1's subspace-membership-floor
+result and instantiates the Task-8 cover-invariance lemma on a real published defense.
+**Date**: 2026-06-24
+**Threat model**: WEIGHTS-PUB (adversary knows model weights/embeddings; norms, Grams, and
+`softmax(QKᵀ)` are known functions of the secret). KV-CLOAK's secret matrices `S, M, P̂, A` are
+*not* known — they are the per-deployment keys. The adversary observes only the exposed `U = K'`.
+
+## Definitions (IT vocabulary)
+
+- **KV-CLOAK** (eq. 9): per-PagedAttention-block transform of a head's key matrix `K ∈ R^{b×d}`,
+  `K' = S P̂ (K + A) M`. `b` = block size = #tokens per block (**token axis**); `d` = head dim.
+  `S ∈ R^{b×b}`, `M ∈ R^{d×d}` secret invertible (eval config: drawn from the orthogonal group);
+  `P̂ ∈ {0,1}^{b×b}` ephemeral one-time-pad **row** permutation; `A` structured additive "beacon"
+  mask (large-magnitude coords for rank preservation + zero-storage de-obfuscation).
+- **SCX sibling**: the bare permutation scheme — `P̂` only (`S=M=I`, `A=0`). The code-available
+  permutation-only relative; isolates the row-permutation channel.
+- **Naive-linear (eq. 7)**: `K' = S K M` — no permutation, no mask. The paper's CPA-broken
+  baseline; here it isolates the pure linear-cover channel.
+- **Channel ablations**: `M-only` (`U = K M`), `SP̂-only` (`U = S P̂ K`), `A-only` (`U = K + A`),
+  `full` (eq. 9), plus `SCX` (`P̂`-only) and `naive` (eq. 7).
+- **Row-Gram** `G_U = U Uᵀ` (b×b): the WEIGHTS-PUB fingerprint channel.
+  - Under right-orthogonal `M`: `G_U = K M Mᵀ Kᵀ = K Kᵀ` — **exactly invariant**.
+  - Under left-orthogonal `S P̂`: `G_U = (S P̂) Ĝ (S P̂)ᵀ`, a **similarity** ⇒ *spectrum invariant*,
+    full matrix rotated/permuted.
+  - Under additive `A`: `Ĝ = (K+A)(K+A)ᵀ ≠ K Kᵀ` — **spectrum changes**.
+- **gram_error** (attack, Task-1): cos-normalised Frobenius distance `‖Ĝ_U − Ĝ_H‖` of normalised
+  row-Grams; range `[0,√2]`; `0` = perfectly fingerprintable. Detects `S, P̂, A`; **blind to `M`**.
+- **JADE / JD** (attacks, Task-1): single-observation ICA / accumulation joint-diagonalization;
+  recovery = p95 Hungarian-aligned `|cosine|` of recovered sources vs *plaintext* `H` rows.
+- **Negentropy probe** (matched, Task-1): median whitened-row negentropy (bits), JADE-separability;
+  geometry-only.
+- **Shared-spectral-capacity probe** (matched, Task-1): water-filling capacity (bits) of the
+  averaged row-covariance eigenspectrum; geometry-only; the JD-accumulation analogue.
+- **Random-orthogonal-demixing floor** (Task-1): the subspace-membership null for BSS recovery —
+  any orthonormal basis of the fixed row subspace scores high p95 cosine. Recovery claims clear it.
+
+## Claim Map
+
+| Claim | Why it matters | Minimum convincing evidence | Linked blocks |
+|-------|----------------|-----------------------------|---------------|
+| **C1 (primary): channel decoupling.** KV-CLOAK's channels project onto orthogonal observables: `M` is exactly Gram-invariant (gram_error ≡ 0, ±float); `S,P̂` preserve the Gram *spectrum* (so the spectral/negentropy probe is invariant) but scramble row identity; `A` is the **only** channel that moves the Gram spectrum. | Tells the defender precisely which knob buys privacy against the WEIGHTS-PUB fingerprint attack and which are decorative against it — and shows block size `b` (an `S,P̂` knob) does **not** change spectral leakage. Provable + measurable. | B1 (analytic identity + unit check), B2 (channel ablation), B3 (probe). |
+| **C2 (supporting): the matched probe predicts the attack across the privacy sweep.** Across `{channel × b × mask-energy}` the geometry-only spectral/negentropy probe correlates with BSS recovery **and** with gram_error where each is sensitive; in particular the probe is flat in `b` exactly where recovery-vs-H is flat (orthogonal channels) and both move together under `A`. | The repo thesis: an attack-independent IT measure predicts a separately-run attack — here on a *real published defense*, the cleanest test for KV-CLOAK. | B3: Spearman/Pearson of probe-bits vs recovery and vs gram_error across all sweep cells, with the `b`-flatness sub-test. |
+
+**Anti-claim 1 (cover gives real privacy)**: "any drop in BSS recovery-vs-H under `M`/`S`/`P̂` is
+privacy." **Control**: the random-orthogonal-demixing floor + the gram_error / spectral-probe
+*invariants* — a drop in recovery-vs-H under an orthogonal cover that leaves the Gram spectrum and
+the floor unchanged is **relabelling, not information loss** (the secret is still as recoverable up
+to the cover's own ambiguity). Reported explicitly.
+**Anti-claim 2 (probe is the attack in disguise)**: the probe is computed from covariance
+eigenspectra / whitened-row kurtosis only — never from any JADE/JD demixing. Stated in B3.
+**Anti-claim 3 (b is unreachable so the sweep is vacuous)**: `b=64` is data-limited (max 35
+tokens), but B1's analytic identity makes the `b`-dependence of the *spectral* channel exactly
+predictable (zero), and B2/B3 measure `b∈{2,4,8,16,32}` directly.
+
+## Paper Storyline
+
+- **Main paper must prove**: C1 (channel decoupling, with the `M`-Gram-invariance and `S P̂`
+  similarity-spectrum identities proved) and C2 (matched probe tracks the attack, blind to `b`).
+- **Appendix can support**: SCX vs full comparison; naive-linear (eq. 7) ablation; mask-energy
+  sweep shape; per-layer (L0/L12/L20) breakdown.
+- **Experiments intentionally cut**: real PagedAttention operator-fusion timing (systems claim, out
+  of scope — this is a leakage study); the paper's differential CPA attack on `S,M` (assumes
+  chosen-plaintext, a *different* threat model than WEIGHTS-PUB; documented as not-applicable).
+
+## Experiment Blocks
+
+### Block 1: Analytic channel identities + unit verification (MUST-RUN)
+- **Claim tested**: C1 invariants.
+- **Why this block exists**: the decoupling is an exact linear-algebra fact; verify the
+  implementation realises it before any sweep.
+- **Dataset**: synthetic + dev-24 cached operands.
+- **Compared systems**: each channel applied to a fixed `H`; check `gram_error(M-only) ≈ 0`;
+  `eig(G_{SP̂-only}) ≈ eig(G_H)` (spectrum preserved); `eig(G_{A-only}) ≠ eig(G_H)`; `S,M` are
+  orthogonal (`SᵀS≈I`), `P̂` a permutation, KV-CLOAK invertible (recover `K` given keys).
+- **Metrics**: float residuals of the three identities; invertibility error.
+- **Setup**: extend `scripts/spikes/kv_cloak_*.py`; reuse `bss.gram_error` with `transform=`.
+- **Success criterion**: `gram_error(M-only).cos_norm_distance < 1e-4`; Gram-spectrum relative
+  error `< 1e-4` for `SP̂-only`; `> 1e-2` for `A-only`; invertibility error `< 1e-4`.
+- **Failure interpretation**: a non-zero `M`-only gram_error ⇒ implementation bug (M not applied on
+  the correct/feature axis) — fix before proceeding.
+- **Table/figure target**: Table 1 (identity residuals).
+- **Priority**: MUST-RUN.
+
+### Block 2: Attack sweep — channel × block-size × mask-energy (MUST-RUN)
+- **Claim tested**: C1 (empirical), C2 (recovery axis).
+- **Why this block exists**: measure how the Task-1 attacks degrade under each KV-CLOAK
+  configuration and block size.
+- **Dataset/split**: dev-24 (n=24) at `b∈{2,4,8}`; L=32 sub-capture (n=8) at `b∈{16,32}`;
+  kinds `{kqv_out, kq}` at layers `{0,12,20}`.
+- **Compared systems**: Identity (plaintext baseline) · `M-only` · `SP̂-only` · `A-only` · `SCX`
+  (`P̂`-only) · `naive` (eq.7) · `full` (eq.9); mask-energy `α ∈ {0, 0.5, 1, 2, 4}×‖K‖` for the
+  `A`-bearing configs.
+- **Metrics**: BSS recovery = p95 Hungarian `|cosine|` (jade single-obs; jd accumulation per T) vs
+  the **random-orthogonal-demixing floor**; gram_error cos-norm distance + Gram-spectrum error.
+  Reported as **bits-canonical where applicable + per-secret readout** (recovery rate, cosine).
+- **Setup**: `seed∈{0,1,2}` for the random `S,M,P̂` draws (DEFAULT_SEEDS=3); CPU.
+- **Success criterion**: a monotone, interpretable surface — `M-only` recovery-vs-H drop with
+  unchanged floor/spectrum; recovery-vs-H falls with `b` under `SP̂`; `A`-energy drives both
+  recovery↓ and spectrum↑.
+- **Failure interpretation**: if recovery-vs-H falls under `M-only` *below the floor* ⇒ the cover
+  destroys subspace membership (would contradict C1) — investigate.
+- **Table/figure target**: Fig 1 (recovery + gram_error vs `b`, per channel); Table 2 (channel
+  ablation at fixed `b`).
+- **Priority**: MUST-RUN.
+
+### Block 3: Matched probe vs attack across the sweep (MUST-RUN)
+- **Claim tested**: C2.
+- **Why this block exists**: the repo's core measurement loop — attack-independent probe vs attack.
+- **Dataset**: same cells as B2.
+- **Compared systems**: negentropy probe + shared-spectral-capacity probe (bits) vs the B2 attack
+  recoveries and gram_error, per cell.
+- **Metrics**: Spearman + Pearson (with permutation-test p, exploratory n) of probe-bits vs (a) BSS
+  recovery, (b) gram_error; the **`b`-flatness test**: probe-bits CI vs `b` under orthogonal
+  channels excludes a trend; the **`A`-tracking test**: probe-bits monotone in mask energy.
+- **Setup**: CPU; reuse `sep.negentropy_bits`, `sep.shared_spectral_capacity_bits` with
+  `transform=`.
+- **Success criterion**: `|ρ| ≥ 0.7` where the probe is matched to the sensitive channel; flat
+  (CI includes 0 slope) in `b` under orthogonal channels.
+- **Failure interpretation (first-class)**: if the probe does **not** track recovery, decide
+  weak-attack vs non-matched-probe; bound the gap in theory; append a `spawn-depth:1` follow-up.
+- **Table/figure target**: Fig 2 (probe-bits vs recovery scatter); Table 3 (correlation matrix).
+- **Priority**: MUST-RUN.
+
+## Run Order and Milestones
+
+| Milestone | Goal | Runs | Decision Gate | Cost | Risk |
+|-----------|------|------|---------------|------|------|
+| M0 | Implement KV-CLOAK Transform + channels; unit identities (B1) | `kv_cloak_sanity` | all identities pass | ~1 min CPU | impl bug on M axis |
+| M1 | Attack channel×b×mask sweep (B2) on dev-24 + L32 | `kv_cloak_sweep` | interpretable surface | ~5–10 min CPU | thin n=8 at b∈{16,32} |
+| M2 | Matched-probe correlation (B3) | folded into `kv_cloak_sweep` | ρ + b-flatness computed | included | probe mismatch |
+| M3 | Standardize numbers (bits + readout), analysis JSON | `kv_cloak_analysis` | RESULTS.md written | ~1 min CPU | — |
+
+Must-run: M0–M3. Nice-to-have: SCX-vs-full appendix table, per-layer breakdown (already produced by
+the sweep; selected into the report only if they add signal).
+
+## Compute and Data Budget
+
+- **Total estimated GPU-hours**: 0 — CPU-only on cached operands (sub-capture already built;
+  dev-24 cached). The `gpu: true` plan flag is conservative; this phase needs no GPU (zero
+  contention with the single iGPU). Re-capturing long prompts for `b=64` is explicitly out of scope.
+- **Data prep**: done — `refine-logs/kv-cloak/subcapture_L32.pt` (8 prompts, L=32, kq+kqv_out,
+  L0/12/20) + dev-24 cache.
+- **Human eval**: none.
+- **Biggest bottleneck**: statistical thinness at `b∈{16,32}` (n=8) — mitigated by the analytic
+  identity (B1) making the spectral channel's `b`-independence exact, and by reporting CIs.
+
+## Risks and Mitigations
+
+- **Risk**: 8 prompts at L=32 give noisy jd accumulation. **Mitigation**: lead with the
+  single-observation metrics (gram_error, jade, negentropy) which have n=24 at small `b`; treat
+  jd@b∈{16,32} as supporting with explicit n.
+- **Risk**: `b=64` unreachable. **Mitigation**: C1 makes the spectral `b`-independence provable;
+  report b=64 as lemma-predicted, not measured.
+- **Risk**: "recovery drop = privacy" overclaim. **Mitigation**: floor + invariants control
+  (anti-claim 1) reported alongside every recovery number.
+- **Risk**: probe-is-attack circularity. **Mitigation**: probe is pure covariance/​kurtosis geometry
+  (anti-claim 2), asserted in B3.
+
+## Final Checklist
+- [x] Main paper tables are covered (Tables 1–3, Figs 1–2)
+- [x] Novelty is isolated (channel ablation B2; SCX/naive siblings)
+- [x] Simplicity is defended (decoupling reduces the defense to 3 orthogonal observables)
+- [x] Frontier contribution justified or skipped (no frontier primitive; leakage study)
+- [x] Nice-to-have runs separated from must-run runs

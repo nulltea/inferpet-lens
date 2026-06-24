@@ -1,0 +1,311 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>transformer-attacks-lens — KV-Cloak channel decoupling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+</head><body>
+<div class="sheet">
+  <span class="crosshair tl"></span>
+  <span class="crosshair tr"></span>
+  <span class="crosshair bl"></span>
+  <span class="crosshair br"></span>
+
+  <!-- ─── TOPNAV ─── -->
+  <div class="topnav">
+    <a class="brand" href="index.html">transformer-attacks<span class="dot">·</span>lens</a>
+    <span class="links">
+      <a href="index.html">index</a>
+      <a href="metric-std.html">metric</a>
+      <div class="navgroup">
+        <span class="navgroup-label">residual</span>
+        <div class="navgroup-menu">
+          <a href="resid-capacity-pvi.html">capacity-matched PVI</a>
+          <a href="resid-dp-attacks.html">under differential privacy</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label">embedding</span>
+        <div class="navgroup-menu">
+          <a href="vec2text.html">Vec2Text inversion</a>
+          <a href="bnn-attack.html">Bayes-NN bounds</a>
+        </div>
+      </div>
+      <div class="navgroup">
+        <span class="navgroup-label current">KV / QKV</span>
+        <div class="navgroup-menu">
+          <a href="kv-accumulation.html">source separation</a>
+          <a href="kv-cloak.html" class="current">KV-Cloak decoupling</a>
+        </div>
+      </div>
+      <a href="perm-cover.html">permutation</a>
+      <a href="defenses-existing.html">defenses</a>
+    </span>
+  </div>
+
+  <!-- ─── MASTHEAD ─── -->
+  <header class="masthead">
+    <div>
+      <h1 class="title">KV-Cloak<br><em>— channel decoupling</em></h1>
+      <p class="subtitle">KV-Cloak obfuscates the stored key/value cache as a product of three operations: a secret orthogonal token mixing, a one-time random block permutation, and a secret orthogonal feature mixing, with an additive beacon mask. Its advertised security parameter is the block size, whose factorial permutation count is presented as the barrier. Measured against a key-free source-separation adversary on the raw keys, the three operations separate onto three independent observables, and only one of them provides protection. The secret feature mixing is the sole operation that drives reconstruction to chance; the permutation and the block size leave reconstruction plaintext-like and do not protect against this adversary over the block sizes tested. The block size provides no protection against this adversary.</p>
+      <span class="rev">research report · 2026-06-24</span>
+    </div>
+  </header>
+
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
+  <section id="introduction">
+    <header class="section-head">
+      <div class="section-num">§01</div>
+      <h2 class="section-title">Introduction</h2>
+      <div class="section-meta">the defense, the threat model, the headline</div>
+    </header>
+    <p class="lede">
+      KV-Cloak (<a href="https://arxiv.org/abs/2508.09442">arXiv 2508.09442</a>, NDSS 2026) protects the
+      key/value cache by exposing, per PagedAttention block of <code>b</code> tokens, the obfuscated key
+      matrix <code>K' = S · P̂ · (K + A) · M</code>: <code>S</code> and per-head <code>M</code> are secret
+      orthogonal matrices, <code>P̂</code> is a fresh one-time-pad token permutation, and <code>A</code> is
+      a structured beacon mask. The transform is invertible for the legitimate party and leaves the
+      attention output unchanged.
+    </p>
+    <div class="prose">
+      <p>The threat model is WEIGHTS-PUB: the adversary knows the weights and embeddings, reads the
+      obfuscated cache <code>K'</code> from memory, but does not hold the secret matrices. The secret is
+      the raw per-head key matrix <code>K</code> itself. Because the attention output is invariant under
+      the defense, the leakage surface is the stored <code>K'</code>, not the post-attention activations.
+      The attacks are the source-separation family: single-observation independent component analysis
+      and joint diagonalization across stacked observations, graded by the Hungarian-matched cosine of
+      recovered sources to the plaintext key rows against a random-demixing chance baseline.</p>
+      <p>The headline is a threat-model correction. KV-Cloak argues that the block-wise permutation
+      imposes a <code>b!</code> barrier, so larger blocks are more secure. That barrier binds an adversary
+      who must recover the token order. A subspace-membership or component-analysis adversary never needs
+      the order: it recovers a basis of the key-row subspace, which the permutation and the token mixing
+      leave intact. The block size is therefore irrelevant to it, and reconstruction is controlled
+      entirely by the secret feature mixing <code>M</code>.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 2 THE DEFENSE ═════ -->
+  <section id="defense">
+    <header class="section-head">
+      <div class="section-num">§02</div>
+      <h2 class="section-title">The defense, by channel</h2>
+      <div class="section-meta">how the four operations act</div>
+    </header>
+    <p class="lede">Each operation acts on a different axis of the key block <code>K ∈ R^(b×d)</code>
+    (<code>b</code> tokens, <code>d</code> the head dimension).</p>
+    <table class="spec">
+      <thead><tr><th>Operation</th><th>Axis</th><th>Effect on the row-Gram <code>KKᵀ</code></th></tr></thead>
+      <tbody>
+        <tr><td><code>M</code> · secret orthogonal feature mixing</td><td>columns (head dimension)</td><td>leaves it exactly invariant</td></tr>
+        <tr><td><code>S</code> · secret orthogonal token mixing</td><td>rows (tokens)</td><td>orthogonal similarity: spectrum invariant, matrix rotated</td></tr>
+        <tr><td><code>P̂</code> · one-time-pad permutation</td><td>rows (tokens)</td><td>joint row/column permutation: spectrum invariant</td></tr>
+        <tr><td><code>A</code> · additive beacon mask</td><td>both</td><td>shifts the spectrum</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The block size <code>b</code> sizes only the token-axis operators <code>S</code> and
+    <code>P̂</code>. The feature mixing <code>M</code> is a <code>d × d</code> matrix, independent of
+    <code>b</code>.</p>
+  </section>
+
+  <!-- ═════ § 3 METHOD ═════ -->
+  <section id="method">
+    <header class="section-head">
+      <div class="section-num">§03</div>
+      <h2 class="section-title">Method</h2>
+      <div class="section-meta">surface, ablation, attacks, probe</div>
+    </header>
+    <div class="prose">
+      <p>The defense is implemented as a representation transform and applied to the raw per-head keys
+      captured from Qwen3-4B at layers 0, 12, and 20 over 48 prompts of 110 to 178 tokens. The sweep
+      crosses the channel ablation (feature mixing alone; token mixing with permutation; permutation
+      alone; the linear form without permutation or mask; mask alone; the full transform) with block
+      sizes 16, 32, 64, mask energies 0, 1, 4, and three random key draws, for 273 configurations.</p>
+      <p>The attacks are the joint-diagonalization separators run on the obfuscated keys; reconstruction
+      is the 95th-percentile Hungarian-matched cosine to the plaintext key rows, graded against the
+      random-demixing baseline. The probe is the whitened-row negentropy, a geometry-only measure of
+      non-Gaussianity computed without running any separation, reported in bits. The shared spectral
+      capacity is the accumulation-axis probe. Reconstruction is the per-secret readout; the probes are
+      the bits canonical.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 4 CHANNEL IDENTITIES ═════ -->
+  <section id="identities">
+    <header class="section-head">
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Channel identities</h2>
+      <div class="section-meta">exact, on the full feature set</div>
+    </header>
+    <p class="lede">Each operation applied alone to one key block, full feature width.</p>
+    <table class="spec">
+      <thead><tr><th>Operation</th><th>row-Gram distance</th><th>Gram-spectrum error</th><th>Reading</th></tr></thead>
+      <tbody>
+        <tr><td>feature mixing <code>M</code></td><td><code>2.1e-9</code></td><td><code>5.7e-10</code></td><td>row-Gram exactly invariant</td></tr>
+        <tr><td>token mixing <code>S·P̂</code></td><td><code>1.40</code></td><td><code>3.2e-9</code></td><td>matrix rotated, spectrum preserved</td></tr>
+        <tr><td>permutation <code>P̂</code></td><td>—</td><td><code>1.2e-15</code></td><td>spectrum preserved to machine precision</td></tr>
+        <tr><td class="accent">mask <code>A</code></td><td class="accent"><code>0.19</code></td><td class="accent"><code>0.20</code></td><td>the only operation that moves the spectrum</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The secret matrices are orthogonal to within <code>1e-15</code>. All eight unit
+    checks pass. The fingerprint attack reads the full Gram, so it sees the token mixing, the permutation,
+    and the mask, but is blind to the feature mixing.</p>
+  </section>
+
+  <!-- ═════ § 5 RESULTS ═════ -->
+  <section id="results">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Results</h2>
+      <div class="section-meta">reconstruction, accumulation, block size, probe</div>
+    </header>
+
+    <p class="lede">Reconstruction and probe by channel, layer 0, averaged over block size, mask energy,
+    and key draws. The random-demixing baseline is 0.157.</p>
+    <table class="spec">
+      <thead><tr><th>Channel</th><th>reconstruction (95th-pct cosine)</th><th>negentropy (bits)</th></tr></thead>
+      <tbody>
+        <tr><td>plaintext</td><td><code>0.626</code></td><td><code>1044.7</code></td></tr>
+        <tr><td class="accent">feature mixing <code>M</code></td><td class="accent"><code>0.126</code> (at baseline)</td><td class="accent"><code>1.5</code></td></tr>
+        <tr><td>token mixing <code>S·P̂</code></td><td><code>0.612</code> (≈ plaintext)</td><td><code>1082</code></td></tr>
+        <tr><td>permutation <code>P̂</code></td><td><code>0.612</code></td><td><code>1073</code></td></tr>
+        <tr><td>linear form <code>S·K·M</code></td><td><code>0.124</code></td><td><code>1.7</code></td></tr>
+        <tr><td>mask <code>A</code></td><td><code>0.581</code></td><td><code>2009</code></td></tr>
+        <tr><td>full transform</td><td><code>0.126</code></td><td><code>0.7</code></td></tr>
+      </tbody>
+    </table>
+    <p class="note">Every configuration that contains the feature mixing drops reconstruction to the
+    baseline and collapses negentropy from about 1045 bits to 1.5 bits; mixing 128 head-dimension
+    coordinates renders the key rows close to Gaussian. The token mixing and the permutation remain
+    plaintext-like; the mask alone has a small non-floor effect on reconstruction (0.581) and inflates
+    negentropy, but none of the channels without the feature mixing drives reconstruction to chance.
+    The pattern holds at layers 12 and 20 (feature mixing reaches
+    0.151 and 0.160; token mixing stays at 0.497 and 0.517, far above baseline).</p>
+
+    <p class="lede">Joint-diagonalization reconstruction against observation count. The baseline rises
+    from 0.157 to 0.168.</p>
+    <table class="spec">
+      <thead><tr><th>Channel</th><th>one observation</th><th>four observations</th></tr></thead>
+      <tbody>
+        <tr><td>plaintext</td><td><code>0.488</code></td><td><code>0.751</code></td></tr>
+        <tr><td>token mixing <code>S·P̂</code></td><td><code>0.486</code></td><td><code>0.730</code></td></tr>
+        <tr><td>permutation <code>P̂</code></td><td><code>0.488</code></td><td><code>0.725</code></td></tr>
+        <tr><td>mask <code>A</code></td><td><code>0.493</code></td><td><code>0.569</code></td></tr>
+        <tr><td class="accent">feature mixing / full</td><td class="accent"><code>~0.126</code></td><td class="accent"><code>~0.12</code> (at or below baseline)</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Reconstruction accumulates with the observation count at plaintext and under the
+    token-axis operators; only the feature mixing holds it at the baseline across the count.</p>
+
+    <p class="lede">Block size and the matched probe.</p>
+    <table class="spec">
+      <tbody>
+        <tr><td><strong>Block size</strong></td><td>Reconstruction is flat across block sizes 16, 32, 64 for the token-axis and feature-mixing channels tested; the feature mixing reads exactly 0.145 at each size and the spectral-capacity spread over block size is 0.000. The token-axis channels vary by at most 0.27 bits.</td></tr>
+        <tr><td class="accent"><strong>negentropy → reconstruction</strong></td><td>Spearman <code>0.71</code> across the 270 obfuscated configurations (permutation test below <code>1e-40</code>); across channel means <code>0.77</code>. The probe ranks the channel families by reconstruction.</td></tr>
+        <tr><td class="warn"><strong>within a channel</strong></td><td>The correlation is between channels, not within: inside a single channel it is weak and changes sign, and under the mask it inverts because the beacon outliers raise negentropy without raising reconstruction. The probe is a between-channel diagnostic, not a fine-grained meter.</td></tr>
+        <tr><td><strong>shared spectral capacity → reconstruction</strong></td><td>Spearman <code>0.33</code>, below the 0.7 bar: the accumulation-axis probe is not matched to this attack.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═════ § 6 FINDINGS ═════ -->
+  <section id="findings">
+    <header class="section-head">
+      <div class="section-num">§06</div>
+      <h2 class="section-title">Findings</h2>
+      <div class="section-meta">which operation provides protection</div>
+    </header>
+    <div class="prose">
+      <p><strong>The secret feature mixing is the only operation that protects against this adversary.</strong>
+      It is a secret rotation of the per-head feature frame that the key-free adversary cannot align to
+      the plaintext reference. It drives both the single-observation and the accumulation attack to the
+      chance baseline and collapses the matched probe.</p>
+      <p><strong>The permutation and the block size are inert.</strong> The token mixing and the
+      permutation are invertible row operations: they preserve the key-row subspace, so the recovered
+      directions and the chance baseline unchanged, and the matched probe plaintext-like in the sweep, and reconstruction stays far
+      above baseline and accumulates with the observation count. Because the block size sizes only these
+      operations, reconstruction is flat across 16, 32, and 64. The factorial permutation count defends
+      an order-recovery adversary, not a subspace-membership adversary that never needs the token order.</p>
+      <p><strong>The mask is the only channel that perturbs the Gram spectrum.</strong> Its energy is
+      visible in the Gram-spectrum error, which rises from 0.24 to 4.70 as the mask energy grows, and it
+      inflates the negentropy through its beacon outliers, but on its own it moves reconstruction only
+      from 0.626 to 0.581 and does not drive it to chance.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 THEORY ═════ -->
+  <section id="theory">
+    <header class="section-head">
+      <div class="section-num">§07</div>
+      <h2 class="section-title">Theory</h2>
+      <div class="section-meta">four lemmas, verified</div>
+    </header>
+    <div class="prose">
+      <p>The decoupling is exact. The feature mixing leaves the row-Gram invariant because it is
+      orthogonal on the right (L1). The token mixing with permutation is an orthogonal similarity on the
+      Gram, so its spectrum is preserved while the matrix is rotated, and the permutation alone preserves
+      every permutation-symmetric statistic (L2). The token operators are left-invertible, so they
+      preserve the key-row subspace exactly; the recoverable directions, the best-case reconstruction,
+      and the chance baseline are therefore unchanged, for a fixed block (L3).</p>
+      <p>The feature mixing has a quantitative ceiling. A secret uniform orthogonal matrix rotates
+      the key-row subspace to an independent random subspace, so the best alignment any key-free attack
+      can reach against a fixed plaintext row is the projection of that row onto the rotated subspace.
+      Its squared length follows a Beta law with mean <code>s/d</code>, where <code>s</code> is the block
+      rank and <code>d</code> the head dimension. A Bernstein tail and a union bound over the <code>n</code>
+      graded targets give an attack-independent ceiling on the expected reconstruction of order
+      <code>√(s/d) + √(log n / d)</code>, which reduces to <code>√(s/d)</code> when the target count is small
+      relative to the rank and tends to the chance level as the head dimension grows relative to the rank (L4). With a head dimension of 128 and rank capped at 16, the
+      ceiling is about 0.35, and the measured feature-mixing reconstruction (0.126) sits at the chance
+      baseline (0.157). The lemmas passed cross-model verification; the proofs are in the claim file cited
+      in the footer.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 8 DISCUSSION ═════ -->
+  <section id="discussion">
+    <header class="section-head">
+      <div class="section-num">§08</div>
+      <h2 class="section-title">Discussion</h2>
+      <div class="section-meta">scope and consequence</div>
+    </header>
+    <div class="prose">
+      <p>The consequence for the defense is specific: against a subspace-membership or component-analysis
+      adversary the block size is not a security parameter, and the security rests entirely on the secret
+      feature mixing. This refines, rather than contradicts, the original analysis, which bounds an
+      order-recovery adversary for whom the permutation does bind.</p>
+      <p>The scope is bounded. The reconstruction ceiling is an upper bound and is informative only when
+      the block rank is small relative to the head dimension, the regime here. The block-size result is
+      established over the standard sizes 16, 32, 64. The matched probe predicts reconstruction between
+      channel families, not within one, and inverts under the additive mask. These are the honest limits
+      of the present result; the proofs hold within them.</p>
+    </div>
+  </section>
+
+  <!-- ─── FOOTER ─── -->
+  <footer>
+    <div>
+      <h5>Code</h5>
+      <ul>
+        <li><code>scripts/defenses/kv_cloak.py</code> · the defense transform</li>
+        <li><code>src/talens/attacks/bss.py</code> · the separation attacks</li>
+        <li><code>src/talens/measures/bss_separability.py</code> · the matched probe</li>
+      </ul>
+    </div>
+    <div>
+      <h5>Claim &amp; record</h5>
+      <ul>
+        <li><code>research-wiki/claims/kv-cloak-channel-decoupling-feature-mix-loadbearing.md</code></li>
+        <li><code>research-wiki/experiments/b-kv2-cloak-channel-decoupling.md</code></li>
+      </ul>
+    </div>
+    <div>
+      <h5>External references</h5>
+      <ul>
+        <li>Shadow in the Cache / KV-Cloak · <a href="https://arxiv.org/abs/2508.09442">arXiv 2508.09442</a></li>
+        <li>JADE · Cardoso &amp; Souloumiac 1993</li>
+        <li>Independent component analysis · Comon 1994; Hyvärinen 1999</li>
+      </ul>
+    </div>
+  </footer>
+</div>
+</body></html>

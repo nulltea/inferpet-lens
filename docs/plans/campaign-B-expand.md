@@ -37,7 +37,7 @@ run_id: b-kv2-cloak
 gate: review refine-logs/kv-cloak/REVIEW_STATE.json
 spawn-depth: 0
 objective: implement KV-CLOAK as a Transform (perm+rotation+additive mask, arXiv 2508.09442); sweep block size b; chart attack recovery (Task 1 attacks) + matched probe bits vs b; cross-check the code-available SCX permutation sibling.
-- [ ] run-phase: b-kv2-cloak
+- [x] run-phase: b-kv2-cloak
 
 ### Task 3: residual — Rep2Text attack (2511.06571)
 recipe: full
