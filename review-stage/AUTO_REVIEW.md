@@ -1,40 +1,46 @@
-# Auto Review — Task 9 (c10-viz-scatter): A1 bits-vs-recovery scatter rollout
+# Auto-review log — Task 10 (c11-viz-spectral): A2 leakage heatmaps + A5 eigenspectrum/noise-floor
 
-Reviewer: Codex / gpt-5.5 (xhigh), thread 019efbe7. Backend: codex (medium difficulty).
+## Round 1 (2026-06-25)
 
-## Round 1 — Score 5/10 — not ready
-Critical: (1) resid-dp-attacks badge +0.76 did not match the 3 plotted monotone points (ρ=+1.0);
-(2) resid-split plotted ridge but labelled badge "best recovery"; (3) plots inserted into invalid
-DOM positions (inside <tbody> / mid-<p>); (4) contrast classes emitted as `class="plot-point.b"`
-(dotted) instead of space-separated, breaking styling; (5) synthesis omission note hid the V_cap
-−0.21 depth tail; (6) sgt "within each shape monotone" overstated (tail-loaded ρ=−0.20).
+### Assessment (Summary)
+- Score: 8.5/10
+- Verdict: READY (with one wording hardening, applied)
+- Backend: codex (gpt-5.5, xhigh). Reviewer sandbox could not read files (bwrap loopback
+  denied); artifacts + verbatim cross-checks were pasted inline for verification.
 
-## Round 2 — Score 7/10 — almost (gate threshold met: ≥6 AND almost/ready)
-Fixed all six. dp-attacks now sources every coordinate AND ρ from one file (b2_l0_bayes.json, 8
-club-bits rows; Spearman recomputes to 0.7638 = +0.76). resid-split primary = best recovery (+0.96).
-DOM placement valid. Classes space-separated. Synthesis surfaces −0.21. sgt wording corrected.
-Remaining: dp plot not matching adjacent R1 table; resid-split mlp2 badge +0.92 not reproducing
-from plotted points; sgt aria still overstated; synthesis manual provenance.
+### What was reviewed
+Two A2 layer×parameter leakage heatmaps and one shared A5 eigenspectrum worked example,
+all rendered from on-disk data (no GPU) by `refine-logs/viz-spectral/gen_plots.py`:
+- A2 `resid-dp-attacks.html` — layer {L0,L5,L12,L20} × input-DP ε {plain,4k,1k,768,512,384,256},
+  fill = token-id top-1 recovery (`results/localdp_depth_L0_5_12_20.json`).
+- A2 `resid-depth-inversion.html` — {ridge,mlp2,NN} × 9 depths, fill = selectivity
+  (`runs/full/depth_sweep.json`).
+- A5 on `vec2text.html`, `probes-registry.html`, `resid-split.html` — eigenspectrum of the
+  error-weighted scatter S (`results/anisotropic_geometry_diagnostic.json`, gemma-2-2b, ε=128),
+  σ²=0.0246 noise floor, per-mode bits ½log₂(1+λ/σ²), eff_rank≈7 of 2304, top-10 = 81% energy.
 
-## Round 3 — Score 8/10 — almost (FINAL)
-dp-attacks plot RELOCATED to end of §5 Results (decoupled from the R1 l0_fast table), source note
-present. resid-split mlp2 +0.92 badge removed (only the reproducing +0.96 best badge remains; mlp2
-shown as amber series, described qualitatively). sgt aria-label corrected. synthesis caption marks
-"source: §02 overview table". Reviewer confirmed every annotated ρ recomputes from the cited JSON
-(split best 0.956→+0.96, depth +0.85, dp +0.7638→+0.76, sgt across-shape 0.4816→+0.48, kv 0.7058→
-+0.71 / channel-mean 0.7714→+0.77). All 6 plot SVGs XML-valid, no-JS, role/aria/title present, no
-dotted classes, clean DOM placement. Final residual: removed the +0.92 mention entirely after the
-round-3 review (strictly the reviewer's requested fix — committed state ⊇ reviewed state).
+### Faithfulness (verified by reviewer from pasted artifacts)
+- A2 dp L0 row matches the page's per-point L0 table within plot rounding: 0.809→0.81, 0.661→0.66,
+  0.428→0.43, 0.140→0.14.
+- A2 depth matches the per-layer table: ridge L0 0.685→0.69, L32 0.390→0.39; mlp2 L32 0.542→0.54; NN 0.000.
+- A5 matches the JSON ε=128 row: eff_rank_S=7.10→"≈7", top10_eval_frac=0.8139→"81%", σ²=0.02464→"0.025", d=2304.
 
-Verdict: score 8/10, almost → PASSES the report-quality gate (≥6 AND verdict ∈ {ready, almost}).
+### Reviewer raw response (verbatim)
+Score: 8.5/10. Verdict: READY, with one wording hardening I would still make.
+Numeric faithfulness checks pass. Weaknesses ranked:
+1. A5 honesty acceptable but slightly easy to misread on vec2text — add an explicit parenthetical
+   that this is not the GTR Cov(e₀) spectrum and does not resolve the deferred empirical localization.
+2. Keep A5 formula language illustrative ("worked example", "representative anisotropic geometry").
+3. A2 DP x-axis: clarify the `plain` column is not an ε value (label `plain / ε=∞` or note clean_top1).
+No blocking faithfulness issue. Plot-style/accessibility/on-disk-only/inline-SVG validity sufficient.
 
-## Method Description
-Task 9 rolled the Task-8 "A1" inline-SVG bits-vs-recovery scatter primitive (viewBox 680×440, plot
-box x∈[64,656] y∈[20,384], `.plot-frame`/`.plot-line[.b]`/`.plot-point[.b/.c]`/`.stat-badge`/
-`.ref-line`) across the five surface pages with paired (bits,recovery) sweep data and added a
-cross-surface matched-probe ρ-summary dot plot to synthesis.html. A single generator
-(refine-logs/viz-scatter/gen_scatters.py) reads each surface's results JSON, computes the plotted
-coordinates and the Spearman ρ, and emits one fragment per page; each annotated ρ was cross-checked
-to equal the value already stated in that page's prose (PLOT-STYLE.md cardinal rule). The synthesis
-dot plot is hand-authored from the §02 overview table (single-valued ρ per surface; range rows
-excluded and noted, including the V_cap −0.21 depth tail).
+### Actions taken (post-review hardening — all applied)
+1. A5 Read (all 3 pages): appended "It is not the GTR embedding Cov(e₀) spectrum and does not resolve
+   vec2text's deferred empirical-localization claim."
+2. A2 dp Read: added "The plaintext column is the no-noise baseline (clean_top1, ε=∞), not an ε value."
+3. (#2 already satisfied: "worked example" + "gemma-2-2b codebook scatter S" present in the visible text.)
+All edits mirrored into the generator `gen_plots.py`; regeneration reproduces the live pages exactly.
+
+### Status
+- Stopping: score 8.5 ≥ 6 AND verdict ∈ {ready, almost}. Gate met.
+- Difficulty: medium.

@@ -226,7 +226,7 @@ scope:
 
 steps: (a) build the A2 `<rect>` grid (reuse the heatmap idiom from kv-accumulation + the Task-8 colorbar) from existing per-layer recovery; (b) build the A5 spectrum plot from the eigenspectrum JSON, marking the noise floor and shading the directions above/below it; (c) caption each with the reading ("leakage concentrates in the top-k directions", "depth does not buy privacy"); (d) cleanup pass.
 acceptance: A2 heatmap on the two depth pages and A5 spectrum on the three spectral pages, all from on-disk data (no GPU launched), compliant with PLOT-STYLE.md, with provenance + captions; cleanup pass run.
-- [ ] run-phase: c11-viz-spectral
+- [x] run-phase: c11-viz-spectral
 
 ### Task 11: visual reporting Phase 3 — A3 Gram/interference heatmap + A4 privacy–utility Pareto
 recipe: consolidate

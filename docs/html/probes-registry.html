@@ -176,6 +176,91 @@
       <p><strong>Gaussian channel-capacity MI ceiling, <code>I_G</code>.</strong> Channel <code>Y = e₀ + N(0, σ²I)</code> on the released embedding; <code>Σ = Cov(e₀)</code> over the secret prior, <code>σ²</code> the defense noise. It is a converse: an upper bound on the embedding-inversion leakage that ceilings recovery for every attack. Matched probe for embedding inversion under the Gaussian mechanism.</p>
       <p><strong>Shared spectral capacity.</strong> Channel is the averaged row covariance <code>C̄ = (1/T) Σₜ UₜUₜᵀ/d</code> over a stack of <code>T</code> key/value observations; <code>σ²</code> is the median of the lower-half eigenvalues, an empirical floor. It is a secondary diagnostic for the joint-diagonalization accumulation attack, not a converse on text leakage. The key/value pages carry it beside the whitened-row negentropy <code>J</code>, never as <code>I_G</code>.</p>
     </div>
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · A5 — eigenspectrum + noise floor: where leakage lives (<code>I_G</code> waterfilling)</span><span class="r">source: results/anisotropic_geometry_diagnostic.json · gemma-2-2b · ε=128</span></div>
+      <svg class="plot" viewBox="0 0 680 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Eigenspectrum of the released-channel scatter on a log axis as bars with the noise-floor sigma-squared as a dashed reference line, and the per-direction leakage bits one-half log base two of one plus lambda over sigma squared as a navy line on the right axis; the leakage bits fall off sharply after the first several directions, so leakage concentrates in the top eigendirections while the long tail sits near the noise floor.">
+        <title>Per-direction leakage concentrates in ~7 of 2304 directions; top-10 carry 81% of the scatter energy (ε=128, σ²=0.025)</title>
+        <line class="gridline" x1="70" y1="382.0" x2="610" y2="382.0"/>
+        <line class="tick" x1="66" y1="382.0" x2="70" y2="382.0"/>
+        <text class="tick-label" x="62" y="385.0" text-anchor="end">0.01</text>
+        <line class="gridline" x1="70" y1="239.6" x2="610" y2="239.6"/>
+        <line class="tick" x1="66" y1="239.6" x2="70" y2="239.6"/>
+        <text class="tick-label" x="62" y="242.6" text-anchor="end">0.1</text>
+        <line class="gridline" x1="70" y1="97.2" x2="610" y2="97.2"/>
+        <line class="tick" x1="66" y1="97.2" x2="70" y2="97.2"/>
+        <text class="tick-label" x="62" y="100.2" text-anchor="end">1</text>
+        <line class="axis" x1="70" y1="26" x2="70" y2="382"/>
+        <line class="axis" x1="70" y1="382" x2="610" y2="382"/>
+        <line class="axis" x1="610" y1="26" x2="610" y2="382"/>
+        <line class="tick" x1="610" y1="382.0" x2="614" y2="382.0"/>
+        <text class="tick-label" x="618" y="385.0" text-anchor="start">0</text>
+        <line class="tick" x1="610" y1="263.3" x2="614" y2="263.3"/>
+        <text class="tick-label" x="618" y="266.3" text-anchor="start">1</text>
+        <line class="tick" x1="610" y1="144.7" x2="614" y2="144.7"/>
+        <text class="tick-label" x="618" y="147.7" text-anchor="start">2</text>
+        <line class="tick" x1="610" y1="26.0" x2="614" y2="26.0"/>
+        <text class="tick-label" x="618" y="29.0" text-anchor="start">3</text>
+        <rect class="cell" x="74.9" y="93.7" width="17.3" height="288.3" fill="#d2945c"/>
+        <rect class="cell" x="101.9" y="96.5" width="17.3" height="285.5" fill="#d2945c"/>
+        <rect class="cell" x="128.9" y="143.9" width="17.3" height="238.1" fill="#d2945c"/>
+        <rect class="cell" x="155.9" y="155.0" width="17.3" height="227.0" fill="#d2945c"/>
+        <rect class="cell" x="182.9" y="202.3" width="17.3" height="179.7" fill="#d2945c"/>
+        <rect class="cell" x="209.9" y="247.6" width="17.3" height="134.4" fill="#d2945c"/>
+        <rect class="cell" x="236.9" y="249.2" width="17.3" height="132.8" fill="#d2945c"/>
+        <rect class="cell" x="263.9" y="255.7" width="17.3" height="126.3" fill="#e8d7c4"/>
+        <rect class="cell" x="290.9" y="258.9" width="17.3" height="123.1" fill="#e8d7c4"/>
+        <rect class="cell" x="317.9" y="273.7" width="17.3" height="108.3" fill="#e8d7c4"/>
+        <rect class="cell" x="344.9" y="277.0" width="17.3" height="105.0" fill="#e8d7c4"/>
+        <rect class="cell" x="371.9" y="285.8" width="17.3" height="96.2" fill="#e8d7c4"/>
+        <rect class="cell" x="398.9" y="288.7" width="17.3" height="93.3" fill="#e8d7c4"/>
+        <rect class="cell" x="425.9" y="294.4" width="17.3" height="87.6" fill="#e8d7c4"/>
+        <rect class="cell" x="452.9" y="300.3" width="17.3" height="81.7" fill="#e8d7c4"/>
+        <rect class="cell" x="479.9" y="304.5" width="17.3" height="77.5" fill="#e8d7c4"/>
+        <rect class="cell" x="506.9" y="309.7" width="17.3" height="72.3" fill="#e8d7c4"/>
+        <rect class="cell" x="533.9" y="315.6" width="17.3" height="66.4" fill="#e8d7c4"/>
+        <rect class="cell" x="560.9" y="318.3" width="17.3" height="63.7" fill="#e8d7c4"/>
+        <rect class="cell" x="587.9" y="322.3" width="17.3" height="59.7" fill="#e8d7c4"/>
+        <line class="ref-line" x1="70" y1="326.2" x2="610" y2="326.2"/>
+        <text class="ref-label" x="76" y="321.2">σ² = 0.025 noise floor</text>
+        <polyline class="plot-line" points="83.5,58.2 110.5,61.9 137.5,125.2 164.5,139.8 191.5,199.6 218.5,252.0 245.5,253.8 272.5,260.7 299.5,263.9 326.5,278.8 353.5,281.9 380.5,290.1 407.5,292.8 434.5,297.8 461.5,302.8 488.5,306.3 515.5,310.4 542.5,315.0 569.5,317.0 596.5,319.9"/>
+        <circle class="plot-point" cx="83.5" cy="58.2" r="3"/>
+        <circle class="plot-point" cx="110.5" cy="61.9" r="3"/>
+        <circle class="plot-point" cx="137.5" cy="125.2" r="3"/>
+        <circle class="plot-point" cx="164.5" cy="139.8" r="3"/>
+        <circle class="plot-point" cx="191.5" cy="199.6" r="3"/>
+        <circle class="plot-point" cx="218.5" cy="252.0" r="3"/>
+        <circle class="plot-point" cx="245.5" cy="253.8" r="3"/>
+        <circle class="plot-point" cx="272.5" cy="260.7" r="3"/>
+        <circle class="plot-point" cx="299.5" cy="263.9" r="3"/>
+        <circle class="plot-point" cx="326.5" cy="278.8" r="3"/>
+        <circle class="plot-point" cx="353.5" cy="281.9" r="3"/>
+        <circle class="plot-point" cx="380.5" cy="290.1" r="3"/>
+        <circle class="plot-point" cx="407.5" cy="292.8" r="3"/>
+        <circle class="plot-point" cx="434.5" cy="297.8" r="3"/>
+        <circle class="plot-point" cx="461.5" cy="302.8" r="3"/>
+        <circle class="plot-point" cx="488.5" cy="306.3" r="3"/>
+        <circle class="plot-point" cx="515.5" cy="310.4" r="3"/>
+        <circle class="plot-point" cx="542.5" cy="315.0" r="3"/>
+        <circle class="plot-point" cx="569.5" cy="317.0" r="3"/>
+        <circle class="plot-point" cx="596.5" cy="319.9" r="3"/>
+        <line class="tick" x1="83.5" y1="382" x2="83.5" y2="386"/>
+        <text class="tick-label" x="83.5" y="398.0" text-anchor="middle">1</text>
+        <line class="tick" x1="191.5" y1="382" x2="191.5" y2="386"/>
+        <text class="tick-label" x="191.5" y="398.0" text-anchor="middle">5</text>
+        <line class="tick" x1="326.5" y1="382" x2="326.5" y2="386"/>
+        <text class="tick-label" x="326.5" y="398.0" text-anchor="middle">10</text>
+        <line class="tick" x1="461.5" y1="382" x2="461.5" y2="386"/>
+        <text class="tick-label" x="461.5" y="398.0" text-anchor="middle">15</text>
+        <line class="tick" x1="596.5" y1="382" x2="596.5" y2="386"/>
+        <text class="tick-label" x="596.5" y="398.0" text-anchor="middle">20</text>
+        <text class="stat-badge" x="598" y="50" text-anchor="end">d_eff ≈ 7</text>
+        <text class="stat-sub" x="598" y="64" text-anchor="end">of 2304 dims · top-10 = 81% energy</text>
+        <text class="axis-label" x="340" y="430" text-anchor="middle">sorted eigen-direction index  (scatter S, top 20 of 2304)</text>
+        <text class="axis-label" x="20" y="204" text-anchor="middle" transform="rotate(-90 20 204)">eigenvalue λᵢ (log)</text>
+        <text class="axis-label" x="658" y="204" text-anchor="middle" transform="rotate(90 658 204)">per-direction bits ½log₂(1+λᵢ/σ²)</text>
+      </svg>
+      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">The released-channel scatter is sharply anisotropic: the per-direction leakage bits (navy) fall off after the first several directions, so the effective rank is ≈7 of 2304 dimensions and the top ten directions carry 81% of the energy. This is the <code>I_G</code> waterfilling picture: leakage is confined to the top eigendirections (T4), and the dashed σ² floor drowns the long tail (modes 21…2304, not plotted). Worked example on the gemma-2-2b codebook scatter S; the principle is the matched <code>I_G</code> probe&rsquo;s per-mode decomposition. It is not the GTR embedding <code>Cov(e&#8320;)</code> spectrum and does not resolve vec2text&rsquo;s deferred empirical-localization claim.</span></div>
+    </div>
   </section>
 
   <footer>
