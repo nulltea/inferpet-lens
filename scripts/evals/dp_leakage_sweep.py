@@ -44,8 +44,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for def
 from talens.probes.club import club_mi_upper_bound  # noqa: E402
 from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 from talens.report import perplexity_from_bits  # noqa: E402
-from talens.attacks.dp_inversion import ridge_attack, skip_decoder_attack  # noqa: E402
+from talens.attacks.dp_inversion import ridge_attack, skip_decoder_attack, logit_lens_attack  # noqa: E402
 from defenses.local_dp import LocalDP  # noqa: E402
+import functools  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -74,7 +75,13 @@ def _stack(per_L, ids):
 
 
 # ── attacks: imported from the library (src/talens/attacks/dp_inversion.py) ──
-ATTACKS = {"ridge": ridge_attack, "decoder": skip_decoder_attack}
+#   lens = CE tuned-lens affine; declens = + gated GELU correction (the fair non-linearity test).
+ATTACKS = {
+    "ridge": ridge_attack,
+    "decoder": skip_decoder_attack,
+    "lens": functools.partial(logit_lens_attack, nonlinear=False),
+    "declens": functools.partial(logit_lens_attack, nonlinear=True),
+}
 
 
 # ───────────────────────── probes (attack-independent; bits + readout) ─────────────────────────
@@ -127,7 +134,7 @@ def main():
     ap.add_argument("--max-prompts", type=int, default=160)
     ap.add_argument("--layers", default="0,5,12,20", help="comma list of layer indices")
     ap.add_argument("--epsilons", default="inf,512,256,128", help="comma list; 'inf' = clip-only")
-    ap.add_argument("--attacks", default="ridge,decoder", help=f"subset of {sorted(ATTACKS)}")
+    ap.add_argument("--attacks", default="ridge,lens,declens", help=f"subset of {sorted(ATTACKS)}")
     ap.add_argument("--probes", default="club,vcap", help=f"subset of {sorted(PROBES)}")
     ap.add_argument("--delta", type=float, default=1e-5)
     ap.add_argument("--clip-percentile", type=float, default=99.9)
@@ -202,6 +209,7 @@ def main():
         floor = {}
         for a in attacks:
             yhat = ATTACKS[a](X0[tr], emb_y[tr][permsh], X0[te], table[pool], pool,
+                              ytr=y[tr][permsh], full_emb=table,  # CE: same shuffle as Etr for the floor
                               hidden=args.hidden, epochs=args.epochs, seed=args.seed)
             floor[a] = float((yhat == y[te]).mean())
         split[L] = dict(y=y, tr=tr, te=te, pool=pool, emb_y=emb_y, floor=floor,
@@ -225,6 +233,7 @@ def main():
             rec = {"epsilon": (None if math.isinf(eps) else eps), "layer": L, "sigma": sigma}
             for a in attacks:
                 yhat = ATTACKS[a](X[tr], emb_y[tr], X[te], pe, pool,
+                                  ytr=y[tr], full_emb=table,  # CE attacks use ids + frozen table
                                   hidden=args.hidden, epochs=args.epochs, seed=args.seed)
                 top1 = float((yhat == y[te]).mean())
                 rec[a] = top1

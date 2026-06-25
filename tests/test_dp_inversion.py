@@ -9,7 +9,9 @@ CPU-only, deterministic, seconds.
 import numpy as np
 import torch
 
-from talens.attacks.dp_inversion import LinearSkipDecoder, ridge_W, skip_decoder_attack, nearest_token
+from talens.attacks.dp_inversion import (
+    LinearSkipDecoder, ridge_W, skip_decoder_attack, nearest_token, logit_lens_attack,
+)
 
 
 def _gelu(z):
@@ -63,7 +65,41 @@ def test_decoder_beats_ridge_on_nonlinear_truth():
     assert ridge_err > 0.05, "surface not non-linear enough to be a meaningful test"
 
 
+def _vocab_surface(seed=1, V=300, d_emb=32, d_in=48, n=3000):
+    """Synthetic vocab: residual = linear encoding of the token embedding + noise.
+
+    Recoverable by a linear query map → tests the CE logit-lens plumbing AND open-set generalization
+    (train/test tokens disjoint; the head must generalize to unseen tokens via the frozen geometry).
+    """
+    rng = np.random.default_rng(seed)
+    full_emb = rng.standard_normal((V, d_emb)).astype(np.float32)
+    R = rng.standard_normal((d_emb, d_in)).astype(np.float32)
+    toks = rng.integers(0, V, size=n).astype(np.int64)
+    X = (full_emb[toks] @ R + 0.1 * rng.standard_normal((n, d_in))).astype(np.float32)
+    ntr = int(0.7 * V)
+    tr = np.array([i for i, t in enumerate(toks) if t < ntr])
+    te = np.array([i for i, t in enumerate(toks) if t >= ntr])
+    return full_emb, toks, X, tr, te
+
+
+def test_logit_lens_generalizes_to_unseen_tokens():
+    """CE logit-lens (tied frozen E) must recover UNSEEN test tokens far above pool chance —
+    confirming open-set generalization, sampled-softmax targets, and pool decode all work."""
+    full_emb, toks, X, tr, te = _vocab_surface()
+    pool_ids = np.unique(toks[te])
+    chance = 1.0 / pool_ids.size
+    for nonlinear in (False, True):
+        pred = logit_lens_attack(
+            X[tr], full_emb[toks[tr]], X[te], full_emb[pool_ids], pool_ids,
+            ytr=toks[tr], full_emb=full_emb, nonlinear=nonlinear,
+            hidden=64, epochs=300, neg=128, seed=0,
+        )
+        acc = float((pred == toks[te]).mean())
+        assert acc > 0.5, f"nonlinear={nonlinear}: acc {acc:.3f} ~ chance {chance:.3f} — generalization broke"
+
+
 if __name__ == "__main__":
     test_gate_gradient_is_live_at_init()
     test_decoder_beats_ridge_on_nonlinear_truth()
+    test_logit_lens_generalizes_to_unseen_tokens()
     print("ok")

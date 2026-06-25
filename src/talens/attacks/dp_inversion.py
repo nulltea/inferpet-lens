@@ -11,6 +11,10 @@ Repo rule: attacks live here (src/talens/attacks/), not in scripts. evals/spikes
                          single-position baseline; ≈ tuned-lens affine-into-E).
   skip_decoder_attack  — gated linear-skip GELU decoder, ridge-warm-started + frozen linear path,
                          early-stopped on a disjoint val split → clean `decoder ≥ ridge`.
+  logit_lens_attack    — CE logit-lens: query head (affine [+ gated GELU]) decoded through the frozen
+                         embedding table with cross-entropy over full/sampled vocab; the objective-
+                         matched, fair non-linearity test. nonlinear=False ⇒ tuned-lens affine.
+                         See docs/research/ce-logit-lens-attack.md.
   (BeamClean LM-prior beam decode will land here as beamclean_attack — campaign-D Task 5.)
 """
 from __future__ import annotations
@@ -19,6 +23,7 @@ import copy
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -121,3 +126,84 @@ def skip_decoder_attack(Xtr, Etr, Xte, pool_emb, pool_ids, *, hidden=384, epochs
     with torch.no_grad():
         pred = net(torch.from_numpy(Xte).to(DEV)).cpu().numpy()
     return nearest_token(pred, pool_emb, pool_ids)
+
+
+class LensHead(torch.nn.Module):
+    """Residual→query head for the CE logit lens: q = A·x + b [+ gate·GELU-MLP(x)].
+
+    Logits are formed downstream as E·q against the FROZEN embedding table (no per-token params), so
+    the head only learns a query map. ReZero init for the non-linear branch (gate=0 but MLP tail at
+    normal init → live gate gradient). See docs/research/ce-logit-lens-attack.md.
+    """
+
+    def __init__(self, d_in, d_emb, hidden, nonlinear):
+        super().__init__()
+        self.lin = torch.nn.Linear(d_in, d_emb)
+        self.nonlinear = nonlinear
+        if nonlinear:
+            self.mlp = torch.nn.Sequential(
+                torch.nn.Linear(d_in, hidden), torch.nn.GELU(), torch.nn.Linear(hidden, d_emb)
+            )
+            self.gate = torch.nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        q = self.lin(x)
+        if self.nonlinear:
+            q = q + self.gate * self.mlp(x)
+        return q
+
+
+def logit_lens_attack(Xtr, Etr, Xte, pool_emb, pool_ids, *, ytr, full_emb, nonlinear=True,
+                      neg=2048, hidden=384, epochs=500, lr=1e-3, seed=0, val_frac=0.15,
+                      patience=40, **_):
+    """CE logit-lens attack — objective-matched, fair non-linearity test (docs/research/ce-logit-lens-attack.md).
+
+    Trains a query head h(x) decoded through the frozen embedding table `full_emb` with cross-entropy
+    over a SAMPLED full vocab (candidate set = unique train tokens ∪ `neg` random negatives, resampled
+    per epoch), early-stopped on a disjoint val split; decodes argmax over the test `pool` at eval.
+    `ytr` = train token ids (the CE positives — pass the SAME shuffle as `Etr` for the floor).
+    `Etr` is used only to warm-start the affine path to ridge. nonlinear=False ⇒ tuned-lens affine.
+    """
+    torch.manual_seed(seed)
+    rng = np.random.default_rng(seed)
+    d_in, d_emb, V = Xtr.shape[1], full_emb.shape[1], full_emb.shape[0]
+    ytr = np.asarray(ytr).astype(np.int64)
+    net = LensHead(d_in, d_emb, hidden, nonlinear).to(DEV)
+    with torch.no_grad():  # warm-start the affine path to ridge (≈ tuned-lens start)
+        net.lin.weight.copy_(torch.from_numpy(np.ascontiguousarray(ridge_W(Xtr, Etr).T)).to(DEV))
+        net.lin.bias.zero_()
+
+    perm = rng.permutation(Xtr.shape[0])
+    nval = max(1, int(val_frac * Xtr.shape[0]))
+    vi, ti = perm[:nval], perm[nval:]
+    xt, yt = torch.from_numpy(Xtr[ti]).to(DEV), ytr[ti]
+    xv, yv = torch.from_numpy(Xtr[vi]).to(DEV), ytr[vi]
+    Efull = torch.from_numpy(np.ascontiguousarray(full_emb))  # CPU; gather candidate rows per step
+    train_toks = np.unique(ytr)  # always in the candidate set (CE positives must be in the denominator)
+    opt = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=1e-3)
+    best, best_state, bad = float("inf"), copy.deepcopy(net.state_dict()), 0
+    for _ in range(epochs):
+        negs = rng.choice(V, size=min(neg, V), replace=False)
+        cand = np.unique(np.concatenate([train_toks, negs]))  # sorted → searchsorted gives exact index
+        Ec = Efull[cand].to(DEV)
+        tgt_t = torch.from_numpy(np.searchsorted(cand, yt)).to(DEV)
+        tgt_v = torch.from_numpy(np.searchsorted(cand, yv)).to(DEV)
+        net.train()
+        opt.zero_grad()
+        F.cross_entropy(net(xt) @ Ec.T, tgt_t).backward()
+        opt.step()
+        net.eval()
+        with torch.no_grad():
+            vloss = F.cross_entropy(net(xv) @ Ec.T, tgt_v).item()
+        if vloss < best - 1e-5:
+            best, best_state, bad = vloss, copy.deepcopy(net.state_dict()), 0
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+    net.load_state_dict(best_state)
+    net.eval()
+    with torch.no_grad():  # decode: argmax logit over the test candidate pool
+        z = net(torch.from_numpy(Xte).to(DEV)) @ torch.from_numpy(pool_emb).to(DEV).T
+        idx = z.argmax(1).cpu().numpy()
+    return pool_ids[idx]
