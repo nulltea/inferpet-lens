@@ -38,7 +38,49 @@ implementation defect**.
    linear map into `E` (ridge / tuned lens) exploits it data-efficiently where a free-target
    regressor must relearn it.
 
-## Update — confirmed at ALL depths (R2 decoder, 512 prompts, 2026-06-25)
+## ⚠️ INVALIDATED (2026-06-25) — the "confirmed at all depths" run used a DEAD decoder
+
+The "confirmed at ALL depths" update below is **withdrawn**. Root-cause diagnosis (`/diagnose`,
+2026-06-25) found `skip_decoder_attack` had a **dead non-linear branch at init**: warm-starting with
+**both** `gate=0` **and** a zeroed MLP tail makes `∂loss/∂gate = mlp(x) = 0` and
+`∂loss/∂mlp = gate·(…) = 0` — the whole gated branch is a zero-gradient saddle, so Adam never moves
+it and the decoder is pinned **≡ ridge by construction**, independent of any exploitable
+non-linearity. The "0/20 cells decoder==ridge" was therefore a **training artifact, not evidence of
+saturation**. Proven on synthetic dominantly-non-linear data (generous n/d, random split): shipped
+decoder cos-err = ridge **exactly** (gate=0); the ReZero fix (gate=0 only, tail kept at normal init)
+cut error 65% (gate→0.566). Fix landed in `src/talens/attacks/dp_inversion.py`; regression guard
+`tests/test_dp_inversion.py`.
+
+**Status of the saturation question: RE-TESTED with the fixed decoder → saturation re-confirmed,
+now honestly.** Superseded section retained below for the audit trail.
+
+## Re-confirmed with the FIXED (alive) decoder, 512 prompts, 2026-06-25
+
+Re-run with the ReZero-fixed decoder (`refine-logs/dp-decoder-r3-fixed/dp_leakage_sweep.json`; eps
+grid `inf,512,256,128` × layers `0,5,12,20,25`):
+
+- **The decoder is now alive** — it *deviates* from ridge in ~9/20 cells (vs 0/20 when dead), so the
+  non-linear branch genuinely trains. The fix is confirmed *in situ*, not just on synthetic data.
+- **It still never beats ridge on held-out token recovery.** Tied at shallow/low-noise layers (gate
+  early-stops at ridge), and *slightly worse* at deep+noisy cells (∞/L25 0.396 vs 0.420; ∞/L20 0.621
+  vs 0.636; 512/L12 0.638 vs 0.646). The gated correction lowers val **cosine loss** but transfers
+  slightly worse to the **vocab-disjoint token-recovery** test — overfitting in the strict-
+  generalization regime. So the `≥ridge` guarantee holds on the training proxy, not on disjoint-token
+  recovery.
+- **This is the honest confirmation.** The decoder *could* have won (proven on synthetic dominantly-
+  non-linear data, where the fixed decoder cuts error 65%) and chose not to on the real surface →
+  single-position residual→token is genuinely affine-saturated under the unseen-token threat model.
+  The earlier (dead-decoder) "0/20" conclusion reached the same verdict by accident; this reaches it
+  on purpose.
+- **The monotone depth curve stands** (ridge 0.992→0.850→0.792→0.636→0.420 over L0/L5/L12/L20/L25) —
+  it was always ridge-only, unaffected by the decoder bug.
+
+**Open axis (untested):** this is the *vocab-disjoint / unseen-token* threat model. A full-vocab
+**memorizing** adversary (token-overlapping split) could still let a non-linear decoder win by
+learning per-token corrections — a different threat model, queued as the cheap next axis (#2) before
+sequence-context / BeamClean.
+
+## ~~Update — confirmed at ALL depths (R2 decoder, 512 prompts, 2026-06-25)~~ [WITHDRAWN — see above]
 
 Re-run with the principled R2 decoder (ridge-warm-started + **frozen** linear path, gated zero-init
 GELU correction, early-stop on a disjoint val split) on the **full 512-prompt** corpus (≈3× data),

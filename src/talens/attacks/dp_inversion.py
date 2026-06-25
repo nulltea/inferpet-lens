@@ -46,10 +46,12 @@ class LinearSkipDecoder(torch.nn.Module):
     """Gated linear-skip decoder: pred = Linear(x) + gate · MLP(x), GELU, narrow hidden.
 
     The linear path is warm-started to ridge and FROZEN (carries the strong affine/tuned-lens
-    baseline); the GELU MLP adds a gated non-linear correction with gate init 0, so the decoder
-    starts identical to ridge and the non-linearity switches on only if the held-out split supports
-    it. GELU (not ReLU) avoids dead-neuron narrowing; a NARROW hidden (≤ input) + early-stop control
-    overfitting in the small-data regime. See research-wiki/claims/single-position-residual-linearly-saturated.md.
+    baseline); the GELU MLP adds a gated non-linear correction with gate init 0 (ReZero-style — the
+    MLP tail keeps its normal init so the gate has a live gradient; zeroing BOTH gate and tail
+    pins the branch at a zero-gradient saddle ≡ ridge), so the decoder starts identical to ridge
+    and the non-linearity switches on only if the held-out split supports it. GELU (not ReLU)
+    avoids dead-neuron narrowing; a NARROW hidden (≤ input) + early-stop control overfitting in the
+    small-data regime. See research-wiki/claims/single-position-residual-linearly-saturated.md.
     """
 
     def __init__(self, d_in, d_out, hidden):
@@ -68,18 +70,20 @@ def skip_decoder_attack(Xtr, Etr, Xte, pool_emb, pool_ids, *, hidden=384, epochs
                         seed=0, val_frac=0.15, patience=40, **_):
     """Gated linear-skip GELU decoder, ridge-warm-started + FROZEN linear path, early-stopped.
 
-    The linear path is set to ridge's exact W and frozen; only the gated GELU correction (gate=0,
-    zero MLP tail at init) trains, with weight-decay + early-stopping on a held-out split. So the
-    decoder starts identical to ridge and can only add a data-supported non-linear correction —
-    a clean `decoder ≥ ridge` guarantee with overfitting control.
+    The linear path is set to ridge's exact W and frozen; only the gated GELU correction trains
+    (gate=0 at init → starts identical to ridge; ReZero-style, so the MLP tail keeps its normal
+    init and the gate has a live gradient), with weight-decay + early-stopping on a held-out
+    split. So the decoder starts identical to ridge and can only add a data-supported non-linear
+    correction — a clean `decoder ≥ ridge` guarantee with overfitting control.
     """
     torch.manual_seed(seed)
     net = LinearSkipDecoder(Xtr.shape[1], Etr.shape[1], hidden).to(DEV)
-    with torch.no_grad():  # warm-start: linear path = ridge, gate=0, MLP tail=0 → starts AT ridge
+    with torch.no_grad():  # warm-start: linear path = ridge, gate=0 → forward starts AT ridge
         net.lin.weight.copy_(torch.from_numpy(np.ascontiguousarray(ridge_W(Xtr, Etr).T)).to(DEV))
         net.lin.bias.zero_()
-        net.mlp[-1].weight.zero_()
-        net.mlp[-1].bias.zero_()
+        # ReZero-style: gate=0 alone makes the net start at ridge (gate·mlp=0). The MLP tail is
+        # left at its NORMAL init — do NOT zero it, or ∂loss/∂gate = mlp(x) = 0 and the whole
+        # non-linear branch is a zero-gradient saddle that Adam can never leave (pins ≡ ridge).
     for p in net.lin.parameters():  # freeze the ridge baseline; train only the gated correction
         p.requires_grad_(False)
 

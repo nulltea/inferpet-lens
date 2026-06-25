@@ -25,7 +25,7 @@ GPU: ONE process at a time; run via scripts/run_in_rocm.sh. Output JSON under re
 
 Example (the residual cross-layer DP table, campaign-D Task 2):
   scripts/run_in_rocm.sh python3 scripts/evals/dp_leakage_sweep.py \
-      --layers 0,5,12,20 --epsilons inf,1024,512,256 --attacks ridge,decoder \
+      --layers 0,5,12,20 --epsilons inf,512,256,128 --attacks ridge,decoder \
       --probes club,vcap --out refine-logs/dp-decoder-grid/dp_leakage_sweep.json
 """
 from __future__ import annotations
@@ -126,7 +126,7 @@ def main():
     ap.add_argument("--corpus", default="corpora/release-gate-512.txt")
     ap.add_argument("--max-prompts", type=int, default=160)
     ap.add_argument("--layers", default="0,5,12,20", help="comma list of layer indices")
-    ap.add_argument("--epsilons", default="inf,1024,512,256", help="comma list; 'inf' = clip-only")
+    ap.add_argument("--epsilons", default="inf,512,256,128", help="comma list; 'inf' = clip-only")
     ap.add_argument("--attacks", default="ridge,decoder", help=f"subset of {sorted(ATTACKS)}")
     ap.add_argument("--probes", default="club,vcap", help=f"subset of {sorted(PROBES)}")
     ap.add_argument("--delta", type=float, default=1e-5)
