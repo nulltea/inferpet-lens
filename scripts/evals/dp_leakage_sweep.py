@@ -166,8 +166,30 @@ def probe_ig(X, E, y, K, *, X_clean=None, ig_ridge=1e-6, unit=False, **_):
             "d_eff": int((mu >= 1.0).sum())}
 
 
+def probe_sep(X, E, y, K, *, sep_classes=None, **_):
+    """Token-class separability (Voita-style) of a fixed closed-class set, attack-INDEPENDENT.
+
+    Converse (geometry-only Bhattacharyya/Fano channel-MI, headline `bits`) + achievable (class-probe
+    MDL info) on the rows whose token id ∈ a small class set (e.g. {is,are,was,were}). Direct
+    TOKEN-class separability — adjudicates whether the L20 information peak is real token info ridge
+    can't read (separability peaks at L20) or a representation-context artifact (separability tracks
+    recovery's monotone decline). `sep_classes` maps class label → token ids (resolved in main).
+    """
+    from talens.probes.class_separability import class_separability
+    if not sep_classes:
+        return {"bits": None, "bits_kind": "class_separability", "note": "no --sep-words"}
+    r = class_separability(X, y, sep_classes, seed=0)
+    return {"bits": r.get("bits"), "bits_kind": "class_separability",
+            "bhat_dist": r.get("bhat_dist"), "mi_converse_bits": r.get("mi_converse_bits"),
+            "mdl_info_bits": r.get("mdl_info_bits"), "compression": r.get("compression"),
+            "p_e_ub": r.get("p_e_ub"), "p_e_lb": r.get("p_e_lb"),
+            "k_present": r.get("k_present"), "n_rows": r.get("n_rows"),
+            "labels": r.get("labels"), "per_class_n": r.get("per_class_n"),
+            "coords": r.get("coords")}
+
+
 PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl, "ig": probe_ig,
-          "ig_unit": functools.partial(probe_ig, unit=True)}
+          "ig_unit": functools.partial(probe_ig, unit=True), "sep": probe_sep}
 
 
 # ───────────────────────── sweep ─────────────────────────
@@ -197,6 +219,8 @@ def main():
     ap.add_argument("--hidden", type=int, default=384, help="MLP-branch width of the gated linear-skip decoder (narrow ≤ input)")
     ap.add_argument("--epochs", type=int, default=500, help="decoder max epochs (early-stopped on a disjoint val split)")
     ap.add_argument("--club-max-rows", type=int, default=600)
+    ap.add_argument("--sep-words", default="is,are,was,were",
+                    help="separability class words for the 'sep' probe (single-token, leading-space matched)")
     ap.add_argument("--seed", type=int, default=20260621, help="base seed (split, floor, probe/attack init — fixed across noise seeds)")
     ap.add_argument("--seeds", default="", help="comma list of DP-noise seeds for multi-seed error bars (varies ONLY the noise draw); empty = single run at --seed")
     ap.add_argument("--out", default="refine-logs/dp-decoder-grid/dp_leakage_sweep.json")
@@ -225,6 +249,18 @@ def main():
     ).eval()
     table = model.get_input_embeddings().weight.detach().float().cpu().numpy().astype(np.float32)
     vocab = table.shape[0]
+
+    # separability class set: resolve each word to its single leading-space token id (skip multi-token)
+    sep_classes = None
+    if "sep" in probes:
+        sep_classes = {}
+        for w in (x.strip() for x in args.sep_words.split(",") if x.strip()):
+            tids = tok(" " + w, add_special_tokens=False).input_ids
+            if len(tids) == 1:
+                sep_classes[w] = (int(tids[0]),)
+            else:
+                print(f"[dp-sweep] WARN sep word {w!r} → {len(tids)} tokens {tids}; skipped (need single-token)", flush=True)
+        print(f"[dp-sweep] sep classes: {sep_classes}", flush=True)
 
     # clip C from runtime embedding norms (so clip-only ≈ clean; the curve is noise-driven)
     cal = []
@@ -301,7 +337,8 @@ def main():
                     rec[f"{a}_sel"] = top1 - floor[a]
                 for p in probes:
                     out = PROBES[p](X, emb_y, y, K, club_max_rows=args.club_max_rows,
-                                    full_emb=table, pool_size=args.pool_size, X_clean=s["X0"])
+                                    full_emb=table, pool_size=args.pool_size, X_clean=s["X0"],
+                                    sep_classes=sep_classes)
                     for k, v in out.items():
                         rec[f"{p}_{k}"] = v
                 records.append(rec)
