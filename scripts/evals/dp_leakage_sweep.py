@@ -135,7 +135,31 @@ def probe_mdl(X, E, y, K, *, full_emb=None, pool_size=2048, **_):
             "floor_ce_bits_per_row": r.get("floor_ce_bits_per_row")}
 
 
-PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl}
+def probe_ig(X, E, y, K, *, X_clean=None, ig_ridge=1e-6, **_):
+    """Geometry-only Gaussian channel-MI I_G of the DP channel at this layer (attack-INDEPENDENT).
+
+    Whitens the signal covariance (CLEAN rep Σ) by the empirical propagated-NOISE covariance N
+    (noised − clean): I_G = ½ Σ log2(1+μ_i), μ_i = eig(N^{-1/2} Σ N^{-1/2}). No fitted predictor →
+    independent of every attack/probe-family. Exact token-MI ceiling only at L0 (clean rep ↔ token
+    bijection); at depth it is representation-survival MI (a geometry upper bound on token-MI)."""
+    if X_clean is None:
+        return {"bits": None, "bits_kind": "ig_channel"}
+    noise = X - X_clean
+    if float(noise.std()) < 1e-9:
+        return {"bits": float("inf"), "bits_kind": "ig_channel", "note": "sigma~0"}
+    Xc = torch.from_numpy(np.ascontiguousarray(X_clean)).to(DEV).double()
+    Nn = torch.from_numpy(np.ascontiguousarray(noise)).to(DEV).double()
+    Sig, Nz = torch.cov(Xc.T), torch.cov(Nn.T)
+    w, Vv = torch.linalg.eigh(0.5 * (Nz + Nz.T))
+    w = torch.clamp(w, min=ig_ridge * float(w.max()))      # PD floor (conditioning of N^{-1/2})
+    Ninv = (Vv / w.sqrt()) @ Vv.T                            # N^{-1/2}
+    Wm = Ninv @ Sig @ Ninv
+    mu = torch.clamp(torch.linalg.eigvalsh(0.5 * (Wm + Wm.T)), min=0.0)
+    return {"bits": float((0.5 * torch.log2(1.0 + mu)).sum()), "bits_kind": "ig_channel_survival",
+            "d_eff": int((mu >= 1.0).sum())}
+
+
+PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl, "ig": probe_ig}
 
 
 # ───────────────────────── sweep ─────────────────────────
@@ -165,7 +189,8 @@ def main():
     ap.add_argument("--hidden", type=int, default=384, help="MLP-branch width of the gated linear-skip decoder (narrow ≤ input)")
     ap.add_argument("--epochs", type=int, default=500, help="decoder max epochs (early-stopped on a disjoint val split)")
     ap.add_argument("--club-max-rows", type=int, default=600)
-    ap.add_argument("--seed", type=int, default=20260621)
+    ap.add_argument("--seed", type=int, default=20260621, help="base seed (split, floor, probe/attack init — fixed across noise seeds)")
+    ap.add_argument("--seeds", default="", help="comma list of DP-noise seeds for multi-seed error bars (varies ONLY the noise draw); empty = single run at --seed")
     ap.add_argument("--out", default="refine-logs/dp-decoder-grid/dp_leakage_sweep.json")
     args = ap.parse_args()
 
@@ -236,44 +261,49 @@ def main():
                               hidden=args.hidden, epochs=args.epochs, seed=args.seed)
             floor[a] = float((yhat == y[te]).mean())
         split[L] = dict(y=y, tr=tr, te=te, pool=pool, emb_y=emb_y, floor=floor,
-                        K=int(np.unique(y).size))
+                        K=int(np.unique(y).size), X0=X0)  # X0 = clean rep (for I_G noise estimate)
 
+    # noise seeds: hoist all noise-INDEPENDENT work (model, clean capture, split, floor) above; only
+    # the noised capture + probes + attacks repeat per seed. Fixed split + probe init → isolates the
+    # DP-noise-draw variance (the multi-seed error bar on the probe/recovery values).
+    noise_seeds = [int(s) for s in args.seeds.split(",") if s.strip()] if args.seeds else [args.seed]
     records = []
     for ei, eps in enumerate(eps_list):
         sigma = 0.0 if math.isinf(eps) else C * z / eps
-        torch.manual_seed(args.seed + 1009 * ei)  # distinct per sweep point (robust to inf / decimal ε)
-        hk = model.model.embed_tokens.register_forward_hook(LocalDP(C, sigma))
-        try:
-            per, ids_chk = capture(model, tok, prompts, layers)
-        finally:
-            hk.remove()
-        assert all(np.array_equal(a, b) for a, b in zip(ids_chk, idc)), "token ids drifted under noise"
-        for L in layers:
-            X, _ = _stack(per[L], idc)
-            s = split[L]
-            y, tr, te, pool, emb_y, floor, K = s["y"], s["tr"], s["te"], s["pool"], s["emb_y"], s["floor"], s["K"]
-            pe = table[pool]
-            rec = {"epsilon": (None if math.isinf(eps) else eps), "layer": L, "sigma": sigma}
-            for a in attacks:
-                yhat = ATTACKS[a](X[tr], emb_y[tr], X[te], pe, pool,
-                                  ytr=y[tr], full_emb=table,  # CE attacks use ids + frozen table
-                                  hidden=args.hidden, epochs=args.epochs, seed=args.seed)
-                top1 = float((yhat == y[te]).mean())
-                rec[a] = top1
-                rec[f"{a}_sel"] = top1 - floor[a]
-            for p in probes:
-                out = PROBES[p](X, emb_y, y, K, club_max_rows=args.club_max_rows,
-                                full_emb=table, pool_size=args.pool_size)
-                for k, v in out.items():
-                    rec[f"{p}_{k}"] = v
-            records.append(rec)
-            es = "inf" if math.isinf(eps) else f"{eps:g}"
-            atxt = " ".join(f"{a}={rec[a]:.3f}" for a in attacks)
-            ptxt = " ".join(
-                f"{p}={rec.get(p + '_bits')}" + (f"(ppl {rec[p + '_perplexity']:.1f})" if rec.get(p + "_perplexity") else "")
-                for p in probes
-            )
-            print(f"[dp-sweep] ε={es:>5} L{L:>2} | {atxt} | {ptxt}", flush=True)
+        for si, nseed in enumerate(noise_seeds):
+            torch.manual_seed(nseed + 1009 * ei)  # distinct noise draw per (seed, sweep point)
+            hk = model.model.embed_tokens.register_forward_hook(LocalDP(C, sigma))
+            try:
+                per, ids_chk = capture(model, tok, prompts, layers)
+            finally:
+                hk.remove()
+            assert all(np.array_equal(a, b) for a, b in zip(ids_chk, idc)), "token ids drifted under noise"
+            for L in layers:
+                X, _ = _stack(per[L], idc)
+                s = split[L]
+                y, tr, te, pool, emb_y, floor, K = s["y"], s["tr"], s["te"], s["pool"], s["emb_y"], s["floor"], s["K"]
+                pe = table[pool]
+                rec = {"epsilon": (None if math.isinf(eps) else eps), "layer": L, "sigma": sigma, "seed": nseed}
+                for a in attacks:
+                    yhat = ATTACKS[a](X[tr], emb_y[tr], X[te], pe, pool,
+                                      ytr=y[tr], full_emb=table,  # CE attacks use ids + frozen table
+                                      hidden=args.hidden, epochs=args.epochs, seed=args.seed)
+                    top1 = float((yhat == y[te]).mean())
+                    rec[a] = top1
+                    rec[f"{a}_sel"] = top1 - floor[a]
+                for p in probes:
+                    out = PROBES[p](X, emb_y, y, K, club_max_rows=args.club_max_rows,
+                                    full_emb=table, pool_size=args.pool_size, X_clean=s["X0"])
+                    for k, v in out.items():
+                        rec[f"{p}_{k}"] = v
+                records.append(rec)
+                es = "inf" if math.isinf(eps) else f"{eps:g}"
+                atxt = " ".join(f"{a}={rec[a]:.3f}" for a in attacks)
+                ptxt = " ".join(
+                    f"{p}={rec.get(p + '_bits')}" + (f"(ppl {rec[p + '_perplexity']:.1f})" if rec.get(p + "_perplexity") else "")
+                    for p in probes
+                )
+                print(f"[dp-sweep] ε={es:>5} L{L:>2} seed={nseed} | {atxt} | {ptxt}", flush=True)
 
     # per (layer, attack, probe): does the attack's selectivity track the probe bits across ε?
     corr = {}
