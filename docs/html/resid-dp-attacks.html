@@ -203,6 +203,18 @@
       <div class="section-meta">probes first, then the linear and non-linear attacks · across depth</div>
     </header>
     <p class="prose">One sweep, four observation depths × four budgets, gemma-2-2b, N=160, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>reader perplexity</em> (effective token candidates remaining).</p>
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · 02 — token recovery vs ε, by layer · linear ridge vs non-linear decoder, probe overlaid</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
+      <div id="plot-recovery" style="width:100%;height:520px;"></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Each panel is a depth. Solid lines = the two attacks (token recovery, left axis); the dashed grey line is CLUB normalised (the probe), which stays high while ridge collapses. At L0 the linear ridge dominates; by L12/L20 under noise the non-linear decoder overtakes ridge. Hover for exact values; click the legend to toggle a series.</span></div>
+    </div>
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · 03 — does the probe predict recovery? token recovery vs CLUB bits, per layer × attack (ε-sweep paths)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
+      <div id="plot-scatter" style="width:100%;height:460px;"></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">A sloped path = recovery tracks the probe (correlated); a flat path = decorrelated. The L0 paths slope up together; at L20 the ridge path flattens (decorrelated) while the decoder path keeps sloping (re-correlated) — the thesis in one view. Toggle traces in the legend; hover shows ε.</span></div>
+    </div>
+    <details style="margin:6px 0 16px;">
+      <summary style="cursor:pointer;font-size:13px;opacity:0.75;letter-spacing:.04em;">▸ show the underlying 16-row data table</summary>
     <table class="spec spec--wide">
       <thead><tr>
         <th>layer</th><th>ε</th>
@@ -229,12 +241,13 @@
       </tbody>
       <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Source: <code>refine-logs/dp-decoder-grid/dp_leakage_sweep.json</code> (<code>scripts/evals/dp_leakage_sweep.py</code>). Accent = the stronger attack in that row: ridge at L0 (and clean), the non-linear decoder in the deep + noisy cells.</caption>
     </table>
+    </details>
     <div class="prose">
-      <p><strong>Read the table top to bottom.</strong> At <strong>L0</strong> the released object is essentially the noised embedding, so the linear ridge is near-optimal and <em>beats</em> the non-linear decoder at every budget (0.97 vs 0.67 clean) — the non-linear attack has no edge where the map is already linear. With depth and noise the picture inverts: by <strong>L5/L12/L20 at ε ≤ 512</strong> the decoder overtakes ridge, most sharply at <strong>L20, ε=256 (0.291 vs 0.134)</strong>. Throughout, the probes barely move relative to the attack collapse: CLUB stays in the 1500–3400-bit band and V_cap's reader keeps an effective ~7–40 candidates while ridge recovery falls 3–7×. The information is preserved; the linear attack just cannot reach it at depth.</p>
+      <p><strong>Read the plots above (the 16-row table is collapsed below).</strong> At <strong>L0</strong> the released object is essentially the noised embedding, so the linear ridge is near-optimal and <em>beats</em> the non-linear decoder at every budget (0.97 vs 0.67 clean) — the non-linear attack has no edge where the map is already linear. With depth and noise the picture inverts: by <strong>L5/L12/L20 at ε ≤ 512</strong> the decoder overtakes ridge, most sharply at <strong>L20, ε=256 (0.291 vs 0.134)</strong>. Throughout, the probes barely move relative to the attack collapse: CLUB stays in the 1500–3400-bit band and V_cap's reader keeps an effective ~7–40 candidates while ridge recovery falls 3–7×. The information is preserved; the linear attack just cannot reach it at depth.</p>
     </div>
 
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 02 — where the non-linear decoder beats the linear ridge (decoder − ridge recovery)</span><span class="r">source: dp_leakage_sweep.json · 4 layers × 4 ε</span></div>
+      <div class="plot-cap"><span class="l">FIG · 04 — where the non-linear decoder beats the linear ridge (decoder − ridge recovery, compact)</span><span class="r">source: dp_leakage_sweep.json · 4 layers × 4 ε</span></div>
       <svg class="plot" viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Heatmap of decoder minus ridge recovery: warm cells (L0, and the clean column) where the linear ridge wins, cool cells in the deep and noisy corner (L5/L12/L20 at epsilon 512 and 256) where the non-linear decoder wins, strongest at L20 epsilon 256.">
         <title>decoder − ridge recovery: ridge wins at L0/clean (warm), the non-linear decoder wins in the deep+noisy corner (cool).</title>
         <!-- rows L0,L5,L12,L20 ; cols inf,1024,512,256 ; warm=ridge wins, cool=decoder wins -->
@@ -397,5 +410,52 @@
     </div>
   </footer>
 </div>
+<script src="js/plotly-basic.min.js"></script>
+<script>
+(function () {
+  if (typeof Plotly === "undefined") return;
+  var EPS = ["∞", "1024", "512", "256"];
+  var L = {
+    L0:  {ridge:[0.966,0.907,0.771,0.356], dec:[0.673,0.562,0.412,0.234], club:[3384,2882,2334,1873]},
+    L5:  {ridge:[0.815,0.688,0.446,0.209], dec:[0.599,0.600,0.501,0.312], club:[2503,2488,2055,1570]},
+    L12: {ridge:[0.401,0.316,0.225,0.068], dec:[0.264,0.262,0.262,0.099], club:[2403,2403,2378,1571]},
+    L20: {ridge:[0.591,0.562,0.531,0.134], dec:[0.502,0.510,0.536,0.291], club:[2525,2609,2833,1780]}
+  };
+  var lays = ["L0","L5","L12","L20"], ax = ["","2","3","4"];
+  var INK = "#14181c", GRID = "rgba(20,24,28,0.08)", RIDGE = "#c2683a", DEC = "#2f7d8a", PROBE = "#9aa0a6";
+  var font = {family:"'JetBrains Mono', monospace", size:11, color:INK};
+
+  // FIG.02 — faceted recovery vs ε, one panel per layer (+ normalised CLUB overlay)
+  var t1 = [];
+  lays.forEach(function (k, i) {
+    var xa = "x"+ax[i], ya = "y"+ax[i], first = (i === 0);
+    t1.push({x:EPS, y:L[k].ridge, xaxis:xa, yaxis:ya, name:"ridge (linear)", legendgroup:"r", showlegend:first, mode:"lines+markers", line:{color:RIDGE}, marker:{color:RIDGE,size:6}});
+    t1.push({x:EPS, y:L[k].dec,   xaxis:xa, yaxis:ya, name:"decoder (non-linear)", legendgroup:"d", showlegend:first, mode:"lines+markers", line:{color:DEC}, marker:{color:DEC,size:6}});
+    t1.push({x:EPS, y:L[k].club.map(function(v){return v/3384;}), xaxis:xa, yaxis:ya, name:"CLUB ÷3384 (probe)", legendgroup:"c", showlegend:first, mode:"lines", line:{color:PROBE,dash:"dot"}});
+  });
+  var cell = [{x:0.0,y:1.0},{x:0.56,y:1.0},{x:0.0,y:0.42},{x:0.56,y:0.42}];
+  var lay1 = {grid:{rows:2,columns:2,pattern:"independent"}, height:520, margin:{t:54,r:16,b:46,l:48},
+    legend:{orientation:"h", y:1.17, x:0.5, xanchor:"center", font:{size:11}}, font:font,
+    paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    annotations: lays.map(function(k,i){return {text:"<b>"+k+"</b>", xref:"paper", yref:"paper", x:cell[i].x, y:cell[i].y, showarrow:false, font:{size:13,color:INK}};})};
+  ["yaxis","yaxis2","yaxis3","yaxis4"].forEach(function(a,i){lay1[a]={range:[0,1.02], title:(i%2===0?"recovery":""), gridcolor:GRID, zeroline:false};});
+  ["xaxis","xaxis2","xaxis3","xaxis4"].forEach(function(a,i){lay1[a]={title:(i>=2?"ε  (← more noise)":""), gridcolor:GRID};});
+  Plotly.newPlot("plot-recovery", t1, lay1, {displayModeBar:false, responsive:true});
+
+  // FIG.03 — recovery vs CLUB bits, ε-sweep path per layer × attack
+  var col = {L0:"#b55831", L5:"#c98a3e", L12:"#2f7d8a", L20:"#2f5e87"};
+  var t2 = [];
+  lays.forEach(function (k) {
+    t2.push({x:L[k].club, y:L[k].ridge, text:EPS, name:k+" ridge", mode:"lines+markers", line:{color:col[k]}, marker:{color:col[k],symbol:"circle",size:8},
+      hovertemplate:k+" ridge<br>CLUB=%{x} bits<br>recovery=%{y:.3f}<br>ε=%{text}<extra></extra>"});
+    t2.push({x:L[k].club, y:L[k].dec, text:EPS, name:k+" decoder", mode:"lines+markers", line:{color:col[k],dash:"dot"}, marker:{color:col[k],symbol:"diamond-open",size:9},
+      hovertemplate:k+" decoder<br>CLUB=%{x} bits<br>recovery=%{y:.3f}<br>ε=%{text}<extra></extra>"});
+  });
+  var lay2 = {height:460, margin:{t:24,r:16,b:48,l:54}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    xaxis:{title:"CLUB — MI upper bound (bits)", gridcolor:GRID}, yaxis:{title:"token recovery (top-1)", range:[0,1.02], gridcolor:GRID, zeroline:false},
+    legend:{font:{size:10}}};
+  Plotly.newPlot("plot-scatter", t2, lay2, {displayModeBar:false, responsive:true});
+})();
+</script>
 </body>
 </html>
