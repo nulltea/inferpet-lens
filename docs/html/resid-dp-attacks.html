@@ -234,6 +234,17 @@
     <div class="prose">
       <p>Recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.42 over L0→L25) and a properly-regularized non-linear decoder adds nothing at any depth, so there is <strong>no linear-vs-non-linear divergence</strong> to report here — the earlier such result was a small-data artifact (160 prompts, no early-stop), which dissolved at 512 prompts. What does move with depth is the <strong>probe↔recovery correlation</strong>: CLUB tracks the attack at shallow layers and dips at L20, and the <strong>V_cap reader decouples mid-depth</strong> (ρ falls to +0.20 by L12) — the <code>claim:depth-decoupling-input-dp</code> finding (jury PARTIAL/scoped, single seed). The token information stays present (probes high) while it becomes less linearly accessible with depth; the genuine stronger-attack axis is an LM-prior / sequence-context decode (<code>claim:single-position-residual-linearly-saturated</code> → BeamClean), not a deeper per-vector net.</p>
     </div>
+
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Depth profile under moderate DP (ε=512) — recovery falls, information peaks at L20 (5-seed)</h4>
+    <p class="prose">Five independent DP-noise draws at ε=512 (fixed split + probe init; mean ± std). Each series is normalized to its own maximum so the <em>shapes</em> overlay. <strong>Hard token recovery</strong> (ridge top-1) falls monotonically with depth, but every <strong>information</strong> measure — CLUB, V_cap, and the geometry-only, fitting-free <strong>I_G</strong> — <strong>peaks at L20</strong>. The L12→L20 rise is statistically separated (non-overlapping error bars) for all three, so it is <strong>not</strong> single-draw or probe-fit noise.</p>
+    <div class="plot-wrap">
+      <div class="plot-cap"><span class="l">FIG. 04 — depth profile, ε=512, 5-seed (each series ÷ its max; error bars = ±1 std)</span></div>
+      <div id="plot-depth" style="width:100%;height:440px;"></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Recovery (solid, ▼) slopes down; the probe curves rise to a peak at L20. The gap between them IS the probe↔recovery decorrelation, here confirmed across seeds with a fitting-free probe.</span></div>
+    </div>
+    <div class="prose">
+      <p><strong>Finding (5-seed, magnitude-controlled).</strong> Under moderate DP, token-recoverable information in the residual stream is <strong>non-monotone in depth, peaking at L20</strong>, while hard recovery falls monotonically — a real <strong>probe↔recovery decorrelation</strong>. It is corroborated by I_G, which uses <em>no fitted predictor</em>, so it is not a probe-overfitting artifact. A <strong>direction-space control</strong> (unit-normalizing each residual before I_G) keeps the L12→L20 rise (934→1274 bits, error bars separated), so the effect is <strong>structural (angular), not residual-norm growth</strong>. Interpretation: depth trades <em>input-token retrievability</em> (down) for <em>noise-robust token information</em> (up), with an <strong>L20 sweet spot</strong> — deep enough that the signal has outgrown the input-injected noise, not so deep that token identity is overwritten by output-oriented features (beyond L20 the representation keeps gaining contextual info — direction-space I_G still climbs to L25 — but CLUB/V_cap and recovery both drop, i.e. it loses token specificity). Single ε (512); the effect is largest at moderate noise and absent at ε=∞ and ε=128. <span class="mono">refine-logs/multiseed-ig/ · multiseed-ig-unit/</span></p>
+    </div>
   </section>
 
   <!-- ═════ § 5 EMBEDDING ═════ -->
@@ -404,6 +415,28 @@
     xaxis:{title:"CLUB — MI upper bound (bits)", gridcolor:GRID}, yaxis:{title:"token recovery (top-1)", range:[0,1.02], gridcolor:GRID, zeroline:false},
     legend:{font:{size:10}}};
   Plotly.newPlot("plot-scatter", t2, lay2, {displayModeBar:false, responsive:true});
+
+  // FIG.04 — depth profile at ε=512, 5-seed (mean±std); each series normalized to its own max.
+  var DL = [0, 5, 12, 20, 25];
+  var DEPTH = {
+    recovery: {m:[0.905,0.660,0.647,0.616,0.499], s:[0.004,0.003,0.003,0.015,0.016], c:"#c2683a", dash:"solid",  sym:"triangle-down", nm:"recovery (ridge top-1)"},
+    club:     {m:[2674,2313,2689,3231,2915],      s:[16,40,32,44,31],                c:"#2f7d8a", dash:"dot",    sym:"circle",        nm:"CLUB"},
+    vcap:     {m:[6.17,5.22,5.35,6.10,5.67],       s:[0.02,0.02,0.05,0.01,0.03],      c:"#2f5e87", dash:"dash",   sym:"square",        nm:"V_cap (PVI)"},
+    ig:       {m:[495,743,1016,1353,1318],         s:[0.2,1.8,2.1,4.7,2.1],           c:"#6a4c93", dash:"dashdot",sym:"diamond",       nm:"I_G (geometry-only)"}
+  };
+  var t3 = Object.keys(DEPTH).map(function (k) {
+    var d = DEPTH[k], mx = Math.max.apply(null, d.m);
+    return {x:DL, y:d.m.map(function (v){return v/mx;}), name:d.nm, mode:"lines+markers",
+      line:{color:d.c, dash:d.dash, width:2}, marker:{color:d.c, symbol:d.sym, size:8},
+      error_y:{type:"data", array:d.s.map(function (v){return v/mx;}), visible:true, thickness:1, width:3, color:d.c},
+      hovertemplate:d.nm+"<br>L%{x}<br>norm=%{y:.3f}<extra></extra>"};
+  });
+  var lay3 = {height:440, margin:{t:16,r:16,b:48,l:54}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    xaxis:{title:"layer (observation depth)", gridcolor:GRID, tickvals:DL, zeroline:false},
+    yaxis:{title:"value ÷ series max", gridcolor:GRID, rangemode:"tozero", zeroline:false},
+    legend:{orientation:"h", y:1.12, x:0.5, xanchor:"center", font:{size:10}},
+    annotations:[{x:20, y:1.02, xref:"x", yref:"paper", text:"L20 peak", showarrow:false, font:{size:11, color:INK}}]};
+  Plotly.newPlot("plot-depth", t3, lay3, {displayModeBar:false, responsive:true});
 })();
 </script>
 </body>
