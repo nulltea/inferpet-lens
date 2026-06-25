@@ -1,0 +1,310 @@
+{
+  "model": "unsloth/gemma-2-2b",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 512,
+  "defense": "local_dp",
+  "sigma_convention": "sigma = C*z/eps (sensitivity C, add/remove-to-zero adjacency)",
+  "clip_C": 198.9523468017578,
+  "delta": 1e-05,
+  "pool_size": 2048,
+  "seed": 20260621,
+  "layers": [
+    0,
+    5,
+    12,
+    20,
+    25
+  ],
+  "epsilons": [
+    null,
+    512.0,
+    256.0,
+    128.0
+  ],
+  "attacks": [
+    "ridge"
+  ],
+  "probes": [
+    "mdl"
+  ],
+  "readout_note": "recovery = token-id top-1 over the candidate pool; *_sel = recovery minus a CLEAN-rep label-shuffle floor (per layer); vcap_perplexity = reader effective token candidates 2^(H_prior_empirical - PVI), clamped [1, 2^H_prior]; probes computed on all captured rows (probe_split=all).",
+  "correlation": {
+    "L0": {
+      "ridge_sel_vs_mdl": 1.0
+    },
+    "L5": {
+      "ridge_sel_vs_mdl": 1.0
+    },
+    "L12": {
+      "ridge_sel_vs_mdl": 1.0
+    },
+    "L20": {
+      "ridge_sel_vs_mdl": 1.0
+    },
+    "L25": {
+      "ridge_sel_vs_mdl": 1.0
+    }
+  },
+  "records": [
+    {
+      "epsilon": null,
+      "layer": 0,
+      "sigma": 0.0,
+      "ridge": 0.9916330957545708,
+      "ridge_sel": 0.9916330957545708,
+      "mdl_bits": 100737.36522285957,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 9797.860177661723,
+      "mdl_compression": 11.28156795424904,
+      "mdl_sdl_bits": 9717.681643434446,
+      "mdl_floor_ce_bits_per_row": 0.008247123454770345
+    },
+    {
+      "epsilon": null,
+      "layer": 5,
+      "sigma": 0.0,
+      "ridge": 0.8499624906226556,
+      "ridge_sel": 0.8072018004501125,
+      "mdl_bits": 90133.91528779756,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 20401.310112723746,
+      "mdl_compression": 5.418045448541242,
+      "mdl_sdl_bits": 16298.937478227857,
+      "mdl_floor_ce_bits_per_row": 0.42196797310181955
+    },
+    {
+      "epsilon": null,
+      "layer": 12,
+      "sigma": 0.0,
+      "ridge": 0.792318150917743,
+      "ridge_sel": 0.7382732834806255,
+      "mdl_bits": 82389.90571253811,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 28145.319687983203,
+      "mdl_compression": 3.9273039576706217,
+      "mdl_sdl_bits": 17602.54238078741,
+      "mdl_floor_ce_bits_per_row": 1.0844247384484462
+    },
+    {
+      "epsilon": null,
+      "layer": 20,
+      "sigma": 0.0,
+      "ridge": 0.6364628820960698,
+      "ridge_sel": 0.5930676855895196,
+      "mdl_bits": 83428.41438090957,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 27106.81101961173,
+      "mdl_compression": 4.077765743840146,
+      "mdl_sdl_bits": 16440.46343996968,
+      "mdl_floor_ce_bits_per_row": 1.0971351141372194
+    },
+    {
+      "epsilon": null,
+      "layer": 25,
+      "sigma": 0.0,
+      "ridge": 0.4203935599284436,
+      "ridge_sel": 0.4096601073345259,
+      "mdl_bits": 70098.0279075196,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 40437.197493001695,
+      "mdl_compression": 2.7335036118576514,
+      "mdl_sdl_bits": 14458.918642678625,
+      "mdl_floor_ce_bits_per_row": 2.6721126157501613
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 0,
+      "sigma": 1.8825886265485325,
+      "ridge": 0.9113727920669352,
+      "ridge_sel": 0.9113727920669352,
+      "mdl_bits": 91116.606962066,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 19418.618438455298,
+      "mdl_compression": 5.692229122831155,
+      "mdl_sdl_bits": 15763.669583796971,
+      "mdl_floor_ce_bits_per_row": 0.37594618953490294
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 5,
+      "sigma": 1.8825886265485325,
+      "ridge": 0.6459114778694673,
+      "ridge_sel": 0.6031507876969242,
+      "mdl_bits": 76359.56512766825,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 34175.660272853056,
+      "mdl_compression": 3.2343259652637455,
+      "mdl_sdl_bits": 17799.666922134573,
+      "mdl_floor_ce_bits_per_row": 1.684426388677071
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 12,
+      "sigma": 1.8825886265485325,
+      "ridge": 0.6461590754588715,
+      "ridge_sel": 0.592114208021754,
+      "mdl_bits": 72854.22510627253,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 37681.00029424877,
+      "mdl_compression": 2.933447215768108,
+      "mdl_sdl_bits": 16832.148959178718,
+      "mdl_floor_ce_bits_per_row": 2.1445022973740024
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 20,
+      "sigma": 1.8825886265485325,
+      "ridge": 0.6181768558951966,
+      "ridge_sel": 0.5747816593886463,
+      "mdl_bits": 81232.53778137043,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 29302.687619150885,
+      "mdl_compression": 3.7721872763739452,
+      "mdl_sdl_bits": 15733.45441500555,
+      "mdl_floor_ce_bits_per_row": 1.395724460414044
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 25,
+      "sigma": 1.8825886265485325,
+      "ridge": 0.4851520572450805,
+      "ridge_sel": 0.47441860465116276,
+      "mdl_bits": 70316.38293672033,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 40218.84246380098,
+      "mdl_compression": 2.7483442742045265,
+      "mdl_sdl_bits": 18169.860596963703,
+      "mdl_floor_ce_bits_per_row": 2.2679471165230694
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 0,
+      "sigma": 3.765177253097065,
+      "ridge": 0.641462658816238,
+      "ridge_sel": 0.641462658816238,
+      "mdl_bits": 71533.27154827735,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 39001.95385224396,
+      "mdl_compression": 2.834094564064044,
+      "mdl_sdl_bits": 16356.497758915059,
+      "mdl_floor_ce_bits_per_row": 2.329300153603055
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 5,
+      "sigma": 3.765177253097065,
+      "ridge": 0.3900975243810953,
+      "ridge_sel": 0.34733683420855216,
+      "mdl_bits": 58763.40186090236,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 51771.82353961894,
+      "mdl_compression": 2.135046012353284,
+      "mdl_sdl_bits": 14145.633816537782,
+      "mdl_floor_ce_bits_per_row": 3.8702108334788274
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 12,
+      "sigma": 3.765177253097065,
+      "ridge": 0.3908905506458192,
+      "ridge_sel": 0.33684568320870156,
+      "mdl_bits": 46929.97791660628,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 63605.24748391502,
+      "mdl_compression": 1.7378318577956053,
+      "mdl_sdl_bits": 12340.649488845447,
+      "mdl_floor_ce_bits_per_row": 5.273050606363873
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 20,
+      "sigma": 3.765177253097065,
+      "ridge": 0.20087336244541484,
+      "ridge_sel": 0.15747816593886463,
+      "mdl_bits": 46461.26123196934,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 64073.96416855196,
+      "mdl_compression": 1.725119193651716,
+      "mdl_sdl_bits": 12917.985133456808,
+      "mdl_floor_ce_bits_per_row": 5.261878115109561
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 25,
+      "sigma": 3.765177253097065,
+      "ridge": 0.1599284436493739,
+      "ridge_sel": 0.1491949910554562,
+      "mdl_bits": 38067.82667547729,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 72467.39872504401,
+      "mdl_compression": 1.5253096888424869,
+      "mdl_sdl_bits": 13495.199518078887,
+      "mdl_floor_ce_bits_per_row": 6.065850566443646
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 0,
+      "sigma": 7.53035450619413,
+      "ridge": 0.2916021072203285,
+      "ridge_sel": 0.2916021072203285,
+      "mdl_bits": 48475.29415223113,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 62059.93124829017,
+      "mdl_compression": 1.7811045416452453,
+      "mdl_sdl_bits": 11312.015476897592,
+      "mdl_floor_ce_bits_per_row": 5.219904934313164
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 5,
+      "sigma": 7.53035450619413,
+      "ridge": 0.24006001500375093,
+      "ridge_sel": 0.1972993248312078,
+      "mdl_bits": 45914.252277049476,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 64620.97312347183,
+      "mdl_compression": 1.710516262101481,
+      "mdl_sdl_bits": 11435.410961506357,
+      "mdl_floor_ce_bits_per_row": 5.470640008430927
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 12,
+      "sigma": 7.53035450619413,
+      "ridge": 0.32902787219578516,
+      "ridge_sel": 0.27498300475866755,
+      "mdl_bits": 42193.10466099485,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 68342.12073952645,
+      "mdl_compression": 1.6173806754081599,
+      "mdl_sdl_bits": 10866.635749365094,
+      "mdl_floor_ce_bits_per_row": 5.911899299543443
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 20,
+      "sigma": 7.53035450619413,
+      "ridge": 0.13973799126637554,
+      "ridge_sel": 0.09634279475982532,
+      "mdl_bits": 28468.377609966657,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 82066.84779055465,
+      "mdl_compression": 1.3468925440224253,
+      "mdl_sdl_bits": 9544.184373100885,
+      "mdl_floor_ce_bits_per_row": 7.459644457668562
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 25,
+      "sigma": 7.53035450619413,
+      "ridge": 0.081216457960644,
+      "ridge_sel": 0.07048300536672629,
+      "mdl_bits": 20226.079095606023,
+      "mdl_bits_kind": "mdl_info_retrieval",
+      "mdl_mdl_code_bits": 90309.14630491528,
+      "mdl_compression": 1.2239649019304832,
+      "mdl_sdl_bits": 8751.817648063196,
+      "mdl_floor_ce_bits_per_row": 8.38894555203169
+    }
+  ]
+}

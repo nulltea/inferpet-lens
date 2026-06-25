@@ -112,7 +112,30 @@ def probe_vcap(X, E, y, K, **_):
     return {"bits": pvi, "bits_kind": "capacity_v_info", "reader_top1_acc": acc, "perplexity": ppl}
 
 
-PROBES = {"club": probe_club, "vcap": probe_vcap}
+def probe_mdl(X, E, y, K, *, full_emb=None, pool_size=2048, **_):
+    """MDL (RETRIEVAL family) prequential online code length of the tokens given the rep, in bits.
+
+    Retrieval family (ridge X→embedding + retrieval softmax) — generalizes to unseen tokens, matching
+    the vocab-disjoint surface (the class-probe family is closed-set). Headline `bits` is leakage-
+    POSITIVE: info_bits = uniform_code − online_code ≈ N·I(rep;token) (rises with leakage → correlates
+    the right way with recovery). MDL total code length, compression, and Whitney SDL are kept beside
+    it. SDL is non-monotone across ε (the surplus shrinks when there is little left to learn), so MDL/
+    info_bits — not SDL — is the representative leakage signal here.
+    """
+    import torch
+    from talens.probes.mdl import online_code_length_retrieval
+    r = online_code_length_retrieval(X, y, torch.from_numpy(np.ascontiguousarray(full_emb)),
+                                     candidate_pool_size=pool_size, seed=0)
+    code = r.get("online_code_length_bits")
+    uni = r.get("uniform_code_length_bits")
+    info = None if (code is None or uni is None) else float(uni - code)
+    return {"bits": info, "bits_kind": "mdl_info_retrieval",
+            "mdl_code_bits": code, "compression": r.get("compression"),
+            "sdl_bits": r.get("surplus_description_length_bits"),
+            "floor_ce_bits_per_row": r.get("floor_ce_bits_per_row")}
+
+
+PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl}
 
 
 # ───────────────────────── sweep ─────────────────────────
@@ -239,7 +262,8 @@ def main():
                 rec[a] = top1
                 rec[f"{a}_sel"] = top1 - floor[a]
             for p in probes:
-                out = PROBES[p](X, emb_y, y, K, club_max_rows=args.club_max_rows)
+                out = PROBES[p](X, emb_y, y, K, club_max_rows=args.club_max_rows,
+                                full_emb=table, pool_size=args.pool_size)
                 for k, v in out.items():
                     rec[f"{p}_{k}"] = v
             records.append(rec)
