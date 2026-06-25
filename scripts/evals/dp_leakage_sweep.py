@@ -135,18 +135,25 @@ def probe_mdl(X, E, y, K, *, full_emb=None, pool_size=2048, **_):
             "floor_ce_bits_per_row": r.get("floor_ce_bits_per_row")}
 
 
-def probe_ig(X, E, y, K, *, X_clean=None, ig_ridge=1e-6, **_):
+def probe_ig(X, E, y, K, *, X_clean=None, ig_ridge=1e-6, unit=False, **_):
     """Geometry-only Gaussian channel-MI I_G of the DP channel at this layer (attack-INDEPENDENT).
 
     Whitens the signal covariance (CLEAN rep Σ) by the empirical propagated-NOISE covariance N
     (noised − clean): I_G = ½ Σ log2(1+μ_i), μ_i = eig(N^{-1/2} Σ N^{-1/2}). No fitted predictor →
     independent of every attack/probe-family. Exact token-MI ceiling only at L0 (clean rep ↔ token
-    bijection); at depth it is representation-survival MI (a geometry upper bound on token-MI)."""
+    bijection); at depth it is representation-survival MI (a geometry upper bound on token-MI).
+
+    unit=True → DIRECTION-SPACE control: unit-normalise each clean+noised row first, removing residual
+    magnitude growth with depth, to test whether a depth bump is angular structure vs. just scale."""
     if X_clean is None:
         return {"bits": None, "bits_kind": "ig_channel"}
     noise = X - X_clean
     if float(noise.std()) < 1e-9:
         return {"bits": float("inf"), "bits_kind": "ig_channel", "note": "sigma~0"}
+    if unit:  # direction-space: strip per-row magnitude from clean AND noised, then re-form the noise
+        Xu = X / np.clip(np.linalg.norm(X, axis=1, keepdims=True), 1e-9, None)
+        Xcu = X_clean / np.clip(np.linalg.norm(X_clean, axis=1, keepdims=True), 1e-9, None)
+        X_clean, noise = Xcu, (Xu - Xcu)
     Xc = torch.from_numpy(np.ascontiguousarray(X_clean)).to(DEV).double()
     Nn = torch.from_numpy(np.ascontiguousarray(noise)).to(DEV).double()
     Sig, Nz = torch.cov(Xc.T), torch.cov(Nn.T)
@@ -159,7 +166,8 @@ def probe_ig(X, E, y, K, *, X_clean=None, ig_ridge=1e-6, **_):
             "d_eff": int((mu >= 1.0).sum())}
 
 
-PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl, "ig": probe_ig}
+PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl, "ig": probe_ig,
+          "ig_unit": functools.partial(probe_ig, unit=True)}
 
 
 # ───────────────────────── sweep ─────────────────────────
