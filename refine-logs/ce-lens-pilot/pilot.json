@@ -1,0 +1,60 @@
+{
+  "model": "unsloth/gemma-2-2b",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 512,
+  "defense": "local_dp",
+  "sigma_convention": "sigma = C*z/eps (sensitivity C, add/remove-to-zero adjacency)",
+  "clip_C": 198.9523468017578,
+  "delta": 1e-05,
+  "pool_size": 2048,
+  "seed": 20260621,
+  "layers": [
+    12
+  ],
+  "epsilons": [
+    null,
+    256.0
+  ],
+  "attacks": [
+    "lens",
+    "declens"
+  ],
+  "probes": [
+    "vcap"
+  ],
+  "readout_note": "recovery = token-id top-1 over the candidate pool; *_sel = recovery minus a CLEAN-rep label-shuffle floor (per layer); vcap_perplexity = reader effective token candidates 2^(H_prior_empirical - PVI), clamped [1, 2^H_prior]; probes computed on all captured rows (probe_split=all).",
+  "correlation": {
+    "L12": {
+      "lens_sel_vs_vcap": 0.9999999999999999,
+      "declens_sel_vs_vcap": 0.9999999999999999
+    }
+  },
+  "records": [
+    {
+      "epsilon": null,
+      "layer": 12,
+      "sigma": 0.0,
+      "lens": 0.2813758909203595,
+      "lens_sel": 0.27517818407189343,
+      "declens": 0.279826464208243,
+      "declens_sel": 0.2720793306476604,
+      "vcap_bits": 5.121417240368594,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.7891692954784437,
+      "vcap_perplexity": 13.604103983927436
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 12,
+      "sigma": 3.765177253097065,
+      "lens": 0.2039045553145336,
+      "lens_sel": 0.19770684846606754,
+      "declens": 0.2039045553145336,
+      "declens_sel": 0.196157421753951,
+      "vcap_bits": 2.8256849154668173,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.5378548895899053,
+      "vcap_perplexity": 66.79658116516312
+    }
+  ]
+}

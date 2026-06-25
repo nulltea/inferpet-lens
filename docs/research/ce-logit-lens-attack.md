@@ -28,11 +28,20 @@ A **logit lens** (read a residual through the model's frozen unembedding) with a
 - query  `h(x) = A·x + b  [+ gate·MLP(x)]`  (A warm-started to ridge; gate=0 ReZero init → starts as
   the linear lens; MLP tail kept at normal init so the gate has a live gradient — see
   [the dead-branch bug](../../research-wiki/claims/single-position-residual-linearly-saturated.md))
-- logits `z = E · h(x)`  (`E` = frozen embedding/unembedding table; **no per-token trainable params**)
+- logits **cosine** softmax: `z = (ĥ · Ê) / τ`, query + embeddings **row-normalised**, fixed τ
+  (`E` = frozen embedding/unembedding table; **no per-token trainable params**)
 - loss   **cross-entropy** over **full/sampled vocab** against the true token id
-- decode `argmax z` over the candidate pool
+- early-stop on **val top-1 recovery** (seeded with the ridge warm-start ⇒ ≥ ridge)
+- decode **cosine** nearest-token over the candidate pool (identical convention to ridge)
 
 `nonlinear=False` ⇒ the affine tuned-lens; `nonlinear=True` ⇒ + gated GELU correction.
+
+**Why cosine, not raw dot product** (diagnosed 2026-06-25 from a failed pilot): gemma token-embedding
+norms are heterogeneous, so raw-dot-product logits rank by ‖E‖ and badly under-recover unseen tokens
+— a pilot CE lens hit 0.281 vs ridge 0.792 at L12. On norm-heterogeneous synthetic data: ridge/cosine
+= 1.00, **init dot decode = 0.78**, init cosine decode = 1.00. And early-stopping on val *CE loss*
+(misaligned with retrieval) drifts the trainable affine to 0.977; **val top-1** early-stop restores
+1.00. Hence cosine-CE + cosine decode + val-top1 early-stop.
 
 ## The clean 3-way comparison (all on the SAME vocab-disjoint split)
 
@@ -66,10 +75,13 @@ the disjoint split the floor stays ~0, so any leak would surface there.
 - **Wrinkle (mechanics only):** CE needs the true class in the softmax denominator, but train tokens
   are absent from the test pool. ⇒ train the softmax over **full vocab via sampled softmax** (candidate
   set = unique train tokens ∪ K random negatives, resampled each epoch; target index via
-  `searchsorted`), then **eval argmax over the test pool** only. Standard "train classification /
-  evaluate retrieval". This says nothing about generalization.
-- Sampled-vocab gather (`E[cand]`) is moved to GPU per step (~tens of MB), so the 2.3 GB full table
-  need not stay resident. Cost ≈ the cosine decoder (one extra matmul to negatives).
+  `searchsorted`), then **eval cosine nearest-token over the test pool** only. Standard "train
+  classification / evaluate retrieval". This says nothing about generalization.
+- Sampled-vocab gather (`E[cand]`) is moved to GPU per step (~tens of MB for cand ≈ train-tokens +
+  K negatives), so the 2.3 GB full table need not stay resident. Per-step cost ≈ one extra
+  `n_train × |cand|` matmul vs the cosine decoder; the per-epoch CPU→GPU gather is small relative to
+  that matmul but is **measured in a scoped saturation pilot before the full grid** (perf gate), not
+  assumed.
 - Eval passes `ytr` (train token ids) and `full_emb` to the attack; for the floor it passes the *same*
   permutation-shuffled `ytr`, so the memorization floor is computed correctly. `ridge`/`decoder`
   swallow the extra kwargs.

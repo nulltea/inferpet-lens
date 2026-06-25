@@ -98,8 +98,30 @@ def test_logit_lens_generalizes_to_unseen_tokens():
         assert acc > 0.5, f"nonlinear={nonlinear}: acc {acc:.3f} ~ chance {chance:.3f} — generalization broke"
 
 
+def test_logit_lens_robust_to_norm_heterogeneity():
+    """Regression for the failed-pilot bug: with HETEROGENEOUS token-embedding norms (like gemma),
+    raw dot-product decode ranks by ‖E‖ and under-recovers. Cosine CE + cosine decode must keep the
+    lens within reach of the ridge/cosine baseline (this would fail on the old dot-product decode)."""
+    rng = np.random.default_rng(2)
+    V, d_emb, d_in, n = 400, 32, 48, 4000
+    E = (rng.standard_normal((V, d_emb)) * rng.uniform(0.2, 5.0, (V, 1))).astype(np.float32)  # varied norms
+    R = rng.standard_normal((d_emb, d_in)).astype(np.float32)
+    toks = rng.integers(0, V, size=n).astype(np.int64)
+    X = (E[toks] @ R + 0.1 * rng.standard_normal((n, d_in))).astype(np.float32)
+    tr = np.array([i for i, t in enumerate(toks) if t < int(0.7 * V)])
+    te = np.array([i for i, t in enumerate(toks) if t >= int(0.7 * V)])
+    pool_ids = np.unique(toks[te])
+    ridge_acc = float((nearest_token(X[te] @ ridge_W(X[tr], E[toks[tr]]), E[pool_ids], pool_ids) == toks[te]).mean())
+    lens_acc = float((logit_lens_attack(
+        X[tr], E[toks[tr]], X[te], E[pool_ids], pool_ids, ytr=toks[tr], full_emb=E,
+        nonlinear=False, hidden=64, epochs=300, neg=128, seed=0) == toks[te]).mean())
+    assert ridge_acc > 0.8, f"baseline weak ({ridge_acc:.3f}) — test not meaningful"
+    assert lens_acc >= ridge_acc - 0.1, f"lens {lens_acc:.3f} ≪ ridge {ridge_acc:.3f} — norm-decode regressed"
+
+
 if __name__ == "__main__":
     test_gate_gradient_is_live_at_init()
     test_decoder_beats_ridge_on_nonlinear_truth()
     test_logit_lens_generalizes_to_unseen_tokens()
+    test_logit_lens_robust_to_norm_heterogeneity()
     print("ok")
