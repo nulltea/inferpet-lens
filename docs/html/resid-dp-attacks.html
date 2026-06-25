@@ -73,7 +73,7 @@
   <header class="masthead">
     <div>
       <h1 class="title">Differential privacy<br><em>— leakage across surfaces and depth</em></h1>
-      <p class="subtitle">The cross-surface view of one defense: <strong>local differential privacy</strong>, a Gaussian mechanism applied to the input embedding. The page aggregates every surface measured under DP — the <strong>residual stream</strong> observed across depth, and the <strong>pooled embedding</strong> (Bayes-NN bounds, Vec2Text). On each surface an attack-independent probe (in bits) is paired with an attack, and the budget ε is swept. The residual finding: the probes keep seeing the token while a <strong>linear</strong> ridge attack collapses and <em>decorrelates</em> from the probe at depth, yet a <strong>non-linear</strong> decoder re-correlates and recovers more — the gap is attack strength, not lost information.</p>
+      <p class="subtitle">The cross-surface view of one defense: <strong>local differential privacy</strong>, a Gaussian mechanism applied to the input embedding. The page aggregates every surface measured under DP — the <strong>residual stream</strong> observed across depth, and the <strong>pooled embedding</strong> (Bayes-NN bounds, Vec2Text). On each surface an attack-independent probe (in bits) is paired with an attack, and the budget ε is swept. The residual finding: a regularized <strong>linear</strong> attack (ridge ≈ tuned-lens) is the single-position ceiling — a properly-trained non-linear decoder adds <strong>nothing</strong> at any depth — and token recovery falls monotonically with depth while the probes keep seeing the token. The genuine stronger-attack axis is not a deeper per-vector net but LM-prior / sequence-context decoding.</p>
       <span class="rev">research report · 2026-06-25</span>
     </div>
   </header>
@@ -108,7 +108,7 @@
         <tr><td><strong>local DP</strong></td><td>The Gaussian mechanism on the input embedding: clip each row to L2 ≤ C, add N(0, σ²I) with σ = C·z/ε, z = √(2 ln(1.25/δ)). Smaller ε ⇒ more noise. Sensitivity C (add/remove-to-zero adjacency).</td></tr>
         <tr><td><strong>observation depth</strong></td><td>Which layer's residual the adversary sees. <strong>L0</strong> = the noised embedding itself; <strong>L&gt;0</strong> = that noise propagated through L blocks. The secret is the <strong>token id</strong> behind the released vector.</td></tr>
         <tr><td><strong>ridge</strong> (linear attack)</td><td>Closed-form linear map observation → embedding, then nearest token over the candidate pool. The information-inefficient baseline; self-generates noised training pairs.</td></tr>
-        <tr><td><strong>decoder</strong> (non-linear attack)</td><td>An MLP map observation → embedding (cosine loss), trained on the σ-matched noised reps (noise-aware), then nearest token. The stronger admissible attack.</td></tr>
+        <tr><td><strong>decoder</strong> (non-linear attack)</td><td>A gated GELU MLP correction on top of a <em>frozen</em> ridge-warm-started linear path, early-stopped on a held-out split (so it is ≥ ridge by construction). On this single-position surface it reduces to ridge — no non-linear gain at any depth.</td></tr>
         <tr><td><strong>CLUB</strong></td><td><a href="probe-club.html">Variational MI upper bound</a> <code>I(rep;token)</code> in bits. Attack-independent.</td></tr>
         <tr><td><strong>V_cap</strong></td><td><a href="probe-vcap.html">Capacity-matched predictive V-information</a> in bits, read as a bounded token-identity reader that never touches the embedding table. Attack-independent.</td></tr>
         <tr><td><strong>V_cap perplexity (2^PVI)</strong></td><td>The legible companion to V_cap: <code>2^PVI</code> (2 raised to the V_cap bits) = the factor by which the capacity-bounded reader cuts the token-candidate set relative to the prior — 1× = no information, larger = more leakage.</td></tr>
@@ -202,9 +202,9 @@
       <h2 class="section-title">Residual stream under local DP</h2>
       <div class="section-meta">probes first, then the linear and non-linear attacks · across depth</div>
     </header>
-    <p class="prose">One sweep, four observation depths × four budgets, gemma-2-2b, N=160, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>perplexity</em> <code>2^PVI</code> (the fold-reduction in token candidates the reader achieves).</p>
+    <p class="prose">One sweep, five observation depths × four budgets, gemma-2-2b, N=512 prompts, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>perplexity</em> <code>2^PVI</code> (the fold-reduction in token candidates the reader achieves).</p>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 02 — four metrics across the ε sweep · grouped bars by layer (L0 / L5 / L12 / L20)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
+      <div class="plot-cap"><span class="l">FIG · 02 — four metrics across the ε sweep · grouped bars by layer (L0 / L5 / L12 / L20 / L25)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
       <div id="plot-metrics" style="width:100%;height:560px;"></div>
       <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Top row = the attack-independent probes (CLUB, V_cap); bottom row = the two attacks' token recovery. x = ε from no-noise (∞) down to strongest (256); the four bars per ε are the four depths. The probe bars stay tall across ε while the ridge bars collapse — the information is preserved but the linear attack loses it; the non-linear decoder bars hold up better at the deeper layers. Hover for exact values; click a layer in the legend to toggle it.</span></div>
     </div>
@@ -213,92 +213,26 @@
       <div id="plot-scatter" style="width:100%;height:460px;"></div>
       <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">A sloped path = recovery tracks the probe (correlated); a flat path = decorrelated. The L0 paths slope up together; at L20 the ridge path flattens (decorrelated) while the decoder path keeps sloping (re-correlated) — the thesis in one view. Toggle traces in the legend; hover shows ε.</span></div>
     </div>
-    <details style="margin:6px 0 16px;">
-      <summary style="cursor:pointer;font-size:13px;opacity:0.75;letter-spacing:.04em;">▸ show the underlying 16-row data table</summary>
-    <table class="spec spec--wide">
-      <thead><tr>
-        <th>layer</th><th>ε</th>
-        <th class="num">CLUB (bits)</th><th class="num">V_cap (bits)</th><th class="num">V_cap perplexity (2^PVI)</th>
-        <th class="num">ridge — linear</th><th class="num">decoder — non-linear</th>
-      </tr></thead>
-      <tbody>
-        <tr><td><b>L0</b></td><td>∞</td><td class="num">3384</td><td class="num">5.78</td><td class="num">54.9</td><td class="num accent">0.966</td><td class="num">0.673</td></tr>
-        <tr><td>L0</td><td>1024</td><td class="num">2882</td><td class="num">5.76</td><td class="num">54.2</td><td class="num accent">0.907</td><td class="num">0.562</td></tr>
-        <tr><td>L0</td><td>512</td><td class="num">2334</td><td class="num">5.47</td><td class="num">44.3</td><td class="num accent">0.771</td><td class="num">0.412</td></tr>
-        <tr><td>L0</td><td>256</td><td class="num">1873</td><td class="num">4.51</td><td class="num">22.8</td><td class="num accent">0.356</td><td class="num">0.234</td></tr>
-        <tr><td><b>L5</b></td><td>∞</td><td class="num">2503</td><td class="num">4.40</td><td class="num">21.1</td><td class="num">0.815</td><td class="num">0.599</td></tr>
-        <tr><td>L5</td><td>1024</td><td class="num">2488</td><td class="num">4.74</td><td class="num">26.7</td><td class="num">0.688</td><td class="num">0.600</td></tr>
-        <tr><td>L5</td><td>512</td><td class="num">2055</td><td class="num">4.35</td><td class="num">20.4</td><td class="num">0.446</td><td class="num accent">0.501</td></tr>
-        <tr><td>L5</td><td>256</td><td class="num">1570</td><td class="num">3.40</td><td class="num">10.6</td><td class="num">0.209</td><td class="num accent">0.312</td></tr>
-        <tr><td><b>L12</b></td><td>∞</td><td class="num">2403</td><td class="num">4.01</td><td class="num">16.1</td><td class="num">0.401</td><td class="num">0.264</td></tr>
-        <tr><td>L12</td><td>1024</td><td class="num">2403</td><td class="num">4.19</td><td class="num">18.2</td><td class="num">0.316</td><td class="num">0.262</td></tr>
-        <tr><td>L12</td><td>512</td><td class="num">2378</td><td class="num">4.48</td><td class="num">22.3</td><td class="num">0.225</td><td class="num accent">0.262</td></tr>
-        <tr><td>L12</td><td>256</td><td class="num">1571</td><td class="num">2.05</td><td class="num">4.1</td><td class="num">0.068</td><td class="num accent">0.099</td></tr>
-        <tr><td><b>L20</b></td><td>∞</td><td class="num">2525</td><td class="num">4.28</td><td class="num">19.4</td><td class="num">0.591</td><td class="num">0.502</td></tr>
-        <tr><td>L20</td><td>1024</td><td class="num">2609</td><td class="num">4.47</td><td class="num">22.2</td><td class="num">0.562</td><td class="num">0.510</td></tr>
-        <tr><td>L20</td><td>512</td><td class="num">2833</td><td class="num">5.15</td><td class="num">35.5</td><td class="num">0.531</td><td class="num accent">0.536</td></tr>
-        <tr><td>L20</td><td>256</td><td class="num">1780</td><td class="num">3.26</td><td class="num">9.6</td><td class="num">0.134</td><td class="num accent">0.291</td></tr>
-      </tbody>
-      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Source: <code>refine-logs/dp-decoder-grid/dp_leakage_sweep.json</code> (<code>scripts/evals/dp_leakage_sweep.py</code>). Accent = the stronger attack in that row: ridge at L0 (and clean), the non-linear decoder in the deep + noisy cells.</caption>
-    </table>
-    </details>
+    <p class="prose" style="font-size:12px;opacity:0.75;">Exact values: hover any bar in FIG.02, or see <code>refine-logs/dp-decoder-r2/dp_leakage_sweep.json</code> (512 prompts, R2 decoder). The earlier inline 160-prompt table was removed when this run superseded it.</p>
     <div class="prose">
-      <p><strong>Read the plots above (the 16-row table is collapsed below).</strong> At <strong>L0</strong> the released object is essentially the noised embedding, so the linear ridge is near-optimal and <em>beats</em> the non-linear decoder at every budget (0.97 vs 0.67 clean) — the non-linear attack has no edge where the map is already linear. <strong>This is expected, not a decoder defect</strong> (<code>claim:single-position-residual-linearly-saturated</code>): for a single-position residual, a regularized affine map decoded against the embedding table — i.e. ridge, the tuned-lens recipe — is the near-optimal attack, so a non-linear decoder can at best match it where the map is linear. With depth and noise the picture inverts: by <strong>L5/L12/L20 at ε ≤ 512</strong> the decoder overtakes ridge, most sharply at <strong>L20, ε=256 (0.291 vs 0.134)</strong>. Throughout, the probes barely move relative to the attack collapse: CLUB stays in the 1500–3400-bit band and V_cap holds 2–6 bits (perplexity 2^PVI ≈ 4–55×) while ridge recovery falls 3–7×. The information is preserved; the linear attack just cannot reach it at depth.</p>
+      <p><strong>Read the plots above (the data table is collapsed below).</strong> The two attack panels (ridge, decoder) are <strong>identical</strong>: a properly-regularized non-linear decoder reduces to ridge at <em>every</em> layer and budget (frozen ridge warm-start + early-stop; the gate stays ~0). So a single-position residual→token is <strong>affine-saturated</strong> — ridge ≈ the tuned-lens recipe is the ceiling, and the non-linear attack adds nothing (<code>claim:single-position-residual-linearly-saturated</code>). Recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.85 → 0.79 → 0.64 → 0.42 over L0/L5/L12/L20/L25) — the earlier L12-valley/L20-rebound was a small-data (160-prompt) artifact that dissolved at 512 prompts. Throughout, the probes stay high relative to the recovery collapse: CLUB holds the 1600–3900-bit band and V_cap's reader perplexity stays ~5–88×, while recovery falls ~7× from L0 to the noisiest deep cells — the token information is present, it just becomes less linearly accessible with depth and noise.</p>
     </div>
 
-    <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 04 — where the non-linear decoder beats the linear ridge (decoder − ridge recovery, compact)</span><span class="r">source: dp_leakage_sweep.json · 4 layers × 4 ε</span></div>
-      <svg class="plot" viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Heatmap of decoder minus ridge recovery: warm cells (L0, and the clean column) where the linear ridge wins, cool cells in the deep and noisy corner (L5/L12/L20 at epsilon 512 and 256) where the non-linear decoder wins, strongest at L20 epsilon 256.">
-        <title>decoder − ridge recovery: ridge wins at L0/clean (warm), the non-linear decoder wins in the deep+noisy corner (cool).</title>
-        <!-- rows L0,L5,L12,L20 ; cols inf,1024,512,256 ; warm=ridge wins, cool=decoder wins -->
-        <!-- L0 -->
-        <rect class="cell" x="150" y="30" width="120" height="40" fill="#b55831"/><text class="cell-label" x="210" y="55" fill="var(--paper)">−.29</text>
-        <rect class="cell" x="270" y="30" width="120" height="40" fill="#b04f2c"/><text class="cell-label" x="330" y="55" fill="var(--paper)">−.35</text>
-        <rect class="cell" x="390" y="30" width="120" height="40" fill="#ad4b29"/><text class="cell-label" x="450" y="55" fill="var(--paper)">−.36</text>
-        <rect class="cell" x="510" y="30" width="120" height="40" fill="#cf8a5a"/><text class="cell-label" x="570" y="55" fill="var(--paper)">−.12</text>
-        <!-- L5 -->
-        <rect class="cell" x="150" y="70" width="120" height="40" fill="#bf6c3d"/><text class="cell-label" x="210" y="95" fill="var(--paper)">−.22</text>
-        <rect class="cell" x="270" y="70" width="120" height="40" fill="#dba87a"/><text class="cell-label" x="330" y="95" fill="var(--ink)">−.09</text>
-        <rect class="cell" x="390" y="70" width="120" height="40" fill="#9cbfc4"/><text class="cell-label" x="450" y="95" fill="var(--ink)">+.06</text>
-        <rect class="cell" x="510" y="70" width="120" height="40" fill="#5f97a3"/><text class="cell-label" x="570" y="95" fill="var(--paper)">+.10</text>
-        <!-- L12 -->
-        <rect class="cell" x="150" y="110" width="120" height="40" fill="#cd8556"/><text class="cell-label" x="210" y="135" fill="var(--paper)">−.14</text>
-        <rect class="cell" x="270" y="110" width="120" height="40" fill="#dcac80"/><text class="cell-label" x="330" y="135" fill="var(--ink)">−.05</text>
-        <rect class="cell" x="390" y="110" width="120" height="40" fill="#a6c5c9"/><text class="cell-label" x="450" y="135" fill="var(--ink)">+.04</text>
-        <rect class="cell" x="510" y="110" width="120" height="40" fill="#a6c5c9"/><text class="cell-label" x="570" y="135" fill="var(--ink)">+.03</text>
-        <!-- L20 -->
-        <rect class="cell" x="150" y="150" width="120" height="40" fill="#d59560"/><text class="cell-label" x="210" y="175" fill="var(--paper)">−.09</text>
-        <rect class="cell" x="270" y="150" width="120" height="40" fill="#dcac80"/><text class="cell-label" x="330" y="175" fill="var(--ink)">−.05</text>
-        <rect class="cell" x="390" y="150" width="120" height="40" fill="#cfe0e2"/><text class="cell-label" x="450" y="175" fill="var(--ink)">+.01</text>
-        <rect class="cell" x="510" y="150" width="120" height="40" fill="#3f7d8a"/><text class="cell-label" x="570" y="175" fill="var(--paper)">+.16</text>
-        <text class="heatmap-axis" x="140" y="55" text-anchor="end">L0</text>
-        <text class="heatmap-axis" x="140" y="95" text-anchor="end">L5</text>
-        <text class="heatmap-axis" x="140" y="135" text-anchor="end">L12</text>
-        <text class="heatmap-axis" x="140" y="175" text-anchor="end">L20</text>
-        <text class="heatmap-axis" x="210" y="22" text-anchor="middle">∞</text>
-        <text class="heatmap-axis" x="330" y="22" text-anchor="middle">1024</text>
-        <text class="heatmap-axis" x="450" y="22" text-anchor="middle">512</text>
-        <text class="heatmap-axis" x="570" y="22" text-anchor="middle">256</text>
-        <text class="axis-label" x="390" y="212" text-anchor="middle">input-DP budget ε  (← stronger noise)</text>
-        <text class="axis-label" x="16" y="110" text-anchor="middle" transform="rotate(-90 16 110)">layer</text>
-      </svg>
-      <div class="plot-cap" style="margin:12px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Warm = the linear ridge wins (all of L0; the clean column); cool = the non-linear decoder wins. The decoder's advantage concentrates in the deep, noisy corner (L5/L12/L20 at ε ≤ 512), strongest at L20 ε=256 (+0.16). At L0 there is nothing to gain — the embedding map is already linear.</span></div>
-    </div>
 
-    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:24px 0 8px;">The divergence: linear ridge decorrelates from the probe at depth; the non-linear decoder re-correlates</h4>
-    <p class="prose">Spearman ρ between each attack's selectivity and each probe, across the four ε at a fixed layer (single seed, n=4 — directional):</p>
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:24px 0 8px;">Probe↔recovery correlation across ε, by depth (decoder ≡ ridge — one attack)</h4>
+    <p class="prose">Spearman ρ between the attack's selectivity and each probe across the four ε at a fixed layer (single seed, n=4 — directional). The warm-started decoder reduces to ridge, so both attacks give the same ρ — one column each:</p>
     <table class="spec spec--wide">
-      <thead><tr><th>layer</th><th class="num">ρ(ridge, CLUB)</th><th class="num">ρ(decoder, CLUB)</th><th class="num">ρ(ridge, V_cap)</th><th class="num">ρ(decoder, V_cap)</th></tr></thead>
+      <thead><tr><th>layer</th><th class="num">ρ(attack, CLUB)</th><th class="num">ρ(attack, V_cap)</th></tr></thead>
       <tbody>
-        <tr><td>L0</td><td class="num">+1.00</td><td class="num">+1.00</td><td class="num">+1.00</td><td class="num">+1.00</td></tr>
-        <tr><td>L5</td><td class="num">+1.00</td><td class="num">+0.80</td><td class="num">+0.80</td><td class="num">+1.00</td></tr>
-        <tr><td>L12</td><td class="num">+1.00</td><td class="num">+0.80</td><td class="num warn">+0.20</td><td class="num">+0.40</td></tr>
-        <tr><td>L20</td><td class="num warn">+0.20</td><td class="num accent">+1.00</td><td class="num warn">+0.20</td><td class="num accent">+1.00</td></tr>
+        <tr><td>L0</td><td class="num">+1.00</td><td class="num">+1.00</td></tr>
+        <tr><td>L5</td><td class="num">+1.00</td><td class="num">+0.80</td></tr>
+        <tr><td>L12</td><td class="num">+1.00</td><td class="num warn">+0.20</td></tr>
+        <tr><td>L20</td><td class="num warn">+0.20</td><td class="num warn">+0.20</td></tr>
+        <tr><td>L25</td><td class="num">+0.80</td><td class="num">+1.00</td></tr>
       </tbody>
     </table>
     <div class="prose">
-      <p>At the input layer everything tracks (ρ=1.0). At the deepest layer the linear ridge <strong>decorrelates</strong> from both probes (ρ=+0.20) while the non-linear decoder <strong>re-correlates</strong> (ρ=+1.00). This is the page's thesis in one row: the probe still sees the information at L20, the linear attack can no longer realize it across the noise sweep, and the non-linear, noise-aware decoder restores the correlation by reaching the preserved signal.</p>
-      <p><strong>The depth-decoupling caveat (V_cap).</strong> This is the same surface where the attack-independent V_cap reader's tracking of the embedding-reconstruction attack attenuates with depth — the <code>claim:depth-decoupling-input-dp</code> finding (jury PARTIAL/scoped, single seed). It is consistent with the ridge column above: the linear attack and the token-identity probe move together at L0 and apart at depth. The non-linear decoder is what closes that gap.</p>
+      <p>Recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.42 over L0→L25) and a properly-regularized non-linear decoder adds nothing at any depth, so there is <strong>no linear-vs-non-linear divergence</strong> to report here — the earlier such result was a small-data artifact (160 prompts, no early-stop), which dissolved at 512 prompts. What does move with depth is the <strong>probe↔recovery correlation</strong>: CLUB tracks the attack at shallow layers and dips at L20, and the <strong>V_cap reader decouples mid-depth</strong> (ρ falls to +0.20 by L12) — the <code>claim:depth-decoupling-input-dp</code> finding (jury PARTIAL/scoped, single seed). The token information stays present (probes high) while it becomes less linearly accessible with depth; the genuine stronger-attack axis is an LM-prior / sequence-context decode (<code>claim:single-position-residual-linearly-saturated</code> → BeamClean), not a deeper per-vector net.</p>
     </div>
   </section>
 
@@ -357,7 +291,7 @@
       <div class="section-meta">claims and their support</div>
     </header>
     <div class="prose">
-      <p><strong><code>claim:restore-correlation</code></strong>: <em>an information-efficient attack restores the probe↔recovery correlation where a weak attack decorrelates</em>. <strong>Supported</strong> on the residual across depth: at L20 the linear ridge decorrelates from CLUB/V_cap (ρ=+0.20) while the non-linear decoder re-correlates (ρ=+1.00) and recovers more in the deep+noisy regime. Single seed, n=4 ε; directional. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
+      <p><strong><code>claim:restore-correlation</code></strong>: <em>an information-efficient attack restores the probe↔recovery correlation where a weak attack decorrelates</em>. On the residual this is now <strong>NOT demonstrated by a non-linear per-vector decoder</strong> — the apparent L20 re-correlation in the 160-prompt run was a small-data artifact; with 512 prompts a regularized decoder reduces to ridge (no divergence to restore). The claim's support comes instead from the <em>embedding</em> surface (exact Bayes-NN restores the L0 ceiling, §05) and remains <strong>open on the residual</strong> pending an LM-prior decoder (BeamClean). <span class="mono">research-wiki/claims/restore-correlation.md · single-position-residual-linearly-saturated.md</span></p>
       <p><strong><code>claim:bayes-gap-diagnosis</code></strong>: <em>the probe↔recovery gap is an attack-efficiency gap, not poor prediction</em>. <strong>Supported</strong> at L0 on the embedding (probe high while the exact Bayes-NN holds the ceiling and ridge collapses) and consistent on the residual (probes flat while the linear attack falls and the non-linear attack reaches more). <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
       <p><strong><code>claim:depth-decoupling-input-dp</code></strong>: <em>under local DP the attack-independent V_cap reader's tracking of the embedding-reconstruction attack attenuates with depth</em>. <strong>Scoped / jury PARTIAL</strong>, single seed; the V_cap ρ column above is the canonical example. <span class="mono">research-wiki/claims/depth-decoupling-input-dp.md</span></p>
       <p><strong><code>claim:single-position-residual-linearly-saturated</code></strong>: <em>for single-position residual→token recovery, a regularized affine map decoded against the embedding table (ridge ≈ tuned lens) is near-optimal; a non-linear decoder matches it at best at near-linear layers, so `decoder < ridge` at L0 is predicted, not a bug.</em> <strong>Supported</strong> (literature + our L0 numbers; ~2.3k train rows vs a 5–10M-param decoder = the binding overfitting constraint). Recovery beyond affine needs sequence/LM-prior context, not a deeper per-vector net — hence the LM-prior beam-decode follow-up. <span class="mono">research-wiki/claims/single-position-residual-linearly-saturated.md</span></p>
@@ -373,8 +307,8 @@
       <div class="section-meta">what leaks under DP, and why</div>
     </header>
     <div class="prose">
-      <p><strong>What leaks.</strong> Under local DP the token information the probes measure is largely preserved (CLUB and V_cap move slowly); whether it is <em>recovered</em> is an attack-strength question. On the residual, the linear ridge is near-optimal at L0 but collapses and decorrelates from the probes at depth, while a non-linear, noise-aware decoder re-correlates and recovers more in the deep, noisy regime. On the embedding, a complete corrector tracks the probe without a depth gap.</p>
-      <p><strong>The honest caveat.</strong> The non-linear decoder is not a universal winner: at L0 it underperforms the linear ridge (0.67 vs 0.97 clean) because the embedding map is already linear — its advantage is specific to depth + noise. The residual sweep is single-seed; multi-seed confidence intervals and a denser ε grid are the named firm-up.</p>
+      <p><strong>What leaks.</strong> Under local DP the token information the probes measure is largely preserved (CLUB and V_cap move slowly); whether it is <em>recovered</em> is an attack-strength question. On the residual, a regularized linear attack (ridge ≈ tuned-lens) is the single-position ceiling — a properly-regularized non-linear decoder reduces to ridge at every depth — and recovery falls monotonically with depth as the token becomes less linearly accessible. On the embedding, a complete corrector tracks the probe without a depth gap.</p>
+      <p><strong>Scope &amp; honest caveats.</strong> (1) Single-position residual→token is <strong>affine-saturated</strong>: the non-linear decoder equals ridge at every (layer, ε), so the genuine stronger-attack axis is LM-prior / sequence-context decoding (BeamClean), not a deeper per-vector net. (2) The earlier non-monotone depth curve (L12 valley, L20 rebound) and the apparent non-linear depth gains were <strong>small-data (160-prompt) artifacts</strong> that dissolved at 512 prompts. (3) The sweep is single-seed; multi-seed confidence intervals and a denser ε grid remain the named firm-up.</p>
       <p><strong>Out of scope here.</strong> Central DP (trusted-aggregator output noise) is not yet covered; the representation-space "at-layer noise" control (not a DP deployment) is documented in the control note (<code>research-wiki/experiments/representation-space-noise-control.md</code>), where it establishes that the depth decorrelation is caused by propagation, not noise magnitude.</p>
     </div>
   </section>
@@ -417,23 +351,25 @@
 (function () {
   if (typeof Plotly === "undefined") return;
   var EPS = ["∞", "1024", "512", "256"];
+  // 512-prompt run, R2 decoder (frozen ridge warm-start + early-stopped gated GELU) → dec ≡ ridge.
   var L = {
-    L0:  {ridge:[0.966,0.907,0.771,0.356], dec:[0.673,0.562,0.412,0.234], club:[3384,2882,2334,1873], vcap:[5.78,5.76,5.47,4.51]},
-    L5:  {ridge:[0.815,0.688,0.446,0.209], dec:[0.599,0.600,0.501,0.312], club:[2503,2488,2055,1570], vcap:[4.40,4.74,4.35,3.40]},
-    L12: {ridge:[0.401,0.316,0.225,0.068], dec:[0.264,0.262,0.262,0.099], club:[2403,2403,2378,1571], vcap:[4.01,4.19,4.48,2.05]},
-    L20: {ridge:[0.591,0.562,0.531,0.134], dec:[0.502,0.510,0.536,0.291], club:[2525,2609,2833,1780], vcap:[4.28,4.47,5.15,3.26]}
+    L0:  {ridge:[0.992,0.984,0.906,0.611], dec:[0.992,0.984,0.906,0.611], club:[3870,3319,2634,2060], vcap:[6.46,6.38,6.17,5.56]},
+    L5:  {ridge:[0.850,0.815,0.663,0.398], dec:[0.850,0.815,0.663,0.398], club:[2959,2806,2211,1716], vcap:[5.54,5.64,5.22,4.64]},
+    L12: {ridge:[0.792,0.758,0.664,0.399], dec:[0.792,0.758,0.664,0.399], club:[2902,2801,2728,1604], vcap:[5.12,5.19,5.38,2.80]},
+    L20: {ridge:[0.636,0.626,0.619,0.201], dec:[0.636,0.626,0.619,0.201], club:[3043,3058,3244,2014], vcap:[5.48,5.61,6.08,4.01]},
+    L25: {ridge:[0.420,0.454,0.533,0.147], dec:[0.420,0.454,0.533,0.147], club:[2767,2766,2876,1864], vcap:[4.86,5.07,5.66,2.49]}
   };
-  var lays = ["L0","L5","L12","L20"], ax = ["","2","3","4"];
+  var lays = ["L0","L5","L12","L20","L25"], ax = ["","2","3","4"];
   var INK = "#14181c", GRID = "rgba(20,24,28,0.08)", RIDGE = "#c2683a", DEC = "#2f7d8a", PROBE = "#9aa0a6";
   var font = {family:"'JetBrains Mono', monospace", size:11, color:INK};
 
   // FIG.02 — four metrics (CLUB, V_cap/PVI, ridge recovery, decoder recovery) as grouped bars by layer
-  var col = {L0:"#b55831", L5:"#c98a3e", L12:"#2f7d8a", L20:"#2f5e87"};
+  var col = {L0:"#b55831", L5:"#c98a3e", L12:"#2f7d8a", L20:"#2f5e87", L25:"#6a4c93"};
   var panels = [
     {key:"club",  title:"CLUB (bits) — probe",                    s:"",  tf:null},
     {key:"vcap",  title:"V_cap / PVI — perplexity (2^PVI)",       s:"2", tf:function(v){return Math.pow(2,v);}},
     {key:"ridge", title:"recovery — ridge (linear attack)",       s:"3", tf:null},
-    {key:"dec",   title:"recovery — decoder (non-linear attack)", s:"4", tf:null}
+    {key:"dec",   title:"recovery — decoder (= ridge; no non-linear gain)", s:"4", tf:null}
   ];
   var tb = [];
   panels.forEach(function (p, pi) {
