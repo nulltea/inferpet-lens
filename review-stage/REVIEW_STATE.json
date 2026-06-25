@@ -1,10 +1,1 @@
-{
-  "round": 1,
-  "threadId": "019efc10-e6a5-7f41-b18e-bf2615a067f5",
-  "status": "completed",
-  "difficulty": "medium",
-  "last_score": 8.5,
-  "last_verdict": "ready",
-  "pending_experiments": [],
-  "timestamp": "2026-06-25T02:05:00"
-}
+{"round":2,"threadId":"019efeb4-6862-7632-926d-fc52448ec565","status":"completed","difficulty":"medium","reviewer_model":"gpt-5.5","target":"scripts/evals/dp_leakage_sweep.py","last_score":8.5,"last_verdict":"ready","positive_assessment":true,"summary":"Reusable DP leakage sweep (promoted from spikes b2_propagated_dp+b2_lpos_decoder). R1 7/10 almost (9 findings); fixes applied: empirical-prior perplexity readout, seed-by-index, token-alignment assert, float64 ridge, try/finally hooks, non-empty/finite guards; sigma=C*z/eps kept+documented for cross-sweep comparability. R2 8.5/10 ready, explicit yes-to-run.","timestamp":"2026-06-25T00:00:00"}
