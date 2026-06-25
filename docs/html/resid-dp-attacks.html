@@ -111,7 +111,7 @@
         <tr><td><strong>decoder</strong> (non-linear attack)</td><td>An MLP map observation → embedding (cosine loss), trained on the σ-matched noised reps (noise-aware), then nearest token. The stronger admissible attack.</td></tr>
         <tr><td><strong>CLUB</strong></td><td><a href="probe-club.html">Variational MI upper bound</a> <code>I(rep;token)</code> in bits. Attack-independent.</td></tr>
         <tr><td><strong>V_cap</strong></td><td><a href="probe-vcap.html">Capacity-matched predictive V-information</a> in bits, read as a bounded token-identity reader that never touches the embedding table. Attack-independent.</td></tr>
-        <tr><td><strong>reader perplexity</strong></td><td>The legible companion to V_cap: <code>2^(H_prior − PVI)</code> = the effective number of token candidates the reader is still choosing among (1 = fully pinned down; up to the prior's effective vocabulary = no information).</td></tr>
+        <tr><td><strong>V_cap perplexity (2^PVI)</strong></td><td>The legible companion to V_cap: <code>2^PVI</code> (2 raised to the V_cap bits) = the factor by which the capacity-bounded reader cuts the token-candidate set relative to the prior — 1× = no information, larger = more leakage.</td></tr>
         <tr><td><strong>SDL</strong></td><td><a href="probe-sdl.html">Surplus description length</a> (bits); reported auxiliary (noisier, 6–7× costlier).</td></tr>
         <tr><td><strong>recovery / selectivity</strong></td><td>recovery = top-1 token match over the candidate pool (size 2048); selectivity = recovery − a label-shuffle floor (guards against memorization). The per-secret readout.</td></tr>
       </tbody>
@@ -202,7 +202,7 @@
       <h2 class="section-title">Residual stream under local DP</h2>
       <div class="section-meta">probes first, then the linear and non-linear attacks · across depth</div>
     </header>
-    <p class="prose">One sweep, four observation depths × four budgets, gemma-2-2b, N=160, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>reader perplexity</em> (effective token candidates remaining).</p>
+    <p class="prose">One sweep, four observation depths × four budgets, gemma-2-2b, N=160, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>perplexity</em> <code>2^PVI</code> (the fold-reduction in token candidates the reader achieves).</p>
     <div class="plot-frame">
       <div class="plot-cap"><span class="l">FIG · 02 — four metrics across the ε sweep · grouped bars by layer (L0 / L5 / L12 / L20)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
       <div id="plot-metrics" style="width:100%;height:560px;"></div>
@@ -218,32 +218,32 @@
     <table class="spec spec--wide">
       <thead><tr>
         <th>layer</th><th>ε</th>
-        <th class="num">CLUB (bits)</th><th class="num">V_cap (bits)</th><th class="num">reader perplexity</th>
+        <th class="num">CLUB (bits)</th><th class="num">V_cap (bits)</th><th class="num">V_cap perplexity (2^PVI)</th>
         <th class="num">ridge — linear</th><th class="num">decoder — non-linear</th>
       </tr></thead>
       <tbody>
-        <tr><td><b>L0</b></td><td>∞</td><td class="num">3384</td><td class="num">5.78</td><td class="num">7.0</td><td class="num accent">0.966</td><td class="num">0.673</td></tr>
-        <tr><td>L0</td><td>1024</td><td class="num">2882</td><td class="num">5.76</td><td class="num">7.1</td><td class="num accent">0.907</td><td class="num">0.562</td></tr>
-        <tr><td>L0</td><td>512</td><td class="num">2334</td><td class="num">5.47</td><td class="num">8.6</td><td class="num accent">0.771</td><td class="num">0.412</td></tr>
-        <tr><td>L0</td><td>256</td><td class="num">1873</td><td class="num">4.51</td><td class="num">16.8</td><td class="num accent">0.356</td><td class="num">0.234</td></tr>
-        <tr><td><b>L5</b></td><td>∞</td><td class="num">2503</td><td class="num">4.40</td><td class="num">18.1</td><td class="num">0.815</td><td class="num">0.599</td></tr>
-        <tr><td>L5</td><td>1024</td><td class="num">2488</td><td class="num">4.74</td><td class="num">14.3</td><td class="num">0.688</td><td class="num">0.600</td></tr>
-        <tr><td>L5</td><td>512</td><td class="num">2055</td><td class="num">4.35</td><td class="num">18.8</td><td class="num">0.446</td><td class="num accent">0.501</td></tr>
-        <tr><td>L5</td><td>256</td><td class="num">1570</td><td class="num">3.40</td><td class="num">36.3</td><td class="num">0.209</td><td class="num accent">0.312</td></tr>
-        <tr><td><b>L12</b></td><td>∞</td><td class="num">2403</td><td class="num">4.01</td><td class="num">23.8</td><td class="num">0.401</td><td class="num">0.264</td></tr>
-        <tr><td>L12</td><td>1024</td><td class="num">2403</td><td class="num">4.19</td><td class="num">21.0</td><td class="num">0.316</td><td class="num">0.262</td></tr>
-        <tr><td>L12</td><td>512</td><td class="num">2378</td><td class="num">4.48</td><td class="num">17.2</td><td class="num">0.225</td><td class="num accent">0.262</td></tr>
-        <tr><td>L12</td><td>256</td><td class="num">1571</td><td class="num">2.05</td><td class="num">92.3</td><td class="num">0.068</td><td class="num accent">0.099</td></tr>
-        <tr><td><b>L20</b></td><td>∞</td><td class="num">2525</td><td class="num">4.28</td><td class="num">19.7</td><td class="num">0.591</td><td class="num">0.502</td></tr>
-        <tr><td>L20</td><td>1024</td><td class="num">2609</td><td class="num">4.47</td><td class="num">17.2</td><td class="num">0.562</td><td class="num">0.510</td></tr>
-        <tr><td>L20</td><td>512</td><td class="num">2833</td><td class="num">5.15</td><td class="num">10.8</td><td class="num">0.531</td><td class="num accent">0.536</td></tr>
-        <tr><td>L20</td><td>256</td><td class="num">1780</td><td class="num">3.26</td><td class="num">39.9</td><td class="num">0.134</td><td class="num accent">0.291</td></tr>
+        <tr><td><b>L0</b></td><td>∞</td><td class="num">3384</td><td class="num">5.78</td><td class="num">54.9</td><td class="num accent">0.966</td><td class="num">0.673</td></tr>
+        <tr><td>L0</td><td>1024</td><td class="num">2882</td><td class="num">5.76</td><td class="num">54.2</td><td class="num accent">0.907</td><td class="num">0.562</td></tr>
+        <tr><td>L0</td><td>512</td><td class="num">2334</td><td class="num">5.47</td><td class="num">44.3</td><td class="num accent">0.771</td><td class="num">0.412</td></tr>
+        <tr><td>L0</td><td>256</td><td class="num">1873</td><td class="num">4.51</td><td class="num">22.8</td><td class="num accent">0.356</td><td class="num">0.234</td></tr>
+        <tr><td><b>L5</b></td><td>∞</td><td class="num">2503</td><td class="num">4.40</td><td class="num">21.1</td><td class="num">0.815</td><td class="num">0.599</td></tr>
+        <tr><td>L5</td><td>1024</td><td class="num">2488</td><td class="num">4.74</td><td class="num">26.7</td><td class="num">0.688</td><td class="num">0.600</td></tr>
+        <tr><td>L5</td><td>512</td><td class="num">2055</td><td class="num">4.35</td><td class="num">20.4</td><td class="num">0.446</td><td class="num accent">0.501</td></tr>
+        <tr><td>L5</td><td>256</td><td class="num">1570</td><td class="num">3.40</td><td class="num">10.6</td><td class="num">0.209</td><td class="num accent">0.312</td></tr>
+        <tr><td><b>L12</b></td><td>∞</td><td class="num">2403</td><td class="num">4.01</td><td class="num">16.1</td><td class="num">0.401</td><td class="num">0.264</td></tr>
+        <tr><td>L12</td><td>1024</td><td class="num">2403</td><td class="num">4.19</td><td class="num">18.2</td><td class="num">0.316</td><td class="num">0.262</td></tr>
+        <tr><td>L12</td><td>512</td><td class="num">2378</td><td class="num">4.48</td><td class="num">22.3</td><td class="num">0.225</td><td class="num accent">0.262</td></tr>
+        <tr><td>L12</td><td>256</td><td class="num">1571</td><td class="num">2.05</td><td class="num">4.1</td><td class="num">0.068</td><td class="num accent">0.099</td></tr>
+        <tr><td><b>L20</b></td><td>∞</td><td class="num">2525</td><td class="num">4.28</td><td class="num">19.4</td><td class="num">0.591</td><td class="num">0.502</td></tr>
+        <tr><td>L20</td><td>1024</td><td class="num">2609</td><td class="num">4.47</td><td class="num">22.2</td><td class="num">0.562</td><td class="num">0.510</td></tr>
+        <tr><td>L20</td><td>512</td><td class="num">2833</td><td class="num">5.15</td><td class="num">35.5</td><td class="num">0.531</td><td class="num accent">0.536</td></tr>
+        <tr><td>L20</td><td>256</td><td class="num">1780</td><td class="num">3.26</td><td class="num">9.6</td><td class="num">0.134</td><td class="num accent">0.291</td></tr>
       </tbody>
       <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Source: <code>refine-logs/dp-decoder-grid/dp_leakage_sweep.json</code> (<code>scripts/evals/dp_leakage_sweep.py</code>). Accent = the stronger attack in that row: ridge at L0 (and clean), the non-linear decoder in the deep + noisy cells.</caption>
     </table>
     </details>
     <div class="prose">
-      <p><strong>Read the plots above (the 16-row table is collapsed below).</strong> At <strong>L0</strong> the released object is essentially the noised embedding, so the linear ridge is near-optimal and <em>beats</em> the non-linear decoder at every budget (0.97 vs 0.67 clean) — the non-linear attack has no edge where the map is already linear. With depth and noise the picture inverts: by <strong>L5/L12/L20 at ε ≤ 512</strong> the decoder overtakes ridge, most sharply at <strong>L20, ε=256 (0.291 vs 0.134)</strong>. Throughout, the probes barely move relative to the attack collapse: CLUB stays in the 1500–3400-bit band and V_cap's reader keeps an effective ~7–40 candidates while ridge recovery falls 3–7×. The information is preserved; the linear attack just cannot reach it at depth.</p>
+      <p><strong>Read the plots above (the 16-row table is collapsed below).</strong> At <strong>L0</strong> the released object is essentially the noised embedding, so the linear ridge is near-optimal and <em>beats</em> the non-linear decoder at every budget (0.97 vs 0.67 clean) — the non-linear attack has no edge where the map is already linear. With depth and noise the picture inverts: by <strong>L5/L12/L20 at ε ≤ 512</strong> the decoder overtakes ridge, most sharply at <strong>L20, ε=256 (0.291 vs 0.134)</strong>. Throughout, the probes barely move relative to the attack collapse: CLUB stays in the 1500–3400-bit band and V_cap holds 2–6 bits (perplexity 2^PVI ≈ 4–55×) while ridge recovery falls 3–7×. The information is preserved; the linear attack just cannot reach it at depth.</p>
     </div>
 
     <div class="plot-frame">
@@ -428,17 +428,18 @@
   // FIG.02 — four metrics (CLUB, V_cap/PVI, ridge recovery, decoder recovery) as grouped bars by layer
   var col = {L0:"#b55831", L5:"#c98a3e", L12:"#2f7d8a", L20:"#2f5e87"};
   var panels = [
-    {key:"club",  title:"CLUB (bits) — probe",                    s:""},
-    {key:"vcap",  title:"V_cap / PVI (bits) — probe",             s:"2"},
-    {key:"ridge", title:"recovery — ridge (linear attack)",       s:"3"},
-    {key:"dec",   title:"recovery — decoder (non-linear attack)", s:"4"}
+    {key:"club",  title:"CLUB (bits) — probe",                    s:"",  tf:null},
+    {key:"vcap",  title:"V_cap / PVI — perplexity (2^PVI)",       s:"2", tf:function(v){return Math.pow(2,v);}},
+    {key:"ridge", title:"recovery — ridge (linear attack)",       s:"3", tf:null},
+    {key:"dec",   title:"recovery — decoder (non-linear attack)", s:"4", tf:null}
   ];
   var tb = [];
   panels.forEach(function (p, pi) {
     lays.forEach(function (k) {
-      tb.push({type:"bar", x:EPS, y:L[k][p.key], xaxis:"x"+p.s, yaxis:"y"+p.s,
+      var yv = p.tf ? L[k][p.key].map(p.tf) : L[k][p.key];
+      tb.push({type:"bar", x:EPS, y:yv, xaxis:"x"+p.s, yaxis:"y"+p.s,
         name:k, legendgroup:k, showlegend:(pi === 0), marker:{color:col[k]},
-        hovertemplate:k+" · "+p.title+"<br>ε=%{x}<br>%{y}<extra></extra>"});
+        hovertemplate:k+" · "+p.title+"<br>ε=%{x}<br>%{y:.3g}<extra></extra>"});
     });
   });
   var cellB = [{x:0.0,y:1.0},{x:0.56,y:1.0},{x:0.0,y:0.43},{x:0.56,y:0.43}];
