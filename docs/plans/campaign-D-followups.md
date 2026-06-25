@@ -104,3 +104,27 @@ decisions (grilled 2026-06-25):
 steps: (a) restructure per decisions 1–8; (b) build the unified table from the ridge+probe sweep + Task-2 decoder_by_layer.json; (c) write the relocated control note; (d) wire probe-page + embedding-page links; (e) cleanup + render check.
 acceptance: H1/title is "Differential privacy" (cross-surface); grep shows NO "at-layer" framed as a DP scheme remains on the page; ONE unified cross-layer table exists with probe columns BEFORE attack columns and a populated non-linear decoder column at L0/L5/L12/L20 (from Task 2); the embedding section carries BNN + Vec2Text DP summaries that link their pages; every probe name on the page links its `probe-*.html`; the at-layer material exists at `research-wiki/experiments/representation-space-noise-control.md` (relocated, not deleted) and is linked as a control; cleanup pass run; page renders.
 - [ ] run-phase: d3-dp-overhaul
+
+### Task 4: re-run the DP decoder grid on full data with the R2 decoder + refresh the page (GPU)
+recipe: full
+gpu: true
+surface: dp-decoder-r2
+run_id: d4-dp-decoder-r2
+gate: review refine-logs/dp-decoder-r2/REVIEW_STATE.json
+objective: re-run `scripts/evals/dp_leakage_sweep.py` on the FULL 512-prompt corpus (≈3× the 160-prompt data — the binding constraint per the decoder research) with the R2 decoder now in the eval (GELU, gated zero-init skip, FROZEN ridge-warm-started linear path, narrow h≈384, early-stop on a disjoint val split), grid L0/5/12/20/25 × ε, then refresh FIG.02 + the table on resid-dp-attacks.html with the new numbers.
+pointers — consume: the updated `scripts/evals/dp_leakage_sweep.py` (R2 decoder + warm-start, implemented 2026-06-25). produce: `refine-logs/dp-decoder-r2/dp_leakage_sweep.json` and the refreshed FIG.02 data + collapsed table on `docs/html/resid-dp-attacks.html`. do-not-redo: do NOT widen h (narrow is correct); do NOT re-derive the decoder (it's done); one GPU process via run_step.sh; perf-gate (fast-iterate pilot) FIRST; this is the full version of the data already partially shown (160 prompts) on the page. recipe-fit: `full` GPU mechanics + report refresh; no new claim (the affine-saturation claim already exists).
+steps: (a) perf-gate fast-iterate pilot (1 layer / 2 ε); (b) full run `--layers 0,5,12,20,25 --epsilons inf,1024,512,256 --attacks ridge,decoder --probes club,vcap --max-prompts 512 --out refine-logs/dp-decoder-r2/dp_leakage_sweep.json`; (c) update the FIG.02 embedded data + the collapsed table values + the L25 row; (d) /result-to-claim + /experiment-audit; (e) cleanup + render check.
+acceptance: new JSON exists with decoder ≥ ridge at every (layer, ε) (the frozen-warm-start guarantee — verify), L25 included, on 512 prompts; FIG.02 + table on resid-dp-attacks.html refreshed with the new numbers + provenance; the L12-valley / L20-rebound depth shape and the L25 point are visible; perf gate passed.
+- [ ] run-phase: d4-dp-decoder-r2
+
+### Task 5: BeamClean — LM-prior beam-decode attack (the real stronger attack under DP)
+recipe: full
+gpu: true
+surface: dp-beamclean
+run_id: d5-dp-beamclean
+gate: review refine-logs/dp-beamclean/REVIEW_STATE.json
+objective: implement and evaluate a BeamClean-style attack — a beam decode over token positions that fuses (i) the per-token affine likelihood from the ridge / tuned-lens map `E·(A r + b)` with (ii) a frozen small-LM prior over the token sequence and (iii) the published DP noise model (C, σ). Per the decoder research this is the genuinely stronger attack under DP — its advantage over nearest-neighbour GROWS with noise (BeamClean arXiv:2505.13758: 86% vs 18% at high Laplace noise). Per-vector regressors saturate; the LM prior is where recovery comes from.
+pointers — consume: the affine/ridge per-token likelihood (`_ridge_W` / tuned-lens), a frozen LM prior (gemma-2-2b itself or a small prior LM), the DP noise model. produce: a NEW reusable attack module under `scripts/evals/` (NOT a spike) — ideally an `--attacks beamclean` option in `dp_leakage_sweep.py` or a sibling `scripts/evals/beamclean_decode.py`; plus `refine-logs/dp-beamclean/*.json` results. do-not-redo: NOT a spike — clean reusable code; /ponytail + /auto-review-loop BEFORE running (standing rule); one GPU, perf-gate first. recipe-fit: `full` — implement → review → run → claim → page.
+method: /ponytail implement (reuse the affine likelihood + a frozen LM logits call as the prior; beam over positions; fuse log p_affine + λ·log p_LM, calibrate λ; incorporate the Gaussian/Laplace noise model in the likelihood) → /auto-review-loop → perf-gate → run a DP ε-sweep at a representative layer → /result-to-claim + /experiment-audit (it IS an attack; keep probes independent) → add to resid-dp-attacks.html (a third attack series) + write the claim.
+acceptance: a reviewed, reusable BeamClean attack exists under scripts/evals/ (passed /auto-review-loop); a DP ε-sweep shows it beats ridge and the R2 decoder, with the gap WIDENING as ε shrinks (high noise); results in refine-logs/dp-beamclean/; resid-dp-attacks.html gains the LM-prior attack series + a claim; perf gate passed.
+- [ ] run-phase: d5-dp-beamclean
