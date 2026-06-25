@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>transformer-attacks-lens — residual stream under DP</title>
+<title>transformer-attacks-lens — differential privacy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
@@ -72,24 +72,26 @@
   <!-- ─── MASTHEAD ─── -->
   <header class="masthead">
     <div>
-      <h1 class="title">Residual stream<br><em>— under differential privacy</em></h1>
-      <p class="subtitle">When a defense adds noise to a token's representation, does the leakage the MI probes <em>see</em> actually get <em>recovered</em> by an attack? The gap between the two is an <strong>attack-efficiency</strong> gap, not a probe failure. It appears in <strong>input-DP</strong> settings — and at <em>depth</em> specifically requires noise <strong>propagation</strong> (it is <strong>absent under at-layer noise</strong>, where even ridge tracks MI). A weak ridge attack collapses and decorrelates from MI; an information-efficient attack realizes the preserved information (exact Bayes-NN at L0, the ceiling-realization case) and re-correlates with MI (a trained channel-aware decoder at propagated depth).</p>
+      <h1 class="title">Differential privacy<br><em>— leakage across surfaces and depth</em></h1>
+      <p class="subtitle">The cross-surface view of one defense: <strong>local differential privacy</strong>, a Gaussian mechanism applied to the input embedding. The page aggregates every surface measured under DP — the <strong>residual stream</strong> observed across depth, and the <strong>pooled embedding</strong> (Bayes-NN bounds, Vec2Text). On each surface an attack-independent probe (in bits) is paired with an attack, and the budget ε is swept. The residual finding: the probes keep seeing the token while a <strong>linear</strong> ridge attack collapses and <em>decorrelates</em> from the probe at depth, yet a <strong>non-linear</strong> decoder re-correlates and recovers more — the gap is attack strength, not lost information.</p>
+      <span class="rev">research report · 2026-06-25</span>
     </div>
   </header>
 
-  <!-- ═════ § 1 OVERVIEW ═════ -->
+  <!-- ═════ § 1 INTRODUCTION ═════ -->
   <section id="overview">
     <header class="section-head">
       <div class="section-num">§01</div>
       <h2 class="section-title">Introduction</h2>
-      <div class="section-meta">the thesis on one surface</div>
+      <div class="section-meta">one defense, every surface it touches</div>
     </header>
     <p class="lede">
-      The leakage probes (mutual-information estimators) barely move as differential-privacy noise grows, yet a deployed ridge attack's recovery <em>collapses</em>. Is the probe wrong, or is the attack weak? <strong>The attack is weak.</strong> The information the probe measures is preserved; the weak attack just cannot extract it — and a stronger, information-efficient attack does, re-correlating recovery with the probe.
+      Differential privacy adds calibrated noise so the released object reveals little about any one input. This page measures, surface by surface, how much of the secret survives that noise and whether an <em>attack-independent</em> probe predicts how much an attacker recovers. The scheme is <strong>local DP</strong>: the data owner perturbs its own input embedding before releasing anything; the noise then propagates through whatever the deployment exposes.
     </p>
     <div class="prose">
-      <p><strong>Threat model — <code>WEIGHTS-PUB</code> honest-but-curious.</strong> The adversary knows the model weights, the embedding table, and the <em>published</em> DP parameters (clip <code>C</code>, noise <code>σ</code>), and can synthesize unlimited <code>(noised-representation, token)</code> training pairs at any <code>σ</code>. Every attack compared here uses only this — comparisons between admissible attacks are fair (<code>claim:threat-model-fairness</code>).</p>
-      <p><strong>The one finding that frames the page:</strong> the MI↔recovery <em>decorrelation</em> (ridge recovery anti-correlating with the MI probes across the sweep) is <strong>not universal — at depth it is specific to noise <span class="accent">propagation</span></strong>. Under noise added <em>at the captured layer</em>, even the weak ridge tracks MI perfectly (ρ=1.0). At L0 ridge still tracks the probes positively (+0.76..+0.88) though its recovery collapses (an uplift gap, not decorrelation). True decorrelation (ridge ρ=−0.09) appears only when DP noise is injected at the embedding and <em>reshaped through the nonlinear blocks</em>; there a stronger decoder is needed, and it re-correlates (+0.83).</p>
+      <p><strong>One scheme, observed at different depths.</strong> The only DP mechanism here is the Gaussian mechanism on the input embedding <code>e₀ ← clip(e₀,C); e′ = e₀ + N(0,σ²I)</code>, with <code>σ = C·z/ε</code>. The axis is the <em>observation depth</em>: at <strong>L0</strong> the released object is the noised embedding itself; at <strong>depth L&gt;0</strong> it is that same noise reshaped through L transformer blocks. L0 and "propagated" are not two schemes — they are one scheme seen at two depths. Central DP (a trusted aggregator adding noise to outputs) is <em>not covered yet</em>.</p>
+      <p><strong>Threat model — <code>WEIGHTS-PUB</code>, honest-but-curious.</strong> The adversary knows the weights, the embedding table, and the published DP parameters <code>(C, σ)</code>, and can synthesize unlimited <code>(noised-representation, token)</code> training pairs at any ε. Every attack compared here uses only this, so comparisons between admissible attacks are fair.</p>
+      <p><strong>Scope.</strong> Surfaces measured under DP: the residual stream (§04) and the pooled embedding (§05). Key/value-cache and permutation-table defenses use non-DP mechanisms (KV-Cloak, GELO, permutation cover, Stained Glass) and live on their own pages. The representation-space "at-layer noise" control — Gaussian noise injected directly at the observed layer, which is <em>not</em> a DP deployment — has been moved to a control note (<code>research-wiki/experiments/representation-space-noise-control.md</code>); it is the evidence that the depth decorrelation below is caused by propagation, not by noise magnitude.</p>
     </div>
   </section>
 
@@ -103,439 +105,249 @@
     <table class="spec">
       <thead><tr><th style="width:22%">Term</th><th>Definition</th></tr></thead>
       <tbody>
-        <tr><td><strong>surface</strong></td><td>The released object: a per-position residual-stream vector <code>resid_post[L]∈R^d</code>, or (L0) the noised embedding of a token. Secret = the <strong>token id</strong> behind it.</td></tr>
-        <tr><td><strong>at-layer noise</strong></td><td>Gaussian noise added <em>directly to the captured layer</em> <code>resid_post[L]</code> (level = σ/act-RMS). The representation is otherwise clean.</td></tr>
-        <tr><td><strong>propagated input-DP</strong></td><td>DP Gaussian noise added at the <em>embedding</em>, then run forward through the model; the layer-L observation is the noise <em>reshaped through depth</em>. The hard, interesting regime.</td></tr>
-        <tr><td><strong>ridge</strong></td><td>The information-inefficient baseline attack: closed-form linear (ridge) map from observation → embedding, then nearest token. Self-generates noised training pairs.</td></tr>
-        <tr><td><strong>Bayes-NN</strong></td><td>L0 exact channel optimum: nearest-neighbour to the known embedding table under the published noise model. No training set — uses strictly <em>less</em> than ridge, still admissible.</td></tr>
-        <tr><td><strong>channel-aware decoder</strong></td><td>An MLP / deep / Vec2Text-style corrector trained on the σ-matched noised representation → token. The stronger attack at depth.</td></tr>
-        <tr><td><strong>FMV</strong></td><td>Forward-model-in-loop Vec2Text: re-embed decoder-seeded candidate tokens through the actual model and match to the observed noised representation.</td></tr>
-        <tr><td><strong>CLUB / V_cap / SDL</strong></td><td>The three attack-<em>independent</em> probes. CLUB = variational MI upper bound <code>I(rep;tok)</code> (bits); V_cap = capacity-matched predictive V-information; SDL = surplus description length (bits). None runs the attack.</td></tr>
-        <tr><td><strong>recovery / selectivity</strong></td><td>TTRSR / top-1 exact-match recovery rate; <em>selectivity</em> = recovery − shuffle-control floor (guards against memorization). The per-secret readout.</td></tr>
-        <tr><td><strong>uplift</strong></td><td>recovery(strong attack) − recovery(ridge). Positive ⇒ the stronger attack extracts preserved information ridge misses.</td></tr>
+        <tr><td><strong>local DP</strong></td><td>The Gaussian mechanism on the input embedding: clip each row to L2 ≤ C, add N(0, σ²I) with σ = C·z/ε, z = √(2 ln(1.25/δ)). Smaller ε ⇒ more noise. Sensitivity C (add/remove-to-zero adjacency).</td></tr>
+        <tr><td><strong>observation depth</strong></td><td>Which layer's residual the adversary sees. <strong>L0</strong> = the noised embedding itself; <strong>L&gt;0</strong> = that noise propagated through L blocks. The secret is the <strong>token id</strong> behind the released vector.</td></tr>
+        <tr><td><strong>ridge</strong> (linear attack)</td><td>Closed-form linear map observation → embedding, then nearest token over the candidate pool. The information-inefficient baseline; self-generates noised training pairs.</td></tr>
+        <tr><td><strong>decoder</strong> (non-linear attack)</td><td>An MLP map observation → embedding (cosine loss), trained on the σ-matched noised reps (noise-aware), then nearest token. The stronger admissible attack.</td></tr>
+        <tr><td><strong>CLUB</strong></td><td><a href="probe-club.html">Variational MI upper bound</a> <code>I(rep;token)</code> in bits. Attack-independent.</td></tr>
+        <tr><td><strong>V_cap</strong></td><td><a href="probe-vcap.html">Capacity-matched predictive V-information</a> in bits, read as a bounded token-identity reader that never touches the embedding table. Attack-independent.</td></tr>
+        <tr><td><strong>reader perplexity</strong></td><td>The legible companion to V_cap: <code>2^(H_prior − PVI)</code> = the effective number of token candidates the reader is still choosing among (1 = fully pinned down; up to the prior's effective vocabulary = no information).</td></tr>
+        <tr><td><strong>SDL</strong></td><td><a href="probe-sdl.html">Surplus description length</a> (bits); reported auxiliary (noisier, 6–7× costlier).</td></tr>
+        <tr><td><strong>recovery / selectivity</strong></td><td>recovery = top-1 token match over the candidate pool (size 2048); selectivity = recovery − a label-shuffle floor (guards against memorization). The per-secret readout.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <!-- ═════ § 3 HOW IT WORKS ═════ -->
+  <!-- ═════ § 3 METHOD ═════ -->
   <section id="how">
     <header class="section-head">
       <div class="section-num">§03</div>
       <h2 class="section-title">Method</h2>
-      <div class="section-meta">the measurement loop, two noise geometries</div>
+      <div class="section-meta">the measurement loop on the local-DP residual</div>
     </header>
     <div class="diagram-frame">
       <div class="diagram-cap">
-        <span class="l">FIG. 01 — input-embedding DP (ε locus) propagated to depth L · ridge / Bayes-NN / decoder vs CLUB / V_cap / SDL</span>
-        <span>navy = client (forms embedding, applies DP, runs model) · plum = ε DP locus · slate = adversary (WEIGHTS-PUB) · amber = recovery · adapted from §03 Method: the measurement loop, two noise geometries</span>
+        <span class="l">FIG. 01 — local DP on the input embedding, observed at depth L · ridge / decoder vs CLUB / V_cap</span>
+        <span>navy = client (forms embedding, applies DP, runs model) · plum = ε DP locus · slate = adversary (WEIGHTS-PUB) · amber = recovery</span>
       </div>
-      <svg class="flow" viewBox="0 0 1320 430" xmlns="http://www.w3.org/2000/svg">
+      <svg class="flow" viewBox="0 0 1180 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Local DP applied at the input embedding, propagated to depth L, released to a WEIGHTS-PUB adversary who runs a linear ridge and a non-linear decoder attack while CLUB and V_cap probes read bits without the attack.">
         <defs>
-          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
-          </marker>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker>
         </defs>
+        <rect x="0" y="36" width="740" height="268" class="zone-band zone-band-client"/>
+        <rect x="740" y="36" width="440" height="268" class="zone-band zone-band-gpu"/>
+        <text x="18" y="58" class="zone-label">Client — trusted (data owner)</text>
+        <text x="18" y="74" class="zone-sublabel">forms input embedding · applies local DP · runs the transformer to depth L</text>
+        <text x="758" y="58" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
+        <text x="758" y="74" class="zone-sublabel">has weights + table · knows (C, σ) · inverts the released residual r_L</text>
+        <rect x="220" y="96" width="240" height="150" class="zone-band zone-band-crypto" style="opacity:.5;"/>
+        <text x="232" y="114" class="zone-sublabel">ε DP locus (input embedding)</text>
+        <line x1="740" y1="36" x2="740" y2="304" class="boundary"/>
+        <text x="744" y="300" class="boundary-label">release (depth-L residual r_L crosses to the adversary)</text>
 
-        <!-- ZONES -->
-        <rect x="0"   y="40" width="850" height="370" class="zone-band zone-band-client"/>
-        <rect x="850" y="40" width="470" height="370" class="zone-band zone-band-gpu"/>
-        <text x="20"  y="62" class="zone-label">Client — trusted (data owner)</text>
-        <text x="20"  y="78" class="zone-sublabel">forms input embedding · applies DP at L0 · runs the transformer to depth L</text>
-        <text x="870" y="62" class="zone-label">Adversary — untrusted (WEIGHTS-PUB)</text>
-        <text x="870" y="78" class="zone-sublabel">has φ + weights · knows ε, (C,σ) · inverts released depth-L residual</text>
+        <rect x="20" y="130" width="180" height="70" class="box box-strong box-client"/>
+        <text x="34" y="154" class="box-label">① input embedding</text>
+        <text x="34" y="172" class="box-sub">tokens t → e₀ ∈ ℝ^d</text>
+        <text x="34" y="190" class="box-mono">secret = tokens</text>
 
-        <!-- ε DP locus sub-band inside the client zone -->
-        <rect x="245" y="100" width="245" height="250" class="zone-band zone-band-crypto" style="opacity:.5;"/>
-        <text x="258" y="120" class="zone-sublabel">ε DP locus (Gaussian mechanism on L0 embedding)</text>
+        <rect x="230" y="130" width="215" height="84" class="box box-strong box-crypto"/>
+        <text x="244" y="154" class="box-label">② local DP (ε locus)</text>
+        <text x="244" y="172" class="box-mono">e₀ ← clip(e₀, C)</text>
+        <text x="244" y="190" class="box-mono">e′ = e₀ + N(0, σ²I)</text>
+        <text x="244" y="208" class="box-sub">σ = C·z/ε · sweep ε</text>
 
-        <!-- BOUNDARY -->
-        <line x1="850" y1="40" x2="850" y2="410" class="boundary"/>
-        <text x="854" y="406" class="boundary-label">release (depth-L residual r_L crosses to adversary)</text>
+        <rect x="475" y="130" width="225" height="84" class="box box-strong box-client"/>
+        <text x="489" y="154" class="box-label">③ propagate to depth L</text>
+        <text x="489" y="172" class="box-mono">r_L = f₁..ₗ(e′)</text>
+        <text x="489" y="190" class="box-sub">L0 = e′ itself · L&gt;0 = noise</text>
+        <text x="489" y="208" class="box-sub">reshaped through blocks</text>
 
-        <!-- CLIENT: ① input embedding -->
-        <rect x="20" y="150" width="200" height="80" class="box box-strong box-client"/>
-        <text x="34" y="174" class="box-label">① input embedding</text>
-        <text x="34" y="192" class="box-sub">tokens t → e₀ ∈ ℝ^d at L0</text>
-        <text x="34" y="212" class="box-mono">secret = tokens behind e₀</text>
+        <rect x="760" y="92" width="290" height="92" class="box box-strong box-gpu"/>
+        <text x="774" y="114" class="box-label">④ attack — two series (plot together)</text>
+        <text x="774" y="134" class="box-mono">ridge — linear map (baseline)</text>
+        <text x="774" y="152" class="box-mono">decoder — non-linear, noise-aware</text>
+        <text x="774" y="172" class="box-sub">readout = token recovery / selectivity</text>
 
-        <!-- ② DP mechanism (ε locus) -->
-        <rect x="255" y="150" width="225" height="92" class="box box-strong box-crypto"/>
-        <text x="269" y="174" class="box-label">② DP mechanism (ε locus)</text>
-        <text x="269" y="192" class="box-mono">e₀ ← clip(e₀, C)</text>
-        <text x="269" y="210" class="box-mono">e′ = e₀ + N(0, σ²I)</text>
-        <text x="269" y="230" class="box-sub">σ = C·z/ε · smaller ε → more noise · sweep ε</text>
+        <rect x="1065" y="100" width="100" height="76" class="box box-strong box-gpu box-warn"/>
+        <text x="1079" y="124" class="box-label warn">token t̂</text>
+        <text x="1079" y="144" class="box-sub">recovery</text>
+        <text x="1079" y="162" class="box-sub">vs source t</text>
 
-        <!-- ③ propagate to depth L -->
-        <rect x="520" y="150" width="220" height="92" class="box box-strong box-client"/>
-        <text x="534" y="174" class="box-label">③ propagate to depth L</text>
-        <text x="534" y="192" class="box-mono">r_L = f_{1..L}(e′)</text>
-        <text x="534" y="210" class="box-sub">noise mixes through L layers</text>
-        <text x="534" y="230" class="box-sub">WHERE noise enters changes the answer</text>
+        <rect x="760" y="208" width="405" height="86" class="box box-gpu" style="opacity:.92;"/>
+        <text x="774" y="230" class="box-label">⑤ probe path — bits, no attack (independent)</text>
+        <text x="774" y="250" class="box-mono">CLUB — MI upper bound I(rep;token)</text>
+        <text x="774" y="268" class="box-mono">V_cap — capacity-matched reader (+ perplexity)</text>
+        <text x="774" y="286" class="box-sub">computed WITHOUT running the attack</text>
 
-        <!-- ④ release point (residual leaving the zone) -->
-        <rect x="755" y="160" width="80" height="72" class="box box-strong box-client"/>
-        <text x="769" y="184" class="box-label">④ release</text>
-        <text x="769" y="202" class="box-sub">surface</text>
-        <text x="769" y="220" class="box-mono">r_L</text>
-
-        <!-- ADVERSARY: attack path — three series -->
-        <rect x="875" y="92" width="270" height="118" class="box box-strong box-gpu"/>
-        <text x="889" y="114" class="box-label">⑤ attack — three series (plot together)</text>
-        <text x="889" y="134" class="box-mono">ridge — linear decoder</text>
-        <text x="889" y="152" class="box-mono">Bayes-NN — exact / optimal decoder</text>
-        <text x="889" y="170" class="box-mono">decoder — learned (stronger attack)</text>
-        <text x="889" y="190" class="box-sub">readout = graded recovery (token recovery / selectivity)</text>
-
-        <!-- recovered token (warn) -->
-        <rect x="1165" y="100" width="140" height="102" class="box box-strong box-gpu box-warn"/>
-        <text x="1179" y="124" class="box-label warn">recovered token t̂</text>
-        <text x="1179" y="142" class="box-sub">token-F1 /</text>
-        <text x="1179" y="160" class="box-sub">selectivity</text>
-        <text x="1179" y="180" class="box-mono">vs source t</text>
-        <text x="1179" y="196" class="box-sub">best decoder wins</text>
-
-        <!-- TRAIN lane (dashed): learned attacks (ridge, decoder) are FIT on training pairs; Bayes-NN is parameter-free -->
-        <rect x="1150" y="206" width="155" height="30" class="box box-gpu" style="opacity:.92;stroke-dasharray:4 3;"/>
-        <text x="1162" y="225" class="box-sub">train pairs (r_L, token)</text>
-
-        <!-- PROBE path — CLUB / V_cap / SDL -->
-        <rect x="875" y="240" width="430" height="118" class="box box-gpu" style="opacity:.92;"/>
-        <text x="889" y="262" class="box-label">⑥ probe path — bits (no attack · geometry / channel-matched)</text>
-        <text x="889" y="282" class="box-mono">CLUB — MI upper bound I(rep;tok)   at-layer ρ = +1.00</text>
-        <text x="889" y="300" class="box-mono">V_cap — capacity-matched predictive V-info   ρ = +1.00</text>
-        <text x="889" y="318" class="box-mono">SDL — surplus description length   ρ = +0.80 (auxiliary)</text>
-        <text x="889" y="338" class="box-sub">SDL noisier + 6–7× costlier → auxiliary · computed WITHOUT running the attack</text>
-
-        <!-- THREE REGIMES annotation (the central finding) -->
-        <rect x="20" y="278" width="700" height="116" class="box box-client" style="opacity:.92;"/>
-        <text x="34" y="300" class="box-label">three regimes — WHERE the noise enters changes the answer</text>
-        <text x="34" y="320" class="box-sub">at-layer noise: ridge tracks MI ρ=1.0 · stronger MLP does NOT help — no gap (ridge near-sufficient)</text>
-        <text x="34" y="338" class="box-sub">L0 input-DP: ridge still tracks (+0.76..+0.88) but recovery COLLAPSES · Bayes-NN uplift +0.98 — ceiling-realization gap</text>
-        <text x="34" y="356" class="box-sub">propagated @depth: ridge ANTI-correlates (−0.09) · stronger DECODER re-correlates (+0.83) — the open regime</text>
-        <text x="34" y="376" class="box-sub">information preserved through propagation; only the exact / stronger decoder extracts it</text>
-
-        <!-- ARROWS -->
-        <!-- ① → ② -->
-        <path d="M220 190 L255 191" class="arrow arrow-secret" marker-end="url(#ah)"/>
-        <text x="226" y="183" class="arrow-label secret">e₀</text>
-        <!-- ② → ③ -->
-        <path d="M480 191 L520 191" class="arrow arrow-masked" marker-end="url(#ah)"/>
-        <text x="486" y="183" class="arrow-label masked">e′ (DP'd L0)</text>
-        <!-- ③ → ④ : propagation -->
-        <path d="M740 191 L755 192" class="arrow arrow-masked" marker-end="url(#ah)"/>
-        <text x="612" y="138" class="arrow-label masked">propagate L0 → depth L</text>
-        <!-- ④ release → attack path -->
-        <path d="M835 184 L875 150" class="arrow arrow-masked" marker-end="url(#ah)"/>
-        <text x="846" y="132" class="arrow-label masked">r_L released</text>
-        <!-- ④ release → probe path -->
-        <path d="M835 210 C855 250 856 280 875 295" class="arrow arrow-masked" marker-end="url(#ah)"/>
-        <text x="848" y="278" class="arrow-label masked">r_L (probe)</text>
-        <!-- attack → recovered token -->
-        <path d="M1145 151 L1165 151" class="arrow arrow-warn" marker-end="url(#ah)"/>
-        <text x="1148" y="143" class="arrow-label warn">t̂</text>
-        <!-- train lane (dashed): fit ridge/decoder on training pairs; Bayes-NN parameter-free (distinct from solid infer arm) -->
-        <path d="M1150 218 C1120 218 1110 212 1090 210" class="arrow arrow-masked" marker-end="url(#ah)" style="stroke-dasharray:4 3;"/>
-        <text x="884" y="228" class="arrow-label masked">train: fit ridge/decoder (Bayes-NN: none)</text>
+        <path d="M200 165 L230 165" class="arrow arrow-secret" marker-end="url(#ah)"/>
+        <text x="204" y="158" class="arrow-label secret">e₀</text>
+        <path d="M445 168 L475 168" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="449" y="160" class="arrow-label masked">e′</text>
+        <path d="M700 160 L760 135" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="706" y="150" class="arrow-label masked">r_L</text>
+        <path d="M700 184 C730 220 732 245 760 250" class="arrow arrow-masked" marker-end="url(#ah)"/>
+        <text x="706" y="240" class="arrow-label masked">r_L (probe)</text>
+        <path d="M1050 138 L1065 138" class="arrow arrow-warn" marker-end="url(#ah)"/>
       </svg>
     </div>
-
     <div class="prose">
-      <p>For each surface we run the <strong>measurement loop</strong>: (1) run an attack → graded recovery; (2) run an attack-<em>independent</em> probe → bits; (3) sweep the DP budget ε; (4) test whether bits and recovery correlate across the sweep. The novelty here is that the answer depends on <em>where</em> the noise enters.</p>
+      <p>For each surface we run the <strong>measurement loop</strong>: (1) run an attack on the released representation → graded recovery; (2) run an attack-<em>independent</em> probe on the same representation → bits; (3) sweep the DP budget ε; (4) test whether bits and recovery correlate across the sweep. The probes never consume the attack's output, so any correlation is real, not circular. The residual sweep (§04) reads all four arms — CLUB, V_cap, ridge, decoder — from one tool, <code>scripts/evals/dp_leakage_sweep.py</code>, so the numbers splice into one table.</p>
     </div>
-    <table class="spec">
-      <thead><tr><th>Noise geometry</th><th>Does ridge track MI?</th><th>Does a stronger attack help?</th><th>Reading</th></tr></thead>
-      <tbody>
-        <tr><td><strong>At-layer</strong> (R2/R3)</td><td class="accent">yes, ρ=1.0</td><td class="warn">no — MLP loses to ridge</td><td>No gap: ridge is already near-sufficient; nothing to restore.</td></tr>
-        <tr><td><strong>L0 input-DP</strong> (R1)</td><td>ridge still tracks (+0.76..+0.88) but its recovery collapses</td><td class="accent">yes — Bayes-NN uplift +0.98</td><td>Uplift / ceiling-realization gap (not decorrelation): information preserved, exact optimum extracts it.</td></tr>
-        <tr><td><strong>Propagated</strong> @depth (R4/R5)</td><td class="warn">no — ridge anti-correlates −0.09</td><td class="accent">yes — decoder re-correlates +0.83</td><td>The open regime; a stronger attack restores the correlation.</td></tr>
-      </tbody>
-    </table>
   </section>
 
-  <!-- ═════ § 4 PROBE ═════ -->
-  <section id="probes">
-    <header class="section-head">
-      <div class="section-num">§04</div>
-      <h2 class="section-title">The probes</h2>
-      <div class="section-meta">why they are attack-independent</div>
-    </header>
-    <div class="prose">
-      <p>All three probes are computed <strong>without running the attack</strong> (integrity-critical — a probe that reported the attack's own bits would make any correlation circular). The cross-model integrity audit confirmed CLUB, V_cap and SDL each estimate leakage independently and do not call the attack's recovery output.</p>
-      <p>Under <strong>at-layer noise all three track recovery</strong> (Spearman 0.80–1.0): CLUB and V_cap are smoothest (ρ=1.0), SDL noisier and 6–7× costlier (report it auxiliary). This closes the "is MDL faithful too?" question and shows the probes are not the limiting factor — the attack is.</p>
-    </div>
-    <table class="spec">
-      <thead><tr><th>Probe</th><th>Bits it reports</th><th class="num">at-layer ρ(probe, recovery)</th><th>independent of attack?</th></tr></thead>
-      <tbody>
-        <tr><td><strong>CLUB</strong></td><td>MI upper bound <code>I(rep;tok)</code></td><td class="num accent">+1.00</td><td>yes (trains <code>q(y|x)</code>, not the attack)</td></tr>
-        <tr><td><strong>V_cap</strong></td><td>capacity-matched predictive V-information</td><td class="num accent">+1.00</td><td>yes (capacity-matched reader)</td></tr>
-        <tr><td><strong>SDL</strong></td><td>surplus description length</td><td class="num">+0.80</td><td>yes (online code length)</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <!-- ═════ § 5 RESULTS ═════ -->
+  <!-- ═════ § 4 RESIDUAL ═════ -->
   <section id="results">
     <header class="section-head">
-      <div class="section-num">§05</div>
-      <h2 class="section-title">Results</h2>
-      <div class="section-meta">bits canonical + per-secret readout · gemma-2-2b · AMD ROCm iGPU</div>
+      <div class="section-num">§04</div>
+      <h2 class="section-title">Residual stream under local DP</h2>
+      <div class="section-meta">probes first, then the linear and non-linear attacks · across depth</div>
     </header>
-
-    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:8px 0 8px;">R1 — L0 input-DP · exact Bayes-NN vs ridge <span class="mono" style="font-size:12px">(synthetic_proxy; recovery from l0_fast.txt, bits from b2_l0_bayes.json)</span></h4>
-    <table class="spec">
-      <thead><tr><th>ε (r=σ√d/C)</th><th class="num">ridge recovery</th><th class="num">Bayes-NN recovery</th><th class="num">uplift</th><th class="num">CLUB (bits)</th><th class="num">V_cap</th></tr></thead>
+    <p class="prose">One sweep, four observation depths × four budgets, gemma-2-2b, N=160, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>reader perplexity</em> (effective token candidates remaining).</p>
+    <table class="spec spec--wide">
+      <thead><tr>
+        <th>layer</th><th>ε</th>
+        <th class="num">CLUB (bits)</th><th class="num">V_cap (bits)</th><th class="num">reader perplexity</th>
+        <th class="num">ridge — linear</th><th class="num">decoder — non-linear</th>
+      </tr></thead>
       <tbody>
-        <tr><td>∞ (0.00)</td><td class="num">1.000</td><td class="num">1.000</td><td class="num">+0.000</td><td class="num">3084</td><td class="num">0.981</td></tr>
-        <tr><td>256 (0.91)</td><td class="num">0.202</td><td class="num accent">1.000</td><td class="num accent">+0.798</td><td class="num">2624</td><td class="num">0.935</td></tr>
-        <tr><td><b>128 (1.82)</b></td><td class="num warn">0.020</td><td class="num accent">1.000</td><td class="num accent">+0.980</td><td class="num">1912</td><td class="num">0.736</td></tr>
-        <tr><td>64 (3.63)</td><td class="num warn">0.002</td><td class="num accent">0.993</td><td class="num accent">+0.992</td><td class="num">—</td><td class="num">—</td></tr>
+        <tr><td><b>L0</b></td><td>∞</td><td class="num">3384</td><td class="num">5.78</td><td class="num">7.0</td><td class="num accent">0.966</td><td class="num">0.673</td></tr>
+        <tr><td>L0</td><td>1024</td><td class="num">2882</td><td class="num">5.76</td><td class="num">7.1</td><td class="num accent">0.907</td><td class="num">0.562</td></tr>
+        <tr><td>L0</td><td>512</td><td class="num">2334</td><td class="num">5.47</td><td class="num">8.6</td><td class="num accent">0.771</td><td class="num">0.412</td></tr>
+        <tr><td>L0</td><td>256</td><td class="num">1873</td><td class="num">4.51</td><td class="num">16.8</td><td class="num accent">0.356</td><td class="num">0.234</td></tr>
+        <tr><td><b>L5</b></td><td>∞</td><td class="num">2503</td><td class="num">4.40</td><td class="num">18.1</td><td class="num">0.815</td><td class="num">0.599</td></tr>
+        <tr><td>L5</td><td>1024</td><td class="num">2488</td><td class="num">4.74</td><td class="num">14.3</td><td class="num">0.688</td><td class="num">0.600</td></tr>
+        <tr><td>L5</td><td>512</td><td class="num">2055</td><td class="num">4.35</td><td class="num">18.8</td><td class="num">0.446</td><td class="num accent">0.501</td></tr>
+        <tr><td>L5</td><td>256</td><td class="num">1570</td><td class="num">3.40</td><td class="num">36.3</td><td class="num">0.209</td><td class="num accent">0.312</td></tr>
+        <tr><td><b>L12</b></td><td>∞</td><td class="num">2403</td><td class="num">4.01</td><td class="num">23.8</td><td class="num">0.401</td><td class="num">0.264</td></tr>
+        <tr><td>L12</td><td>1024</td><td class="num">2403</td><td class="num">4.19</td><td class="num">21.0</td><td class="num">0.316</td><td class="num">0.262</td></tr>
+        <tr><td>L12</td><td>512</td><td class="num">2378</td><td class="num">4.48</td><td class="num">17.2</td><td class="num">0.225</td><td class="num accent">0.262</td></tr>
+        <tr><td>L12</td><td>256</td><td class="num">1571</td><td class="num">2.05</td><td class="num">92.3</td><td class="num">0.068</td><td class="num accent">0.099</td></tr>
+        <tr><td><b>L20</b></td><td>∞</td><td class="num">2525</td><td class="num">4.28</td><td class="num">19.7</td><td class="num">0.591</td><td class="num">0.502</td></tr>
+        <tr><td>L20</td><td>1024</td><td class="num">2609</td><td class="num">4.47</td><td class="num">17.2</td><td class="num">0.562</td><td class="num">0.510</td></tr>
+        <tr><td>L20</td><td>512</td><td class="num">2833</td><td class="num">5.15</td><td class="num">10.8</td><td class="num">0.531</td><td class="num accent">0.536</td></tr>
+        <tr><td>L20</td><td>256</td><td class="num">1780</td><td class="num">3.26</td><td class="num">39.9</td><td class="num">0.134</td><td class="num accent">0.291</td></tr>
       </tbody>
+      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Source: <code>refine-logs/dp-decoder-grid/dp_leakage_sweep.json</code> (<code>scripts/evals/dp_leakage_sweep.py</code>). Accent = the stronger attack in that row: ridge at L0 (and clean), the non-linear decoder in the deep + noisy cells.</caption>
     </table>
-    <div class="prose"><p>Bayes-NN holds ~1.0 to r≈2.4 while ridge collapses 50×; CLUB decays only −38%. The information is <strong>preserved</strong> — ridge is information-inefficient. (L0 is the easiest layer: observation ≈ noised embedding, exact table known. Clean proof-of-principle, not the hard case.)</p></div>
-
-    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R2 — AT-LAYER noise · the negative that defines the regime</h4>
-    <table class="spec">
-      <thead><tr><th>L</th><th class="num">level</th><th class="num">ridge sel</th><th class="num">decoder sel</th><th class="num">uplift</th><th class="num">CLUB (bits)</th></tr></thead>
-      <tbody>
-        <tr><td>12</td><td class="num">0.0</td><td class="num">+0.704</td><td class="num">+0.406</td><td class="num warn">−0.298</td><td class="num">2902</td></tr>
-        <tr><td>20</td><td class="num">0.0</td><td class="num">+0.720</td><td class="num">+0.495</td><td class="num warn">−0.225</td><td class="num">3043</td></tr>
-        <tr><td>20</td><td class="num">3.0</td><td class="num">+0.077</td><td class="num">+0.030</td><td class="num warn">−0.047</td><td class="num">375</td></tr>
-      </tbody>
-      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Across the noise sweep, <strong>both</strong> ridge and decoder selectivity track the MI probes with Spearman <strong>ρ=1.00</strong> at L5/12/20 (a per-sweep correlation, not a per-row value) — ridge does not decorrelate under at-layer noise.</caption>
-    </table>
-    <div class="prose"><p>A 250-epoch MLP decoder <strong>loses to ridge</strong> at every depth/level, and <strong>both attacks track MI perfectly (ρ=1.0)</strong>. Ridge does <em>not</em> decorrelate here. So the decorrelation seen at depth is <strong>not</strong> a generic property of ridge under noise — it is specific to propagation (R4/R5).</p></div>
-
-    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R5 — PROPAGATED input-DP @L20 · the headline <span class="mono" style="font-size:12px">(single seed — no robustness claim)</span></h4>
-    <table class="spec">
-      <thead><tr><th>attack</th><th class="num">ρ(selectivity, V_cap)</th><th class="num">ρ(selectivity, CLUB)</th><th>reading</th></tr></thead>
-      <tbody>
-        <tr><td><strong>deep decoder</strong></td><td class="num accent">+0.83</td><td class="num">—</td><td>re-correlates with MI</td></tr>
-        <tr><td>iterative corrector</td><td class="num accent">+0.71</td><td class="num accent">+0.71</td><td>re-correlates</td></tr>
-        <tr><td><strong>ridge</strong></td><td class="num warn">−0.09</td><td class="num warn">−0.09</td><td>anti-correlates (decorrelated)</td></tr>
-      </tbody>
-      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">Descriptive Spearman over a <strong>single seed</strong>, n=6 ε points — directional, not a robustness claim; multi-seed CIs are the named firm-up.</caption>
-    </table>
-    <div class="prose"><p>The trained decoder's recovery <strong>tracks the MI probes (+0.83) where ridge anti-correlates (−0.09)</strong> — exactly the objective: a stronger attack restores the correlation the weak attack breaks. Uplift is a noise crossover (decoder wins ε≤384, ridge wins clean). <strong>Embedding-space iteration is null</strong> (<code>iter_T3 − iter_T1 = +0.000</code>): a fixed-point corrector, so what helps is noise-aware training, not re-embedding feedback.</p></div>
-
-    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R6 — forward-model Vec2Text @L20 · regime-dependence (the open gap)</h4>
-    <table class="spec">
-      <thead><tr><th>ε</th><th class="num">ridge</th><th class="num">decoder</th><th class="num">FMV</th><th class="num">uplift FMV−ridge</th></tr></thead>
-      <tbody>
-        <tr><td><b>∞</b></td><td class="num">0.212</td><td class="num">0.380</td><td class="num accent">0.738</td><td class="num accent">+0.526</td></tr>
-        <tr><td>512</td><td class="num">0.489</td><td class="num">0.431</td><td class="num">0.495</td><td class="num">+0.006</td></tr>
-        <tr><td>256</td><td class="num">0.227</td><td class="num">0.245</td><td class="num warn">0.025</td><td class="num warn">−0.202</td></tr>
-      </tbody>
-    </table>
-    <div class="prose"><p>FMV closes the low-noise gap (+0.53 over ridge at clean) but is <strong>noise-fragile</strong> — it matches a <em>clean</em> reference to a single noisy draw, collapsing below ridge at ε=256. Mirror image of R5's decoder (best at high noise). <strong>No single attack dominates the noise range</strong> ⇒ the named optimum is a <em>noise-aware</em> FMV (match <code>E[Y|candidate]</code>) ⊕ a learned denoiser, the open problem here.</p></div>
-
-    <h4 style="font-family:'Fraunces',serif;font-variation-settings:'opsz' 26,'wght' 460;font-size:18px;margin:24px 0 8px;">R7 — does the <code>V_cap</code> probe track recovery across depth? · the depth-decoupling finding <span class="mono" style="font-size:12px">(single seed, relocated from the retired capacity-pvi page; source: refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md)</span></h4>
-    <div class="prose"><p>R1–R6 vary the <em>attack</em> at fixed layers. This block instead asks the probe-side question on the same surface: does the attack-independent capacity-matched predictive V-information (<code>V_cap</code>), read as a bounded reader accuracy that never touches the embedding table, track the ridge recovery as the privacy parameter sweeps, and does that tracking hold across <em>depth</em>? It does at the input layer and decouples at depth, the <code>claim:depth-decoupling-input-dp</code> finding.</p></div>
-
-    <p class="prose"><strong>At-layer representation-space defenses: the probe tracks at every depth.</strong> Spearman ρ between the readout and ridge recovery across the defense parameter (a per-sweep correlation, not a per-row value):</p>
-    <table class="spec">
-      <thead><tr><th>defense</th><th>readout</th><th class="num">layer 5</th><th class="num">layer 12</th><th class="num">layer 20</th></tr></thead>
-      <tbody>
-        <tr><td>PCA-subspace ablation</td><td><code>V_cap</code> reader accuracy</td><td class="num">0.80</td><td class="num">0.90</td><td class="num">0.90</td></tr>
-        <tr><td>PCA-subspace ablation</td><td>CLUB <code>I(rep;tok)</code></td><td class="num">0.90</td><td class="num">0.90</td><td class="num">0.90</td></tr>
-        <tr><td>isotropic hidden-state noise</td><td><code>V_cap</code> reader accuracy</td><td class="num accent">1.00</td><td class="num accent">1.00</td><td class="num accent">1.00</td></tr>
-        <tr><td>isotropic hidden-state noise</td><td>CLUB <code>I(rep;tok)</code></td><td class="num accent">1.00</td><td class="num accent">1.00</td><td class="num accent">1.00</td></tr>
-      </tbody>
-    </table>
-    <div class="prose"><p>Under noise or subspace removal applied <em>at the observed layer</em>, the bounded reader accuracy tracks ridge at ρ 0.80–1.00 with no depth dependence; this is the same positive regime R2 reports for ridge itself under at-layer noise.</p></div>
-
-    <p class="prose"><strong>Propagated input-DP: tracking attenuates monotonically with depth.</strong> One row per observation layer; ρ with ridge recovery across the privacy sweep:</p>
-    <table class="spec">
-      <thead><tr><th>layer</th><th class="num">clean recovery</th><th class="num">acc vs recovery (ρ)</th><th class="num">CLUB vs recovery (ρ)</th><th class="num">reader bits vs recovery (ρ)</th></tr></thead>
-      <tbody>
-        <tr><td>0</td><td class="num">0.809</td><td class="num accent">+0.96</td><td class="num">+0.96</td><td class="num">+0.71</td></tr>
-        <tr><td>5</td><td class="num">0.559</td><td class="num">+0.68</td><td class="num">+0.96</td><td class="num">+0.68</td></tr>
-        <tr><td>12</td><td class="num">0.347</td><td class="num">+0.43</td><td class="num">+0.89</td><td class="num">+0.32</td></tr>
-        <tr><td>20</td><td class="num">0.462</td><td class="num warn">−0.21</td><td class="num">+0.29</td><td class="num warn">−0.21</td></tr>
-      </tbody>
-      <caption style="caption-side:bottom;text-align:left;font-size:12px;opacity:0.7;padding-top:6px;">The accuracy↔recovery correlation attenuates +0.96 (L0) → −0.21 (L20), turning negative at L20; CLUB attenuates in parallel but stays positive (+0.96 → +0.29). Consistent with R5's <code>ρ(selectivity, V_cap) = −0.09</code> at L20 (a complementary cut, different sweep); both show <code>V_cap</code> and ridge recovery decorrelating at the deepest layer. The shared attenuation is a signal property; the L20 sign reversal is specific to the bounded-accuracy readout. The L0 accuracy↔recovery ρ is +0.96 (+0.99 under alternative tie-handling) in the source.</caption>
-    </table>
-
-    <p class="prose"><strong>Per-point sample at layer 0</strong> (the easiest layer; observation ≈ noised embedding):</p>
-    <table class="spec">
-      <thead><tr><th>privacy ε</th><th class="num">ridge recovery</th><th class="num">reader bits</th><th class="num"><code>V_cap</code> reader accuracy</th><th class="num">CLUB (bits)</th></tr></thead>
-      <tbody>
-        <tr><td>∞</td><td class="num">0.809</td><td class="num">6.67</td><td class="num">0.882</td><td class="num">3850</td></tr>
-        <tr><td>1024</td><td class="num">0.661</td><td class="num">6.80</td><td class="num">0.878</td><td class="num">3640</td></tr>
-        <tr><td>512</td><td class="num">0.428</td><td class="num">6.47</td><td class="num">0.846</td><td class="num">3340</td></tr>
-        <tr><td>256</td><td class="num">0.140</td><td class="num">5.46</td><td class="num">0.684</td><td class="num">2810</td></tr>
-      </tbody>
-    </table>
-    <div class="prose"><p>Input-layer privacy degrades the embedding geometry the attack reconstructs before it degrades the token-identity decodability the probe measures; at the deepest layer the embedding reconstruction has collapsed while the token identity remains partly decodable, so the two move oppositely. Because CLUB attenuates in parallel (without itself reversing sign), this is a property of the propagated signal, not a probe artifact. Scoped, single seed; the depth reversal is an observation in this run, not an established effect (<code>claim:depth-decoupling-input-dp</code>, jury PARTIAL/scoped).</p></div>
-    <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · A1 — L0 input-DP · ridge vs exact Bayes-NN against CLUB bits</span><span class="r">source: results/b2_l0_bayes.json · N=8</span></div>
-      <svg class="plot" viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scatter of CLUB leakage bits against top-1 recovery over the L0 input-DP epsilon sweep, with ridge and exact Bayes-NN attack series; ridge collapses as the CLUB bits fall while Bayes-NN holds flat at the L0 ceiling, and ridge still tracks CLUB at Spearman plus 0.76.">
-        <title>L0 input-DP: ridge collapses while Bayes-NN holds the ceiling as CLUB bits fall (ridge ρ=+0.76)</title>
-        <!-- gridlines -->
-        <line class="gridline" x1="269" y1="20" x2="269" y2="384"/>
-        <line class="gridline" x1="451" y1="20" x2="451" y2="384"/>
-        <line class="gridline" x1="633" y1="20" x2="633" y2="384"/>
-        <line class="gridline" x1="64" y1="384" x2="656" y2="384"/>
-        <line class="gridline" x1="64" y1="280" x2="656" y2="280"/>
-        <line class="gridline" x1="64" y1="176" x2="656" y2="176"/>
-        <line class="gridline" x1="64" y1="72" x2="656" y2="72"/>
-        <!-- axes -->
-        <line class="axis" x1="64" y1="20" x2="64" y2="384"/>
-        <line class="axis" x1="64" y1="384" x2="656" y2="384"/>
-        <!-- x ticks -->
-        <line class="tick" x1="87" y1="384" x2="87" y2="389"/>
-        <text class="tick-label" x="87" y="401" text-anchor="middle">1900</text>
-        <line class="tick" x1="269" y1="384" x2="269" y2="389"/>
-        <text class="tick-label" x="269" y="401" text-anchor="middle">2300</text>
-        <line class="tick" x1="451" y1="384" x2="451" y2="389"/>
-        <text class="tick-label" x="451" y="401" text-anchor="middle">2700</text>
-        <line class="tick" x1="633" y1="384" x2="633" y2="389"/>
-        <text class="tick-label" x="633" y="401" text-anchor="middle">3100</text>
-        <!-- y ticks -->
-        <line class="tick" x1="60" y1="384" x2="64" y2="384"/>
-        <text class="tick-label" x="56" y="387" text-anchor="end">0</text>
-        <line class="tick" x1="60" y1="280" x2="64" y2="280"/>
-        <text class="tick-label" x="56" y="283" text-anchor="end">.20</text>
-        <line class="tick" x1="60" y1="176" x2="64" y2="176"/>
-        <text class="tick-label" x="56" y="179" text-anchor="end">.40</text>
-        <line class="tick" x1="60" y1="72" x2="64" y2="72"/>
-        <text class="tick-label" x="56" y="75" text-anchor="end">.60</text>
-        <!-- series: Bayes-NN (exact) -->
-        <polyline class="plot-line" points="92,63 416,63 561,63 612,63 624,63 626,63 626,63 627,63"/>
-        <circle class="plot-point" cx="92" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="416" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="561" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="612" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="624" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="626" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="626" cy="63" r="4.5"/>
-        <circle class="plot-point" cx="627" cy="63" r="4.5"/>
-        <!-- series: ridge (linear) -->
-        <polyline class="plot-line b" points="92,376 416,300 561,63 612,63 624,63 626,63 626,63 627,63"/>
-        <circle class="plot-point b" cx="92" cy="376" r="4.5"/>
-        <circle class="plot-point b" cx="416" cy="300" r="4.5"/>
-        <circle class="plot-point b" cx="561" cy="63" r="4.5"/>
-        <circle class="plot-point b" cx="612" cy="63" r="4.5"/>
-        <circle class="plot-point b" cx="624" cy="63" r="4.5"/>
-        <circle class="plot-point b" cx="626" cy="63" r="4.5"/>
-        <circle class="plot-point b" cx="626" cy="63" r="4.5"/>
-        <circle class="plot-point b" cx="627" cy="63" r="4.5"/>
-        <!-- point labels -->
-        <text class="point-label" x="619" y="55" text-anchor="end">ε=∞</text>
-        <text class="point-label" x="100" y="380" text-anchor="start">ε=128</text>
-        <text class="stat-badge" x="648" y="50" text-anchor="end">ρ = +0.76</text>
-        <text class="stat-sub" x="648" y="64" text-anchor="end">Spearman · ridge vs CLUB</text>
-        <text class="stat-badge" x="648" y="84" text-anchor="end">Bayes flat</text>
-        <text class="stat-sub" x="648" y="98" text-anchor="end">holds the L0 ceiling</text>
-        <text class="axis-label" x="360" y="423" text-anchor="middle">CLUB — variational MI upper bound (bits)</text>
-        <text class="axis-label" x="20" y="202" text-anchor="middle" transform="rotate(-90 20 202)">recovery — top-1 (TTRSR)</text>
-      </svg>
-      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">As input-DP noise grows the <code>CLUB</code> ceiling decays only ~38%, but the weak <strong>ridge</strong> attack (amber) collapses about 39× to near zero, yet still tracks <code>CLUB</code> at ρ=+0.76: a ceiling-realization gap, not decorrelation. The exact <strong>Bayes-NN</strong> (navy) holds flat at the L0 ceiling: the preserved information is there, and only the stronger attack extracts it. All coordinates and the ρ come from <code>b2_l0_bayes.json</code> (gemma-2-2b, L0).</span></div>
-    </div>
-    <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · A2 — token-id recovery across depth × input-DP &epsilon;</span><span class="r">source: results/localdp_depth_L0_5_12_20.json · 4 layers × 7 &epsilon;</span></div>
-      <svg class="plot" viewBox="0 0 720 278" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Heatmap of token-id top-1 recovery with rows the residual layers L0, L5, L12, L20 and columns the input-DP privacy budget from plaintext through epsilon 256; recovery falls left to right as epsilon shrinks at every depth, and the plaintext column already drops with depth, so depth does not add privacy on top of the noise.">
-        <title>Token-id top-1 recovery for the residual stream under input-embedding DP, by layer and privacy budget ε (plaintext column = no noise).</title>
-        <rect class="cell" x="150" y="30" width="78" height="46" fill="#b55831"/>
-        <text class="cell-label" x="189" y="56" fill="var(--paper)">0.81</text>
-        <rect class="cell" x="228" y="30" width="78" height="46" fill="#b45730"/>
-        <text class="cell-label" x="267" y="56" fill="var(--paper)">0.81</text>
-        <rect class="cell" x="306" y="30" width="78" height="46" fill="#c77b45"/>
-        <text class="cell-label" x="345" y="56" fill="var(--paper)">0.66</text>
-        <rect class="cell" x="384" y="30" width="78" height="46" fill="#ce8a4f"/>
-        <text class="cell-label" x="423" y="56" fill="var(--paper)">0.60</text>
-        <rect class="cell" x="462" y="30" width="78" height="46" fill="#daac7d"/>
-        <text class="cell-label" x="501" y="56" fill="var(--ink)">0.43</text>
-        <rect class="cell" x="540" y="30" width="78" height="46" fill="#e2c3a3"/>
-        <text class="cell-label" x="579" y="56" fill="var(--ink)">0.30</text>
-        <rect class="cell" x="618" y="30" width="78" height="46" fill="#ebddcd"/>
-        <text class="cell-label" x="657" y="56" fill="var(--ink)">0.14</text>
-        <rect class="cell" x="150" y="76" width="78" height="46" fill="#d19259"/>
-        <text class="cell-label" x="189" y="102" fill="var(--paper)">0.56</text>
-        <rect class="cell" x="228" y="76" width="78" height="46" fill="#d1945c"/>
-        <text class="cell-label" x="267" y="102" fill="var(--paper)">0.55</text>
-        <rect class="cell" x="306" y="76" width="78" height="46" fill="#d9a97a"/>
-        <text class="cell-label" x="345" y="102" fill="var(--ink)">0.44</text>
-        <rect class="cell" x="384" y="76" width="78" height="46" fill="#dcb185"/>
-        <text class="cell-label" x="423" y="102" fill="var(--ink)">0.40</text>
-        <rect class="cell" x="462" y="76" width="78" height="46" fill="#e6d1ba"/>
-        <text class="cell-label" x="501" y="102" fill="var(--ink)">0.22</text>
-        <rect class="cell" x="540" y="76" width="78" height="46" fill="#ede0d2"/>
-        <text class="cell-label" x="579" y="102" fill="var(--ink)">0.11</text>
-        <rect class="cell" x="618" y="76" width="78" height="46" fill="#efe6db"/>
-        <text class="cell-label" x="657" y="102" fill="var(--ink)">0.08</text>
-        <rect class="cell" x="150" y="122" width="78" height="46" fill="#dfba94"/>
-        <text class="cell-label" x="189" y="148" fill="var(--ink)">0.35</text>
-        <rect class="cell" x="228" y="122" width="78" height="46" fill="#e1c09e"/>
-        <text class="cell-label" x="267" y="148" fill="var(--ink)">0.31</text>
-        <rect class="cell" x="306" y="122" width="78" height="46" fill="#e2c4a4"/>
-        <text class="cell-label" x="345" y="148" fill="var(--ink)">0.29</text>
-        <rect class="cell" x="384" y="122" width="78" height="46" fill="#e4c9ad"/>
-        <text class="cell-label" x="423" y="148" fill="var(--ink)">0.26</text>
-        <rect class="cell" x="462" y="122" width="78" height="46" fill="#e8d5c1"/>
-        <text class="cell-label" x="501" y="148" fill="var(--ink)">0.19</text>
-        <rect class="cell" x="540" y="122" width="78" height="46" fill="#ede1d3"/>
-        <text class="cell-label" x="579" y="148" fill="var(--ink)">0.11</text>
-        <rect class="cell" x="618" y="122" width="78" height="46" fill="#f1eae2"/>
-        <text class="cell-label" x="657" y="148" fill="var(--ink)">0.05</text>
-        <rect class="cell" x="150" y="168" width="78" height="46" fill="#d8a574"/>
-        <text class="cell-label" x="189" y="194" fill="var(--ink)">0.46</text>
-        <rect class="cell" x="228" y="168" width="78" height="46" fill="#d9aa7b"/>
-        <text class="cell-label" x="267" y="194" fill="var(--ink)">0.44</text>
-        <rect class="cell" x="306" y="168" width="78" height="46" fill="#dcb083"/>
-        <text class="cell-label" x="345" y="194" fill="var(--ink)">0.41</text>
-        <rect class="cell" x="384" y="168" width="78" height="46" fill="#ddb388"/>
-        <text class="cell-label" x="423" y="194" fill="var(--ink)">0.39</text>
-        <rect class="cell" x="462" y="168" width="78" height="46" fill="#dfbc97"/>
-        <text class="cell-label" x="501" y="194" fill="var(--ink)">0.34</text>
-        <rect class="cell" x="540" y="168" width="78" height="46" fill="#eadac8"/>
-        <text class="cell-label" x="579" y="194" fill="var(--ink)">0.16</text>
-        <rect class="cell" x="618" y="168" width="78" height="46" fill="#f2ede5"/>
-        <text class="cell-label" x="657" y="194" fill="var(--ink)">0.03</text>
-        <text class="heatmap-axis" x="140" y="56" text-anchor="end">L0</text>
-        <text class="heatmap-axis" x="140" y="102" text-anchor="end">L5</text>
-        <text class="heatmap-axis" x="140" y="148" text-anchor="end">L12</text>
-        <text class="heatmap-axis" x="140" y="194" text-anchor="end">L20</text>
-        <text class="heatmap-axis" x="189" y="20" text-anchor="middle">plain</text>
-        <text class="heatmap-axis" x="267" y="20" text-anchor="middle">4k</text>
-        <text class="heatmap-axis" x="345" y="20" text-anchor="middle">1k</text>
-        <text class="heatmap-axis" x="423" y="20" text-anchor="middle">768</text>
-        <text class="heatmap-axis" x="501" y="20" text-anchor="middle">512</text>
-        <text class="heatmap-axis" x="579" y="20" text-anchor="middle">384</text>
-        <text class="heatmap-axis" x="657" y="20" text-anchor="middle">256</text>
-        <text class="axis-label" x="423" y="270" text-anchor="middle">input-DP privacy budget ε  (← stronger noise)</text>
-        <text class="axis-label" x="16" y="122" text-anchor="middle" transform="rotate(-90 16 122)">layer</text>
-      </svg>
-      <div class="colorbar"><span>0</span><span class="bar seq"></span><span>1</span><span style="margin-left:8px;text-transform:none;letter-spacing:0;">recovery (token-id top-1)</span></div>
-      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Recovery collapses left→right as the input-DP budget ε shrinks (noise grows), at <em>every</em> depth: the privacy is bought by the noise, not the depth. Reading down any ε column, depth alone does not drive recovery to zero: the plaintext column itself only falls from 0.81 (L0) to 0.35–0.46 deeper, so depth is not a privacy lever. The plaintext column is the no-noise baseline (<code>clean_top1</code>, ε=∞), not an ε value. Matches the <code>resid-dp-attacks</code> sweep prose.</span></div>
+    <div class="prose">
+      <p><strong>Read the table top to bottom.</strong> At <strong>L0</strong> the released object is essentially the noised embedding, so the linear ridge is near-optimal and <em>beats</em> the non-linear decoder at every budget (0.97 vs 0.67 clean) — the non-linear attack has no edge where the map is already linear. With depth and noise the picture inverts: by <strong>L5/L12/L20 at ε ≤ 512</strong> the decoder overtakes ridge, most sharply at <strong>L20, ε=256 (0.291 vs 0.134)</strong>. Throughout, the probes barely move relative to the attack collapse: CLUB stays in the 1500–3400-bit band and V_cap's reader keeps an effective ~7–40 candidates while ridge recovery falls 3–7×. The information is preserved; the linear attack just cannot reach it at depth.</p>
     </div>
 
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · 02 — where the non-linear decoder beats the linear ridge (decoder − ridge recovery)</span><span class="r">source: dp_leakage_sweep.json · 4 layers × 4 ε</span></div>
+      <svg class="plot" viewBox="0 0 700 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Heatmap of decoder minus ridge recovery: warm cells (L0, and the clean column) where the linear ridge wins, cool cells in the deep and noisy corner (L5/L12/L20 at epsilon 512 and 256) where the non-linear decoder wins, strongest at L20 epsilon 256.">
+        <title>decoder − ridge recovery: ridge wins at L0/clean (warm), the non-linear decoder wins in the deep+noisy corner (cool).</title>
+        <!-- rows L0,L5,L12,L20 ; cols inf,1024,512,256 ; warm=ridge wins, cool=decoder wins -->
+        <!-- L0 -->
+        <rect class="cell" x="150" y="30" width="120" height="40" fill="#b55831"/><text class="cell-label" x="210" y="55" fill="var(--paper)">−.29</text>
+        <rect class="cell" x="270" y="30" width="120" height="40" fill="#b04f2c"/><text class="cell-label" x="330" y="55" fill="var(--paper)">−.35</text>
+        <rect class="cell" x="390" y="30" width="120" height="40" fill="#ad4b29"/><text class="cell-label" x="450" y="55" fill="var(--paper)">−.36</text>
+        <rect class="cell" x="510" y="30" width="120" height="40" fill="#cf8a5a"/><text class="cell-label" x="570" y="55" fill="var(--paper)">−.12</text>
+        <!-- L5 -->
+        <rect class="cell" x="150" y="70" width="120" height="40" fill="#bf6c3d"/><text class="cell-label" x="210" y="95" fill="var(--paper)">−.22</text>
+        <rect class="cell" x="270" y="70" width="120" height="40" fill="#dba87a"/><text class="cell-label" x="330" y="95" fill="var(--ink)">−.09</text>
+        <rect class="cell" x="390" y="70" width="120" height="40" fill="#9cbfc4"/><text class="cell-label" x="450" y="95" fill="var(--ink)">+.06</text>
+        <rect class="cell" x="510" y="70" width="120" height="40" fill="#5f97a3"/><text class="cell-label" x="570" y="95" fill="var(--paper)">+.10</text>
+        <!-- L12 -->
+        <rect class="cell" x="150" y="110" width="120" height="40" fill="#cd8556"/><text class="cell-label" x="210" y="135" fill="var(--paper)">−.14</text>
+        <rect class="cell" x="270" y="110" width="120" height="40" fill="#dcac80"/><text class="cell-label" x="330" y="135" fill="var(--ink)">−.05</text>
+        <rect class="cell" x="390" y="110" width="120" height="40" fill="#a6c5c9"/><text class="cell-label" x="450" y="135" fill="var(--ink)">+.04</text>
+        <rect class="cell" x="510" y="110" width="120" height="40" fill="#a6c5c9"/><text class="cell-label" x="570" y="135" fill="var(--ink)">+.03</text>
+        <!-- L20 -->
+        <rect class="cell" x="150" y="150" width="120" height="40" fill="#d59560"/><text class="cell-label" x="210" y="175" fill="var(--paper)">−.09</text>
+        <rect class="cell" x="270" y="150" width="120" height="40" fill="#dcac80"/><text class="cell-label" x="330" y="175" fill="var(--ink)">−.05</text>
+        <rect class="cell" x="390" y="150" width="120" height="40" fill="#cfe0e2"/><text class="cell-label" x="450" y="175" fill="var(--ink)">+.01</text>
+        <rect class="cell" x="510" y="150" width="120" height="40" fill="#3f7d8a"/><text class="cell-label" x="570" y="175" fill="var(--paper)">+.16</text>
+        <text class="heatmap-axis" x="140" y="55" text-anchor="end">L0</text>
+        <text class="heatmap-axis" x="140" y="95" text-anchor="end">L5</text>
+        <text class="heatmap-axis" x="140" y="135" text-anchor="end">L12</text>
+        <text class="heatmap-axis" x="140" y="175" text-anchor="end">L20</text>
+        <text class="heatmap-axis" x="210" y="22" text-anchor="middle">∞</text>
+        <text class="heatmap-axis" x="330" y="22" text-anchor="middle">1024</text>
+        <text class="heatmap-axis" x="450" y="22" text-anchor="middle">512</text>
+        <text class="heatmap-axis" x="570" y="22" text-anchor="middle">256</text>
+        <text class="axis-label" x="390" y="212" text-anchor="middle">input-DP budget ε  (← stronger noise)</text>
+        <text class="axis-label" x="16" y="110" text-anchor="middle" transform="rotate(-90 16 110)">layer</text>
+      </svg>
+      <div class="plot-cap" style="margin:12px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Warm = the linear ridge wins (all of L0; the clean column); cool = the non-linear decoder wins. The decoder's advantage concentrates in the deep, noisy corner (L5/L12/L20 at ε ≤ 512), strongest at L20 ε=256 (+0.16). At L0 there is nothing to gain — the embedding map is already linear.</span></div>
+    </div>
+
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:24px 0 8px;">The divergence: linear ridge decorrelates from the probe at depth; the non-linear decoder re-correlates</h4>
+    <p class="prose">Spearman ρ between each attack's selectivity and each probe, across the four ε at a fixed layer (single seed, n=4 — directional):</p>
+    <table class="spec spec--wide">
+      <thead><tr><th>layer</th><th class="num">ρ(ridge, CLUB)</th><th class="num">ρ(decoder, CLUB)</th><th class="num">ρ(ridge, V_cap)</th><th class="num">ρ(decoder, V_cap)</th></tr></thead>
+      <tbody>
+        <tr><td>L0</td><td class="num">+1.00</td><td class="num">+1.00</td><td class="num">+1.00</td><td class="num">+1.00</td></tr>
+        <tr><td>L5</td><td class="num">+1.00</td><td class="num">+0.80</td><td class="num">+0.80</td><td class="num">+1.00</td></tr>
+        <tr><td>L12</td><td class="num">+1.00</td><td class="num">+0.80</td><td class="num warn">+0.20</td><td class="num">+0.40</td></tr>
+        <tr><td>L20</td><td class="num warn">+0.20</td><td class="num accent">+1.00</td><td class="num warn">+0.20</td><td class="num accent">+1.00</td></tr>
+      </tbody>
+    </table>
+    <div class="prose">
+      <p>At the input layer everything tracks (ρ=1.0). At the deepest layer the linear ridge <strong>decorrelates</strong> from both probes (ρ=+0.20) while the non-linear decoder <strong>re-correlates</strong> (ρ=+1.00). This is the page's thesis in one row: the probe still sees the information at L20, the linear attack can no longer realize it across the noise sweep, and the non-linear, noise-aware decoder restores the correlation by reaching the preserved signal.</p>
+      <p><strong>The depth-decoupling caveat (V_cap).</strong> This is the same surface where the attack-independent V_cap reader's tracking of the embedding-reconstruction attack attenuates with depth — the <code>claim:depth-decoupling-input-dp</code> finding (jury PARTIAL/scoped, single seed). It is consistent with the ridge column above: the linear attack and the token-identity probe move together at L0 and apart at depth. The non-linear decoder is what closes that gap.</p>
+    </div>
   </section>
 
-  <!-- ═════ § 6 CLAIM ═════ -->
-  <section id="claims">
+  <!-- ═════ § 5 EMBEDDING ═════ -->
+  <section id="embedding">
+    <header class="section-head">
+      <div class="section-num">§05</div>
+      <h2 class="section-title">Pooled embedding under DP</h2>
+      <div class="section-meta">the other surface DP touches · summaries link the full pages</div>
+    </header>
+    <p class="prose">When the released object is a pooled sentence embedding rather than a residual, the same Gaussian DP applies and two attacks have been measured on their own pages. Compact DP cuts below; the full analyses live at <a href="bnn-attack.html">Bayes-NN bounds</a> and <a href="vec2text.html">Vec2Text inversion</a>.</p>
+
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:8px 0 8px;">Bayes-NN bounds — geometry-only error brackets (embedding table @ L0)</h4>
+    <table class="spec spec--wide">
+      <thead><tr><th>ε (r)</th><th class="num">equivocation H(V|Y) (bits)</th><th class="num">Fano lower bound</th><th class="num">BNN error (attack)</th><th class="num">union upper bound</th></tr></thead>
+      <tbody>
+        <tr><td>64 (3.63)</td><td class="num">0.35</td><td class="num">0.000</td><td class="num">0.063</td><td class="num">0.346</td></tr>
+        <tr><td>48 (4.84)</td><td class="num">2.16</td><td class="num">0.105</td><td class="num">0.341</td><td class="num">1.000</td></tr>
+        <tr><td>32 (7.27)</td><td class="num">6.16</td><td class="num">0.469</td><td class="num">0.778</td><td class="num">1.000</td></tr>
+        <tr><td>16 (14.53)</td><td class="num">9.73</td><td class="num">0.794</td><td class="num">0.977</td><td class="num">1.000</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>The two attack-independent <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano bounds</a> bracket the measured Bayes-nearest-neighbour decode error at every ε (10/10 on the full sweep); ρ(Fano lower, error)=+0.94. Full page: <a href="bnn-attack.html">Bayes-NN bounds →</a></p></div>
+
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:18px 0 8px;">Vec2Text — pretrained corrector under Gaussian DP</h4>
+    <table class="spec spec--wide">
+      <thead><tr><th>ε</th><th class="num">I_G (bits)</th><th class="num">token-F1 (recovery)</th><th class="num">utility (release cos)</th></tr></thead>
+      <tbody>
+        <tr><td>∞</td><td class="num">1597</td><td class="num accent">0.80</td><td class="num">0.96</td></tr>
+        <tr><td>1024</td><td class="num">312</td><td class="num">0.45</td><td class="num">0.83</td></tr>
+        <tr><td>512</td><td class="num">220</td><td class="num">0.30</td><td class="num">0.69</td></tr>
+        <tr><td>256</td><td class="num">135</td><td class="num">0.16</td><td class="num">0.44</td></tr>
+        <tr><td>128</td><td class="num">68</td><td class="num">0.09</td><td class="num">0.24</td></tr>
+      </tbody>
+    </table>
+    <div class="prose"><p>The <a href="probe-ig.html">Gaussian channel-capacity MI ceiling</a> I_G predicts recovery perfectly across the budget: ρ(I_G, token-F1)=+1.00. Unlike the residual, the embedding attack is a complete corrector, so probe and recovery track without a depth gap. Full page: <a href="vec2text.html">Vec2Text inversion →</a></p></div>
+  </section>
+
+  <!-- ═════ § 6 PROBES ═════ -->
+  <section id="probes">
     <header class="section-head">
       <div class="section-num">§06</div>
+      <h2 class="section-title">The probes</h2>
+      <div class="section-meta">attack-independent by construction</div>
+    </header>
+    <div class="prose">
+      <p>Every probe is computed <strong>without running the attack</strong> — a probe that reported the attack's own bits would make any correlation circular. On the residual: <a href="probe-club.html">CLUB</a> trains a variational <code>q(y|x)</code> for an MI upper bound, and <a href="probe-vcap.html">V_cap</a> fits a capacity-bounded token-identity reader that never reads the embedding table; neither consumes the ridge/decoder output. On the embedding: <a href="probe-ig.html">I_G</a> is a closed-form geometry-only ceiling and the <a href="probe-bhattacharyya-fano.html">Bhattacharyya–Fano</a> bounds are functions of the codebook geometry and σ alone. <a href="probe-sdl.html">SDL</a> is reported auxiliary. See the <a href="probes-registry.html">probe registry</a> for the canonical definitions.</p>
+    </div>
+  </section>
+
+  <!-- ═════ § 7 CLAIM ═════ -->
+  <section id="claims">
+    <header class="section-head">
+      <div class="section-num">§07</div>
       <h2 class="section-title">Claims</h2>
       <div class="section-meta">claims and their support</div>
     </header>
     <div class="prose">
-      <p><strong><code>claim:restore-correlation</code></strong>: <em>info-efficient attacks restore the MI↔recovery correlation where the weak attack decorrelates</em>. Status: <strong>Supported</strong> at the input layer, <strong>Preliminary</strong> at propagated depth (single setting). The input layer supports the attack-efficiency premise via uplift and ceiling-realization (Bayes-NN +0.98); propagated depth supplies the literal re-correlation evidence (deep decoder +0.83 against ridge −0.09); the effect is explicitly absent under at-layer noise (no gap); a full-noise-range depth ceiling attack is open. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
-      <p><strong><code>claim:bayes-gap-diagnosis</code></strong>: <em>the MI-recovery gap is a Bayes-optimality (attack-efficiency) gap, not poor MI prediction</em>. Status: <strong>Supported</strong> at the input layer, <strong>Preliminary</strong> at depth. Shown directly at the input layer (the probe is high while ridge collapses and Bayes recovers near 1.0); at depth the gap is inferred, not measured to the ceiling. <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
-      <p><strong><code>claim:depth-decoupling-input-dp</code></strong>: <em>under propagated input-DP the attack-independent <code>V_cap</code> probe's tracking of the embedding-reconstruction attack is depth-resolved — it attenuates monotonically with depth (ρ +0.96 L0 → −0.21 L20, sign-reversing at L20) while CLUB attenuates in parallel but stays positive (+0.29 at L20)</em>. Status: <strong>scoped / jury PARTIAL</strong>, single seed. The parallel CLUB attenuation makes the depth-attenuation a signal property; the L20 sign reversal is readout-specific. This is the canonical decoupling example the matched-probe program cites (R7 above). <span class="mono">research-wiki/claims/depth-decoupling-input-dp.md</span></p>
-      <p>The first two rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (Bayes-optimal weakly dominates lossy/linear; recovery monotone in MI on the Gaussian arm): they are its empirical instantiation on the residual stream.</p>
-    </div>
-  </section>
-
-  <!-- ═════ § 7 PROOF ═════ -->
-  <section id="proofs">
-    <header class="section-head">
-      <div class="section-num">§07</div>
-      <h2 class="section-title">Analysis</h2>
-      <div class="section-meta">the verified theorem under the empirics</div>
-    </header>
-    <div class="prose">
-      <p><strong>Theorem 1</strong> (verified): under the S–X–Y Markov chain with finite second moment / finite alphabet, (a) the Bayes-optimal attack on <code>Y</code> weakly dominates any lossy/linear attack for every prior and stated loss (Blackwell post-processing / Rao–Blackwell); (b) strict for squared loss unless <code>E[S|Y]</code> is affine (MMSE orthogonality); (c) on the Gaussian/DP arm the optimal attack's recovery is monotone in MI (I-MMSE: <code>dI/dsnr = ½·mmse</code>; degradation-order DPI for the token target).</p>
-      <p>This is why the empirical result reads as attack efficiency: the optimal attack must track MI by Theorem 1(c), while a weak attack carries an additional approximation-gap term and need not. The full proof is in <span class="mono">research-wiki/claims/thm-t1-info-efficient.md</span>.</p>
+      <p><strong><code>claim:restore-correlation</code></strong>: <em>an information-efficient attack restores the probe↔recovery correlation where a weak attack decorrelates</em>. <strong>Supported</strong> on the residual across depth: at L20 the linear ridge decorrelates from CLUB/V_cap (ρ=+0.20) while the non-linear decoder re-correlates (ρ=+1.00) and recovers more in the deep+noisy regime. Single seed, n=4 ε; directional. <span class="mono">research-wiki/claims/restore-correlation.md</span></p>
+      <p><strong><code>claim:bayes-gap-diagnosis</code></strong>: <em>the probe↔recovery gap is an attack-efficiency gap, not poor prediction</em>. <strong>Supported</strong> at L0 on the embedding (probe high while the exact Bayes-NN holds the ceiling and ridge collapses) and consistent on the residual (probes flat while the linear attack falls and the non-linear attack reaches more). <span class="mono">research-wiki/claims/bayes-gap-diagnosis.md</span></p>
+      <p><strong><code>claim:depth-decoupling-input-dp</code></strong>: <em>under local DP the attack-independent V_cap reader's tracking of the embedding-reconstruction attack attenuates with depth</em>. <strong>Scoped / jury PARTIAL</strong>, single seed; the V_cap ρ column above is the canonical example. <span class="mono">research-wiki/claims/depth-decoupling-input-dp.md</span></p>
+      <p>The first two rest on the <strong>verified</strong> theorem <code>claim:thm-t1-info-efficient</code> (the Bayes-optimal attack weakly dominates any lossy/linear attack; recovery is monotone in MI on the Gaussian arm) — they are its empirical instantiation under DP.</p>
     </div>
   </section>
 
@@ -544,28 +356,24 @@
     <header class="section-head">
       <div class="section-num">§08</div>
       <h2 class="section-title">Conclusions</h2>
-      <div class="section-meta">what leaks, how much, why</div>
+      <div class="section-meta">what leaks under DP, and why</div>
     </header>
     <div class="prose">
-      <p><strong>What leaks.</strong> Under DP the token-identity information measured by MI is largely preserved (CLUB decays slowly); whether it is <em>recovered</em> is an attack-strength question. The <strong>anti-correlation</strong> between bits and recovery seen <strong>at depth</strong> is a property of <strong>noise propagation</strong>, not of MI or of noise per se (under at-layer noise even ridge tracks MI; at L0 the gap is uplift, not anti-correlation).</p>
-      <p><strong>The honest gap.</strong> No single attack dominates the noise range — forward-model match wins low-noise (+0.53), the trained decoder wins high-noise. The matched program's next move is a noise-aware FMV ⊕ denoiser with multi-seed dense-ε confidence intervals; this consolidation is <em>single-seed at depth</em> and makes no robustness claim there.</p>
-      <p><strong>Dead-ends recorded (first-class):</strong> plain MLP-vs-ridge under at-layer noise (no gap); embedding-space Vec2Text iteration (null, fixed point at t=1); Vec2Text on per-position resid (category error — it needs a pooled bottleneck, moved to the <a href="vec2text.html">pooled-embedding surface</a>). See <span class="mono">research-wiki/experiments/resid-dp-attacks-negative-results.md</span>.</p>
+      <p><strong>What leaks.</strong> Under local DP the token information the probes measure is largely preserved (CLUB and V_cap move slowly); whether it is <em>recovered</em> is an attack-strength question. On the residual, the linear ridge is near-optimal at L0 but collapses and decorrelates from the probes at depth, while a non-linear, noise-aware decoder re-correlates and recovers more in the deep, noisy regime. On the embedding, a complete corrector tracks the probe without a depth gap.</p>
+      <p><strong>The honest caveat.</strong> The non-linear decoder is not a universal winner: at L0 it underperforms the linear ridge (0.67 vs 0.97 clean) because the embedding map is already linear — its advantage is specific to depth + noise. The residual sweep is single-seed; multi-seed confidence intervals and a denser ε grid are the named firm-up.</p>
+      <p><strong>Out of scope here.</strong> Central DP (trusted-aggregator output noise) is not yet covered; the representation-space "at-layer noise" control (not a DP deployment) is documented in the control note (<code>research-wiki/experiments/representation-space-noise-control.md</code>), where it establishes that the depth decorrelation is caused by propagation, not noise magnitude.</p>
     </div>
   </section>
 
   <!-- ─── FOOTER ─── -->
   <footer class="colophon" style="margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
     <div>
-      <h5>Code</h5>
+      <h5>Code &amp; data</h5>
       <ul>
-        <li><code>scripts/spikes/b2_l0_bayes_attack.py</code> · R1</li>
-        <li><code>scripts/spikes/b2_lpos_decoder.py</code> · R2</li>
-        <li><code>scripts/spikes/b2_propagated_dp.py</code> · R4</li>
-        <li><code>scripts/spikes/b6_strong_decoder.py</code> · R5</li>
-        <li><code>scripts/spikes/b6c_forward_model_vec2text.py</code> · R6</li>
-        <li><code>scripts/spikes/mdl_probe_check.py</code> · R3</li>
-        <li><code>scripts/spikes/diag_capacity.py</code> · R7</li>
-        <li><code>scripts/spikes/localdp_runner.py</code> · R7</li>
+        <li><code>scripts/evals/dp_leakage_sweep.py</code> · reusable sweep</li>
+        <li><code>refine-logs/dp-decoder-grid/dp_leakage_sweep.json</code> · §04</li>
+        <li><code>refine-logs/bnn-error-bounds/</code> · §05 BNN</li>
+        <li><code>results/v2t_dp_sweep.json</code> · §05 Vec2Text</li>
       </ul>
     </div>
     <div>
@@ -573,11 +381,9 @@
       <ul>
         <li><code>research-wiki/claims/restore-correlation.md</code></li>
         <li><code>research-wiki/claims/bayes-gap-diagnosis.md</code></li>
-        <li><code>research-wiki/claims/depth-decoupling-input-dp.md</code> · R7</li>
+        <li><code>research-wiki/claims/depth-decoupling-input-dp.md</code></li>
         <li><code>research-wiki/claims/thm-t1-info-efficient.md</code> · verified</li>
-        <li><code>refine-logs/resid-dp-attacks/RESULTS_STANDARDIZED.md</code></li>
-        <li><code>refine-logs/resid-capacity-pvi/RESULTS_STANDARDIZED.md</code> · R7</li>
-        <li><code>refine-logs/resid-dp-attacks/EXPERIMENT_AUDIT.md</code> · WARN</li>
+        <li><code>research-wiki/experiments/representation-space-noise-control.md</code> · at-layer control</li>
       </ul>
     </div>
     <div>
