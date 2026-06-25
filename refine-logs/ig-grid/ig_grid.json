@@ -1,0 +1,214 @@
+{
+  "model": "unsloth/gemma-2-2b",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 512,
+  "defense": "local_dp",
+  "sigma_convention": "sigma = C*z/eps (sensitivity C, add/remove-to-zero adjacency)",
+  "clip_C": 198.9523468017578,
+  "delta": 1e-05,
+  "pool_size": 2048,
+  "seed": 20260621,
+  "layers": [
+    0,
+    5,
+    12,
+    20,
+    25
+  ],
+  "epsilons": [
+    512.0,
+    256.0,
+    128.0
+  ],
+  "attacks": [
+    "ridge"
+  ],
+  "probes": [
+    "ig"
+  ],
+  "readout_note": "recovery = token-id top-1 over the candidate pool; *_sel = recovery minus a CLEAN-rep label-shuffle floor (per layer); vcap_perplexity = reader effective token candidates 2^(H_prior_empirical - PVI), clamped [1, 2^H_prior]; probes computed on all captured rows (probe_split=all).",
+  "correlation": {
+    "L0": {
+      "ridge_sel_vs_ig": 1.0
+    },
+    "L5": {
+      "ridge_sel_vs_ig": 1.0
+    },
+    "L12": {
+      "ridge_sel_vs_ig": 1.0
+    },
+    "L20": {
+      "ridge_sel_vs_ig": 1.0
+    },
+    "L25": {
+      "ridge_sel_vs_ig": 1.0
+    }
+  },
+  "records": [
+    {
+      "epsilon": 512.0,
+      "layer": 0,
+      "sigma": 1.8825886265485325,
+      "seed": 20260621,
+      "ridge": 0.9082739386427022,
+      "ridge_sel": 0.9082739386427022,
+      "ig_bits": 494.96525749754557,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 290
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 5,
+      "sigma": 1.8825886265485325,
+      "seed": 20260621,
+      "ridge": 0.6609152288072018,
+      "ridge_sel": 0.6181545386346586,
+      "ig_bits": 739.1934398368807,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 481
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 12,
+      "sigma": 1.8825886265485325,
+      "seed": 20260621,
+      "ridge": 0.6481985044187627,
+      "ridge_sel": 0.5941536369816451,
+      "ig_bits": 1009.5433852887298,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 782
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 20,
+      "sigma": 1.8825886265485325,
+      "seed": 20260621,
+      "ridge": 0.6181768558951966,
+      "ridge_sel": 0.5747816593886463,
+      "ig_bits": 1341.910974996453,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 1131
+    },
+    {
+      "epsilon": 512.0,
+      "layer": 25,
+      "sigma": 1.8825886265485325,
+      "seed": 20260621,
+      "ridge": 0.510912343470483,
+      "ridge_sel": 0.5001788908765653,
+      "ig_bits": 1305.3743737400616,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 1124
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 0,
+      "sigma": 3.765177253097065,
+      "seed": 20260621,
+      "ridge": 0.6349550666253486,
+      "ridge_sel": 0.6349550666253486,
+      "ig_bits": 177.897647124824,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 45
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 5,
+      "sigma": 3.765177253097065,
+      "seed": 20260621,
+      "ridge": 0.3822205551387847,
+      "ridge_sel": 0.3394598649662416,
+      "ig_bits": 212.55085838602716,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 55
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 12,
+      "sigma": 3.765177253097065,
+      "seed": 20260621,
+      "ridge": 0.4000679809653297,
+      "ridge_sel": 0.3460231135282121,
+      "ig_bits": 515.1930237498773,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 231
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 20,
+      "sigma": 3.765177253097065,
+      "seed": 20260621,
+      "ridge": 0.21533842794759825,
+      "ridge_sel": 0.17194323144104803,
+      "ig_bits": 776.1987938141862,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 529
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 25,
+      "sigma": 3.765177253097065,
+      "seed": 20260621,
+      "ridge": 0.15313059033989265,
+      "ridge_sel": 0.14239713774597496,
+      "ig_bits": 865.2252226549862,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 631
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 0,
+      "sigma": 7.53035450619413,
+      "seed": 20260621,
+      "ridge": 0.32537960954446854,
+      "ridge_sel": 0.32537960954446854,
+      "ig_bits": 57.07024955852466,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 8
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 5,
+      "sigma": 7.53035450619413,
+      "seed": 20260621,
+      "ridge": 0.22243060765191297,
+      "ridge_sel": 0.17966991747936983,
+      "ig_bits": 60.988986487617,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 8
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 12,
+      "sigma": 7.53035450619413,
+      "seed": 20260621,
+      "ridge": 0.318830727396329,
+      "ridge_sel": 0.2647858599592114,
+      "ig_bits": 138.4041262217982,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 20
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 20,
+      "sigma": 7.53035450619413,
+      "seed": 20260621,
+      "ridge": 0.1340065502183406,
+      "ridge_sel": 0.09061135371179038,
+      "ig_bits": 579.9188907383029,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 320
+    },
+    {
+      "epsilon": 128.0,
+      "layer": 25,
+      "sigma": 7.53035450619413,
+      "seed": 20260621,
+      "ridge": 0.08694096601073345,
+      "ridge_sel": 0.07620751341681574,
+      "ig_bits": 656.6404380096419,
+      "ig_bits_kind": "ig_channel_survival",
+      "ig_d_eff": 391
+    }
+  ]
+}

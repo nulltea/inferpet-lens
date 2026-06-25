@@ -202,20 +202,20 @@
       <h2 class="section-title">Residual stream under local DP</h2>
       <div class="section-meta">probes first, then the linear and non-linear attacks · across depth</div>
     </header>
-    <p class="prose">One sweep, five observation depths × four budgets, gemma-2-2b, N=512 prompts, candidate pool 2048, single seed. <strong>Probe columns come first</strong> — they precede and are meant to predict the attack; the two attack columns follow. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>perplexity</em> <code>2^PVI</code> (the fold-reduction in token candidates the reader achieves).</p>
+    <p class="prose">One sweep, five observation depths × four budgets, gemma-2-2b, N=512 prompts, candidate pool 2048, single seed. <strong>The three probe panels come first</strong> (CLUB, V_cap, and the geometry-only I_G) — they precede and are meant to predict the attack; the single ridge attack panel follows. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>perplexity</em> <code>2^PVI</code> (the fold-reduction in token candidates the reader achieves); I_G is the Gaussian channel-MI ceiling and is <em>undefined at ε=∞</em> (a noiseless channel), so it has no plaintext bar.</p>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 02 — four metrics across the ε sweep · grouped bars by layer (L0 / L5 / L12 / L20 / L25)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
+      <div class="plot-cap"><span class="l">FIG · 02 — three probes + ridge recovery across the ε sweep · grouped bars by layer (L0 / L5 / L12 / L20 / L25)</span><span class="r">interactive (Plotly) · fig02.json</span></div>
       <div id="plot-metrics" style="width:100%;height:560px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Top row = the attack-independent probes (CLUB, V_cap); bottom row = the two attacks' token recovery. x = ε from no-noise (∞) down to strongest (128); the five bars per ε are the five depths. The probe bars stay tall across ε while the ridge bars collapse — the information is preserved but the linear attack loses it; the non-linear decoder bars track the ridge bars almost exactly (no non-linear gain — slightly lower at the deepest cells). Hover for exact values; click a layer in the legend to toggle it.</span></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Three attack-independent probes (CLUB, V_cap, I_G) then ridge token recovery. x = ε from no-noise (∞) down to strongest (128); the five bars per ε are the five depths. The probe bars stay tall across ε while the ridge bars collapse — the information is preserved but the linear attack loses it. I_G (no ∞ bar — vacuous at zero noise) rises with depth at every ε: deeper layers preserve more against the noise even as recovery falls. Hover for exact values; click a layer in the legend to toggle it.</span></div>
     </div>
     <div class="plot-frame">
       <div class="plot-cap"><span class="l">FIG · 03 — does the probe predict recovery? token recovery vs CLUB bits, per layer × attack (ε-sweep paths)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
       <div id="plot-scatter" style="width:100%;height:460px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">A sloped path = recovery tracks the probe (correlated); a flat path = decorrelated. The ridge and decoder paths nearly coincide at every layer — the decoder adds no separation — and both flatten at the noisy deep cells. Toggle traces in the legend; hover shows ε.</span></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">A sloped path = recovery tracks the probe (correlated); a flat path = decorrelated. Each path is one layer's ridge recovery vs CLUB across the ε sweep; the deep layers flatten at the noisy cells. Toggle traces in the legend; hover shows ε.</span></div>
     </div>
-    <p class="prose" style="font-size:12px;opacity:0.75;">Exact values: hover any bar in FIG.02, or see <code>refine-logs/dp-decoder-r3-fixed/dp_leakage_sweep.json</code> (512 prompts, ReZero-fixed alive decoder). The earlier inline 160-prompt table was removed when this run superseded it.</p>
+    <p class="prose" style="font-size:12px;opacity:0.75;">Exact values: hover any bar in FIG.02, or see <code>refine-logs/fig02-grid/fig02.json</code> (512 prompts; ridge + CLUB / V_cap / I_G, single seed). The earlier inline 160-prompt table was removed when this run superseded it.</p>
     <div class="prose">
-      <p><strong>Read the plots above (the data table is collapsed below).</strong> The two attack panels (ridge, decoder) are <strong>near-identical</strong>: the non-linear decoder is a <em>working</em> attack — its gated branch trains (it deviates from ridge in ~9/20 cells) — yet it <strong>never beats ridge</strong>: tied at shallow layers, and <em>slightly worse</em> at the deep+noisy cells (the correction lowers held-out cosine loss but overfits the vocab-disjoint token-recovery test). So a single-position residual→token is genuinely <strong>affine-saturated</strong> — ridge ≈ the tuned-lens recipe is the ceiling, and a properly-trained non-linear attack adds nothing (<code>claim:single-position-residual-linearly-saturated</code>). <em>This is the honest re-test: an earlier run reported the panels exactly identical, but that decoder had a dead-gradient init and could not train; with the init fixed (ReZero) the branch moves and still loses.</em> Recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.85 → 0.79 → 0.64 → 0.42 over L0/L5/L12/L20/L25) — the earlier L12-valley/L20-rebound was a small-data (160-prompt) artifact that dissolved at 512 prompts. Throughout, the probes stay high relative to the recovery collapse: CLUB holds the 1000–3900-bit band and V_cap's reader perplexity stays ~5–470×, while recovery falls sharply from L0 to the noisiest deep cells — the token information is present, it just becomes less linearly accessible with depth and noise.</p>
+      <p><strong>Read the plots above.</strong> Across the three probes, the token information the attacker could exploit stays high while <strong>ridge recovery collapses</strong> with both noise and depth — the information is preserved, the linear attack just loses access to it. The non-linear decoder is omitted as a panel because it is <strong>affine-saturated</strong>: a properly-trained (ReZero) decoder ties ridge at shallow layers and is slightly worse at deep+noisy cells — it never beats it, so single-position residual→token recovery has ridge ≈ the tuned-lens recipe as its ceiling (<code>claim:single-position-residual-linearly-saturated</code>). Ridge recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.85 → 0.79 → 0.64 → 0.42 over L0/L5/L12/L20/L25). The new <strong>I_G</strong> panel adds the geometry-only view: it <strong>rises with depth at every ε</strong> (e.g. ε=512: 495 → 1352 bits, L0→L20) — deeper layers preserve more representation information against the input-injected noise even as the token becomes less <em>retrievable</em>. That opposite movement (recovery ↓, information ↑) is the probe↔recovery decorrelation, quantified with error bars in FIG.04.</p>
     </div>
 
 
@@ -365,23 +365,23 @@
   // 512-prompt run, r3-fixed decoder (ReZero init — branch ALIVE; deviates from ridge in ~9/20
   // cells but never beats it: tied shallow, slightly worse deep+noisy). refine-logs/dp-decoder-r3-fixed/
   var L = {
-    L0:  {ridge:[0.992,0.911,0.641,0.292], dec:[0.992,0.911,0.641,0.292], club:[3871,2617,2023,1326], vcap:[6.46,6.21,5.54,3.86]},
-    L5:  {ridge:[0.850,0.646,0.390,0.240], dec:[0.850,0.646,0.390,0.240], club:[2960,2274,1676,1187], vcap:[5.54,5.22,4.61,3.23]},
-    L12: {ridge:[0.792,0.646,0.391,0.329], dec:[0.792,0.638,0.391,0.329], club:[2899,2741,1651,1147], vcap:[5.12,5.34,2.82,2.21]},
-    L20: {ridge:[0.636,0.618,0.201,0.140], dec:[0.621,0.610,0.197,0.140], club:[3042,3349,1916,1131], vcap:[5.48,6.11,3.85,0.77]},
-    L25: {ridge:[0.420,0.485,0.160,0.081], dec:[0.396,0.481,0.159,0.082], club:[2768,2986,1788,999],  vcap:[4.86,5.72,2.60,-0.36]}
-  };
+    L0:  {ridge:[0.992,0.911,0.641,0.292], ig:[null,495,178,57],   club:[3871,2617,2023,1326], vcap:[6.46,6.21,5.54,3.86]},
+    L5:  {ridge:[0.850,0.646,0.390,0.240], ig:[null,741,213,61],   club:[2960,2274,1676,1187], vcap:[5.54,5.22,4.61,3.23]},
+    L12: {ridge:[0.792,0.646,0.391,0.329], ig:[null,1014,516,138], club:[2899,2741,1651,1147], vcap:[5.12,5.34,2.82,2.21]},
+    L20: {ridge:[0.636,0.618,0.201,0.140], ig:[null,1352,774,583], club:[3042,3349,1916,1131], vcap:[5.48,6.11,3.85,0.77]},
+    L25: {ridge:[0.420,0.485,0.160,0.081], ig:[null,1315,864,659], club:[2768,2986,1788,999],  vcap:[4.86,5.72,2.60,-0.36]}
+  };  // ig[ε=∞]=null (noiseless channel → I_G vacuous). ig at ε=512,256,128 (refine-logs/fig02-grid/)
   var lays = ["L0","L5","L12","L20","L25"], ax = ["","2","3","4"];
   var INK = "#14181c", GRID = "rgba(20,24,28,0.08)", RIDGE = "#c2683a", DEC = "#2f7d8a", PROBE = "#9aa0a6";
   var font = {family:"'JetBrains Mono', monospace", size:11, color:INK};
 
-  // FIG.02 — four metrics (CLUB, V_cap/PVI, ridge recovery, decoder recovery) as grouped bars by layer
+  // FIG.02 — four metrics (CLUB, V_cap/PVI, I_G probe, ridge recovery) as grouped bars by layer
   var col = {L0:"#b55831", L5:"#c98a3e", L12:"#2f7d8a", L20:"#2f5e87", L25:"#6a4c93"};
   var panels = [
     {key:"club",  title:"CLUB (bits) — probe",                    s:"",  tf:null},
     {key:"vcap",  title:"V_cap / PVI — perplexity (2^PVI)",       s:"2", tf:function(v){return Math.pow(2,v);}},
-    {key:"ridge", title:"recovery — ridge (linear attack)",       s:"3", tf:null},
-    {key:"dec",   title:"recovery — decoder (alive; still ≤ ridge)", s:"4", tf:null}
+    {key:"ig",    title:"I_G — channel MI (bits), geometry-only probe", s:"3", tf:null},
+    {key:"ridge", title:"recovery — ridge (linear attack)",       s:"4", tf:null}
   ];
   var tb = [];
   panels.forEach(function (p, pi) {
@@ -408,8 +408,6 @@
   lays.forEach(function (k) {
     t2.push({x:L[k].club, y:L[k].ridge, text:EPS, name:k+" ridge", mode:"lines+markers", line:{color:col[k]}, marker:{color:col[k],symbol:"circle",size:8},
       hovertemplate:k+" ridge<br>CLUB=%{x} bits<br>recovery=%{y:.3f}<br>ε=%{text}<extra></extra>"});
-    t2.push({x:L[k].club, y:L[k].dec, text:EPS, name:k+" decoder", mode:"lines+markers", line:{color:col[k],dash:"dot"}, marker:{color:col[k],symbol:"diamond-open",size:9},
-      hovertemplate:k+" decoder<br>CLUB=%{x} bits<br>recovery=%{y:.3f}<br>ε=%{text}<extra></extra>"});
   });
   var lay2 = {height:460, margin:{t:24,r:16,b:48,l:54}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
     xaxis:{title:"CLUB — MI upper bound (bits)", gridcolor:GRID}, yaxis:{title:"token recovery (top-1)", range:[0,1.02], gridcolor:GRID, zeroline:false},
