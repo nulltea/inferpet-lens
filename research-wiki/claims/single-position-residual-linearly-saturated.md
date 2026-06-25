@@ -38,6 +38,26 @@ implementation defect**.
    linear map into `E` (ridge / tuned lens) exploits it data-efficiently where a free-target
    regressor must relearn it.
 
+## Update — confirmed at ALL depths (R2 decoder, 512 prompts, 2026-06-25)
+
+Re-run with the principled R2 decoder (ridge-warm-started + **frozen** linear path, gated zero-init
+GELU correction, early-stop on a disjoint val split) on the **full 512-prompt** corpus (≈3× data),
+`refine-logs/dp-decoder-r2/dp_leakage_sweep.json`:
+
+- **`decoder == ridge` at every (layer, ε) cell** (0/20 violations; the early-stop kept the gate at 0
+  — the non-linear correction never beat the frozen ridge baseline on held-out data). So the
+  affine-saturation holds **at all depths L0–L25**, not just L0; a properly-regularized non-linear
+  per-vector decoder adds nothing.
+- **The earlier "decoder beats ridge at depth+noise" was a small-data + under-regularization
+  artifact** (160 prompts, no early-stop, no warm-start).
+- **The depth curve is monotone-decreasing** (clean: 0.992→0.850→0.792→0.636→0.420 over
+  L0/L5/L12/L20/L25); the earlier **L12-valley / L20-rebound dissolved with 3× data** (the 160-prompt
+  L12=0.40 was vocab-disjoint-split noise). So token recoverability simply falls with depth — there is
+  no "lose-input-then-regain-output" rebound at this data scale.
+
+Net: the genuine stronger-attack axis is NOT a non-linear per-vector decoder (saturated) — it is
+LM-prior / sequence-context decoding (BeamClean; campaign-D Task 5).
+
 ## Literature
 
 - **Tuned Lens** (Belrose et al. 2023, arXiv:2303.08112): the validated residual→token decoder is
