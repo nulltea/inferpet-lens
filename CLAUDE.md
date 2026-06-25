@@ -30,6 +30,20 @@ never in the core. `WEIGHTS-PUB` (adversary knows weights + embeddings, so norms
 library invariant. Secrets of interest: activations/hidden states, Q·K·V, attention scores,
 KV-cache, and the tokens behind them.
 
+## Repo structure (code layout) — enforce this
+
+Reusable components live in fixed homes; the runnable scripts only *call* them.
+
+| Kind | Home | Notes |
+|---|---|---|
+| **attacks** | `src/talens/attacks/` | e.g. `dp_inversion.py` (ridge, linear-skip MLP decoder, BeamClean). Array-interface attacks for evals + the CaptureSet API (`hidden_state.py`, `_inversion.py`). |
+| **probes** | `src/talens/probes/` | the leakage measures (CLUB, V_cap, spectral channel-MI, MDL/SDL, …). **Renamed from `measures/`** — import `talens.probes.*`. |
+| **defenses** | `scripts/defenses/` | external `Transform`/mechanism modules (LocalDP, PriPert, GELO, KV-Cloak, Shredder, AloePri, SGT). Never in the core. |
+| **runnable evals** | `scripts/evals/` | config-driven sweeps that ONLY import + orchestrate attacks/probes/defenses + capture. |
+| **spikes** | `scripts/spikes/` | **temporary exception only** — for testing a *new* probe/attack/defense. As soon as it is confirmed, MOVE the reusable logic into the appropriate home above and have the spike/eval call it. Do not let logic accrete in spikes. |
+
+Rule of thumb: if a function would be reused by a second script, it belongs in `src/talens/attacks|probes` or `scripts/defenses`, not inline in an eval or spike.
+
 ## Research operating model
 
 - **Probe ≠ attack (integrity-critical).** A probe is an *independent* measure that *correlates

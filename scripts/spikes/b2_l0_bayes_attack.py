@@ -34,8 +34,8 @@ import torch
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from talens.measures.club import club_mi_upper_bound  # noqa: E402
-from talens.measures.vinfo_capacity import v_information_capacity  # noqa: E402
+from talens.probes.club import club_mi_upper_bound  # noqa: E402
+from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 
 EMBED = {"gemma-2-2b": "results/capture_cache/embed-b0c6566474cadb27.pt",
          "qwen3-4b": "results/capture_cache/embed-92e31154209b70d8.pt"}

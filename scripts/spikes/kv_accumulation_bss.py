@@ -20,7 +20,7 @@ import numpy as np
 from talens.attacks import bss
 from talens.capture.cache import load_capture
 from talens.capture.types import CaptureSet
-from talens.measures import bss_separability as sep
+from talens.probes import bss_separability as sep
 
 OUT = Path("refine-logs/kv-accumulation")
 DEV24_CAPTURE = Path("results/capture_cache/capture-3e3a86a58abf0727.pt")

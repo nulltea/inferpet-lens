@@ -26,8 +26,8 @@ import torch
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from talens.measures.club import club_mi_upper_bound  # noqa: E402
-from talens.measures.vinfo_capacity import v_information_capacity  # noqa: E402
+from talens.probes.club import club_mi_upper_bound  # noqa: E402
+from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 
 CACHE = "results/capture_cache/capture-4ca8a33e16bfbec9.pt"
 EMBED = "results/capture_cache/embed-b0c6566474cadb27.pt"

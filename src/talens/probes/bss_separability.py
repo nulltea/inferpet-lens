@@ -6,7 +6,7 @@ observed operand: (1) JADE recovers sources when the whitened rows are **non-Gau
 covariances **share eigenstructure**. This probe measures both *without ever running the
 joint-diagonalization* — it is a function of whitened-row moments and covariance
 eigenspectra only, so it could be computed with the attacks deleted (the probe ≠ attack
-invariant; cf. :mod:`talens.measures.spectral_channel_mi`).
+invariant; cf. :mod:`talens.probes.spectral_channel_mi`).
 
 Two quantities, both canonical in **bits**:
 
@@ -16,7 +16,7 @@ Two quantities, both canonical in **bits**:
 * :func:`shared_spectral_capacity_bits` — JD accumulation. Form the averaged row
   covariance over the T-stack, ``C̄ = (1/T)·Σ_t U_t·U_tᵀ/d``; its spectral capacity
   ``½ Σ_i log₂(1 + λ_i/σ²)`` against a noise-floor ``σ² = median(bottom-half eigenvalues)``
-  reuses :func:`talens.measures.spectral_channel_mi.spectral_channel_mi`. As T grows the
+  reuses :func:`talens.probes.spectral_channel_mi.spectral_channel_mi`. As T grows the
   shared (anisotropic) subspace concentrates relative to the floor — the capacity tracks how
   much shared structure a JD adversary can lock onto.
 """

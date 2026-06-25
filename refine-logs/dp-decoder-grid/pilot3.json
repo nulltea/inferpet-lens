@@ -1,0 +1,104 @@
+{
+  "model": "unsloth/gemma-2-2b",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 128,
+  "defense": "local_dp",
+  "sigma_convention": "sigma = C*z/eps (sensitivity C, add/remove-to-zero adjacency)",
+  "clip_C": 198.9523468017578,
+  "delta": 1e-05,
+  "pool_size": 2048,
+  "seed": 20260621,
+  "layers": [
+    0,
+    25
+  ],
+  "epsilons": [
+    null,
+    256.0
+  ],
+  "attacks": [
+    "ridge",
+    "decoder"
+  ],
+  "probes": [
+    "club",
+    "vcap"
+  ],
+  "readout_note": "recovery = token-id top-1 over the candidate pool; *_sel = recovery minus a CLEAN-rep label-shuffle floor (per layer); vcap_perplexity = reader effective token candidates 2^(H_prior_empirical - PVI), clamped [1, 2^H_prior]; probes computed on all captured rows (probe_split=all).",
+  "correlation": {
+    "L0": {
+      "ridge_sel_vs_club": 0.9999999999999999,
+      "ridge_sel_vs_vcap": 0.9999999999999999,
+      "decoder_sel_vs_club": 0.9999999999999999,
+      "decoder_sel_vs_vcap": 0.9999999999999999
+    },
+    "L25": {
+      "ridge_sel_vs_club": 0.9999999999999999,
+      "ridge_sel_vs_vcap": 0.9999999999999999,
+      "decoder_sel_vs_club": 0.9999999999999999,
+      "decoder_sel_vs_vcap": 0.9999999999999999
+    }
+  },
+  "records": [
+    {
+      "epsilon": null,
+      "layer": 0,
+      "sigma": 0.0,
+      "ridge": 0.890795631825273,
+      "ridge_sel": 0.8814352574102964,
+      "decoder": 0.5382215288611545,
+      "decoder_sel": 0.5319812792511701,
+      "club_bits": 3547.4673505865126,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 5.373291909653633,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.8752941176470588,
+      "vcap_perplexity": 8.837457650040921
+    },
+    {
+      "epsilon": null,
+      "layer": 25,
+      "sigma": 0.0,
+      "ridge": 0.2876949740034662,
+      "ridge_sel": 0.2668977469670711,
+      "decoder": 0.19410745233968804,
+      "decoder_sel": 0.1681109185441941,
+      "club_bits": 2456.6261171563865,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 3.219461202039504,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.5694117647058824,
+      "vcap_perplexity": 39.327378156053655
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 0,
+      "sigma": 3.765177253097065,
+      "ridge": 0.34477379095163807,
+      "ridge_sel": 0.33541341653666146,
+      "decoder": 0.1934477379095164,
+      "decoder_sel": 0.187207488299532,
+      "club_bits": 1983.9180701651119,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 4.171738317687526,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.7082352941176471,
+      "vcap_perplexity": 20.325021712512758
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 25,
+      "sigma": 3.765177253097065,
+      "ridge": 0.08492201039861352,
+      "ridge_sel": 0.06412478336221837,
+      "decoder": 0.08838821490467938,
+      "decoder_sel": 0.06239168110918544,
+      "club_bits": 1597.4240840243049,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 1.416920040010211,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.39294117647058824,
+      "vcap_perplexity": 137.18731377593656
+    }
+  ]
+}

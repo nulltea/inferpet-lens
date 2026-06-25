@@ -22,9 +22,9 @@ sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts" / "eval"))
 import numpy as np  # noqa: E402
 from vec2text_attack import Vec2TextAttack, dp_noise, gaussian_sigma, normalize_text  # noqa: E402
-from talens.measures.club import club_mi_upper_bound  # noqa: E402
-from talens.measures.vinfo_capacity import v_information_capacity  # noqa: E402
-from talens.measures.spectral_channel_mi import spectral_channel_mi  # noqa: E402
+from talens.probes.club import club_mi_upper_bound  # noqa: E402
+from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
+from talens.probes.spectral_channel_mi import spectral_channel_mi  # noqa: E402
 
 
 def kmeans_labels(X, k, iters=25, seed=0):

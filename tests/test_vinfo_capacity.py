@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from talens.measures.vinfo_capacity import v_information_capacity
+from talens.probes.vinfo_capacity import v_information_capacity
 
 FAMILIES = ["pca_softmax", "randproj_softmax", "gauss", "knn"]
 

@@ -14,7 +14,7 @@ import math
 import numpy as np
 import pytest
 
-from talens.measures.channel_error_bounds import (
+from talens.probes.channel_error_bounds import (
     fano_equivocation,
     union_bhattacharyya,
 )

@@ -29,9 +29,9 @@ from scipy import stats
 
 from talens.attacks._inversion import ridge_inversion
 from talens.capture.cache import load_capture, load_embed
-from talens.measures.club import club_mi_upper_bound
-from talens.measures.vinfo import v_information_retrieval
-from talens.measures.vinfo_capacity import _pca_basis, v_information_capacity
+from talens.probes.club import club_mi_upper_bound
+from talens.probes.vinfo import v_information_retrieval
+from talens.probes.vinfo_capacity import _pca_basis, v_information_capacity
 
 CAP = dict(family="pca_softmax", dim=64, l2=10.0)  # overridden by --l2
 

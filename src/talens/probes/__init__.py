@@ -1,12 +1,12 @@
 """Information-theoretic measures — the three complementary lenses.
 
-* :func:`~talens.measures.vinfo.v_information` — V-usable info / PVI
+* :func:`~talens.probes.vinfo.v_information` — V-usable info / PVI
   (usable-info axis; what a bounded adversary can extract).
-* :func:`~talens.measures.mdl.online_code_length` — MDL online-coding +
+* :func:`~talens.probes.mdl.online_code_length` — MDL online-coding +
   Surplus Description Length (code-length / complexity axis).
-* :func:`~talens.measures.club.club_mi_upper_bound` — CLUB MI upper
+* :func:`~talens.probes.club.club_mi_upper_bound` — CLUB MI upper
   bound (brackets leakage from above).
-* :func:`~talens.measures.pid.pid_mmi` — MMI partial-information
+* :func:`~talens.probes.pid.pid_mmi` — MMI partial-information
   decomposition of the QK/OV attention channel (which operand leaks).
 """
 

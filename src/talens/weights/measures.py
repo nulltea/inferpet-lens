@@ -27,7 +27,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from ..measures import club_mi_upper_bound, v_information_retrieval
+from ..probes import club_mi_upper_bound, v_information_retrieval
 from .features import get_feature, sorted_quantile
 from .types import WeightPair
 

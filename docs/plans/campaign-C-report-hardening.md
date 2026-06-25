@@ -243,7 +243,7 @@ scope:
 
 steps: (a) build the A3 diverging heatmap from the feature-Gram / feature-mix matrices, showing a clean-vs-defended pair so the channel that collapses is visible; (b) build the A4 dual-series Pareto from Task 7's `(parameter, leakage, utility)` rows, marking the operating window (e.g. vec2text ε≈256–512); (c) caption each with the reading; (d) cleanup pass.
 acceptance: A3 heatmaps on gelo + kv-cloak showing the load-bearing channel; A4 Pareto on the three (+synthesis) pages from Task 7 data (or leakage-only with utility-pending noted where Task 7 left a TODO); PLOT-STYLE.md compliant with provenance; cleanup pass run.
-- [ ] run-phase: c12-viz-channel-tradeoff
+- [x] run-phase: c12-viz-channel-tradeoff
 
 ### Task 12: visual reporting Phase 4 (optional) — Group-B selectives
 recipe: consolidate
@@ -261,7 +261,7 @@ scope:
 
 steps: (a) build the B2 matrix heatmap from the decoupling JSON with ρ cell labels and diagonal highlight; (b) if per-example data exists, build B1; else write a one-line deferral note; (c) cleanup pass.
 acceptance: B2 cross-family matrix on synthesis + resid-split from on-disk data; B1 present or explicitly deferred with reason; no Group-C technique added; PLOT-STYLE.md compliant; cleanup pass run.
-- [ ] run-phase: c13-viz-groupb
+- [x] run-phase: c13-viz-groupb
 
 ### Task 13: prove the 4 cross-cutting claims (currently proofs-TODO stubs) — RUNS LAST
 recipe: theory
@@ -280,7 +280,7 @@ the four claims (research-wiki/claims/*.md):
 
 method: /proof-writer → /proof-checker inline (cross-model jury, never self-certify); fold each verified proof IN FULL into its claim file (remove the `proof: TODO`), per the project rule that verified proofs live in research-wiki/claims/*.md. Each claim's checker run writes a per-claim artifact `research-wiki/claims/<slug>.proof-check.md` recording the checker identity, the PASS/FAIL verdict, and the final (possibly weakened) statement — this is the checkable evidence, not a self-assertion. Where a claim cannot be proved as stated, weaken it to the provable form and bound the gap (do not overclaim). Re-register with /research-wiki.
 acceptance: each of the 4 claim files contains a full proof-checked proof or a corrected/weakened statement with its proof, AND a paired `research-wiki/claims/<slug>.proof-check.md` artifact with checker identity + PASS verdict (or a recorded weakening); `proof: TODO` removed from all four; synthesis.html §04 footnotes updated to drop "proof pending" where proven.
-- [ ] run-phase: c8-crosscutting-proofs
+- [x] run-phase: c8-crosscutting-proofs
 
 ---
 

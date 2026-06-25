@@ -22,8 +22,8 @@ from pathlib import Path
 import numpy as np
 
 from talens.capture.cache import load_capture, load_embed
-from talens.measures.vinfo import v_information, v_information_retrieval
-from talens.measures.vinfo_capacity import v_information_capacity
+from talens.probes.vinfo import v_information, v_information_retrieval
+from talens.probes.vinfo_capacity import v_information_capacity
 
 CAP_FAMILIES = ["pca_softmax", "randproj_softmax", "gauss", "knn"]
 

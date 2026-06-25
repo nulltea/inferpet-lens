@@ -23,8 +23,8 @@ from scipy import stats
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from b2_lpos_decoder import train_decoder, decode_match, ridge_match  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from talens.measures.club import club_mi_upper_bound  # noqa: E402
-from talens.measures.vinfo_capacity import v_information_capacity  # noqa: E402
+from talens.probes.club import club_mi_upper_bound  # noqa: E402
+from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 
 EMBED = "results/capture_cache/embed-b0c6566474cadb27.pt"
 

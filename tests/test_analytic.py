@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.measures import club_mi_upper_bound, online_code_length, v_information
+from talens.probes import club_mi_upper_bound, online_code_length, v_information
 
 
 def _gaussian_pair(n: int, d: int, rho: float, seed: int) -> tuple[np.ndarray, np.ndarray]:
@@ -60,7 +60,7 @@ def test_club_estimate_equals_verbatim_forward():
     # the verbatim O(n²·d) CLUB.forward (small n so forward is affordable).
     import torch
 
-    from talens.measures.club import CLUB, _club_estimate
+    from talens.probes.club import CLUB, _club_estimate
 
     torch.manual_seed(0)
     n, dx, dy = 200, 16, 12

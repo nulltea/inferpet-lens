@@ -10,7 +10,7 @@ number kappa(A) and the shield fraction, and ask whether the geometry-only negen
 leak (U^T U = H^T A^T A H = H^T H at kappa=1) and that an amortized ridge inverter fails
 under fresh-per-prompt A.
 
-Reuses talens.attacks.bss internals and talens.measures.bss_separability. CPU-only on the
+Reuses talens.attacks.bss internals and talens.probes.bss_separability. CPU-only on the
 cached resid_post capture. No GPU.
 
 Modes:
@@ -38,7 +38,7 @@ from talens.attacks.bss import (  # noqa: E402
     _whiten,
 )
 from talens.capture.cache import load_capture  # noqa: E402
-from talens.measures.bss_separability import _row_negentropy_nats  # noqa: E402
+from talens.probes.bss_separability import _row_negentropy_nats  # noqa: E402
 
 OUT = Path("refine-logs/resid-gelo")
 CAP = Path("results/capture_cache/capture-28a0ee6c41330ee3.pt")

@@ -1,7 +1,7 @@
 """KV-CLOAK leakage sweep (Task B-2): channel x block-size x mask-energy.
 
 Reuses the Task-1 BSS attacks (talens.attacks.bss) and matched geometry-only probes
-(talens.measures.bss_separability), all of which accept transform=, with the KV-CLOAK
+(talens.probes.bss_separability), all of which accept transform=, with the KV-CLOAK
 Transform (scripts/defenses/kv_cloak.py) over the raw KV-cache surface (kind 'k').
 
 Modes:
@@ -26,7 +26,7 @@ from kv_cloak import KVCloak  # noqa: E402
 
 from talens.attacks import bss  # noqa: E402
 from talens.capture.cache import load_capture  # noqa: E402
-from talens.measures import bss_separability as sep  # noqa: E402
+from talens.probes import bss_separability as sep  # noqa: E402
 
 OUT = Path("refine-logs/kv-cloak")
 CAP = Path("results/capture_cache/capture-7de5ef8d6e14afe9.pt")

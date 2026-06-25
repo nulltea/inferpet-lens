@@ -27,7 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
-from talens.measures.channel_error_bounds import (
+from talens.probes.channel_error_bounds import (
     fano_equivocation,
     union_bhattacharyya,
 )

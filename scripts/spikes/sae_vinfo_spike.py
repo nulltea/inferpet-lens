@@ -11,7 +11,7 @@ I_V(Z -> y) > I_V(x -> y), the sparse overcomplete basis is more linearly
 decodable; if <, the SAE bottleneck has cost usable token-identity signal.
 
 Standalone: no pipeline integration. Reuses talens.capture +
-talens.measures.v_information. GPU + gated HF models required — run via
+talens.probes.v_information. GPU + gated HF models required — run via
 scripts/run_in_rocm.sh after `huggingface-cli login` (gemma-2-2b and
 gemma-scope are gated under Google's Gemma terms).
 
@@ -31,7 +31,7 @@ import numpy as np
 import torch
 
 from talens.capture.capture import capture_representations, load_model
-from talens.measures.vinfo import v_information
+from talens.probes.vinfo import v_information
 
 
 def load_sae(release: str, layer: int, width: str, device: str):

@@ -8,7 +8,7 @@ SGT adds anisotropic Gaussian noise ``N(0, D)`` shaped to the embedding covarian
 
 We build the noise per-mode in the PCA basis of ``Σ`` (eigvals ``λ``, eigvecs ``V``):
 per-mode variance ``v_i``; the channel-MI is ``I_G = ½ Σ_i log₂(1+λ_i/v_i)`` (basis-
-invariant; matches :func:`talens.measures.spectral_channel_mi.spectral_channel_mi_diag`
+invariant; matches :func:`talens.probes.spectral_channel_mi.spectral_channel_mi_diag`
 with ``cov=diag(λ)``). Raw-space noise is ``n = (z·√v) Vᵀ``, ``z~N(0,I)``.
 
 Three shapes, each constructed to hit a *target* ``I_G = B`` exactly (bisection):

@@ -28,8 +28,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
 from talens.capture.cache import load_capture  # noqa: E402
-from talens.measures.mdl import online_code_length  # noqa: E402
-from talens.measures.bss_separability import shared_spectral_capacity_bits  # noqa: E402
+from talens.probes.mdl import online_code_length  # noqa: E402
+from talens.probes.bss_separability import shared_spectral_capacity_bits  # noqa: E402
 
 SDL_LAYERS = [0, 8, 16, 24, 32]   # depth grid matching the depth-inversion page
 KV_LAYERS = [0, 12, 20]

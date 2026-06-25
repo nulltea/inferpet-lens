@@ -30,7 +30,7 @@ import torch
 
 from talens.attacks._inversion import learned_inversion, nn_inversion, ridge_inversion
 from talens.capture.capture import load_or_capture
-from talens.measures import club_mi_upper_bound, v_information_capacity
+from talens.probes import club_mi_upper_bound, v_information_capacity
 
 INVERTERS = {"ridge": ridge_inversion, "nn": nn_inversion, "mlp2": learned_inversion}
 

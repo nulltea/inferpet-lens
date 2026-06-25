@@ -29,14 +29,14 @@ import numpy as np
 import torch
 
 from talens.attacks._inversion import ridge_inversion
-from talens.measures.vinfo import v_information, v_information_retrieval  # retrieval family:
+from talens.probes.vinfo import v_information, v_information_retrieval  # retrieval family:
 # the class-probe v_information overfits on high-d operands (shuffle floor ≈ −48b,
 # non-monotonic in noise — see docs/dev/sae-attack.md diagnosis); the bounded
 # ridge→embedding retrieval family has a sane ≈0 floor and is monotonic.
 # v_information_capacity is the capacity-matched fix (independent token-id family,
 # well-posed in d>n) — the M2 survivor candidate under test against TTRSR.
-from talens.measures.vinfo_capacity import v_information_capacity
-from talens.measures.club import club_mi_upper_bound
+from talens.probes.vinfo_capacity import v_information_capacity
+from talens.probes.club import club_mi_upper_bound
 
 
 class InputDPCover:

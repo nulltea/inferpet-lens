@@ -42,8 +42,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # for scripts.defe
 from defenses.pripert import perturbation_sigma, pripert_apply, sparsify_rows  # noqa: E402
 from talens.attacks._inversion import learned_inversion, nn_inversion, ridge_inversion  # noqa: E402
 from talens.capture.capture import load_or_capture  # noqa: E402
-from talens.measures import club_mi_upper_bound  # noqa: E402
-from talens.measures.spectral_channel_mi import spectral_channel_mi  # noqa: E402
+from talens.probes import club_mi_upper_bound  # noqa: E402
+from talens.probes.spectral_channel_mi import spectral_channel_mi  # noqa: E402
 
 INVERTERS = {"ridge": ridge_inversion, "nn": nn_inversion, "mlp2": learned_inversion}
 

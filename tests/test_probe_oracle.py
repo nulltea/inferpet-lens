@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.measures._probe import (
+from talens.probes._probe import (
     probe_log_softmax,
     sklearn_probe_log_softmax,
     sklearn_train_softmax_probe,

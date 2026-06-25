@@ -24,8 +24,8 @@ import numpy as np, torch
 import vec2text
 from transformers import AutoModel, AutoTokenizer
 import sacrebleu
-from talens.measures.club import club_mi_upper_bound
-from talens.measures.vinfo_capacity import v_information_capacity
+from talens.probes.club import club_mi_upper_bound
+from talens.probes.vinfo_capacity import v_information_capacity
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 _WS = re.compile(r"\s+")

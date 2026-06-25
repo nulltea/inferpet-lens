@@ -16,7 +16,7 @@ import torch
 from talens.attacks import hidden_state
 from talens.capture.types import CaptureSet
 from talens.cli import _parse_controls, _process_block, _selectivity, calibrate_capture
-from talens.measures import club_mi_upper_bound, v_information
+from talens.probes import club_mi_upper_bound, v_information
 from talens.transforms import Identity
 
 VOCAB, DIM, N_PROMPTS, SEQ = 60, 24, 50, 10

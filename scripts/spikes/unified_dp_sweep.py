@@ -21,9 +21,9 @@ from scipy import stats
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1] / "src"))
 
-from talens.measures.club import club_mi_upper_bound
-from talens.measures.mdl import online_code_length
-from talens.measures.vinfo_capacity import v_information_capacity
+from talens.probes.club import club_mi_upper_bound
+from talens.probes.mdl import online_code_length
+from talens.probes.vinfo_capacity import v_information_capacity
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 

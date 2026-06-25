@@ -1,6 +1,6 @@
 """Unified leakage-reporting layer — bits canonical + per-secret readout.
 
-Every probe in :mod:`talens.measures` emits a different result dict (``v_information``
+Every probe in :mod:`talens.probes` emits a different result dict (``v_information``
 returns ``v_information_bits``; ``club`` returns ``club_mi_bits``; ``mdl`` returns
 ``surplus_description_length_bits``; ``spectral_channel_mi`` returns ``i_g_bits``; …).
 This module is the single place that
@@ -305,7 +305,7 @@ class LeakageReport:
     ) -> "LeakageReport":
         """Standardize the two-sided geometry-only BNN error-bound probe into one row.
 
-        Pairs the two functions of :mod:`talens.measures.channel_error_bounds`: canonical
+        Pairs the two functions of :mod:`talens.probes.channel_error_bounds`: canonical
         bits = the Fano-derived channel-MI estimate ``I(V;Y)`` (from ``fano_result``);
         readout = the recovery band bracketed by the Fano error lower bound and the
         union-Bhattacharyya error upper bound (``ub_result``). Both halves are

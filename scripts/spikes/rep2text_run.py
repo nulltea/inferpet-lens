@@ -34,7 +34,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 import torch  # noqa: E402
 from talens.capture.capture import load_or_capture  # noqa: E402
-from talens.measures.spectral_channel_mi import spectral_channel_mi  # noqa: E402
+from talens.probes.spectral_channel_mi import spectral_channel_mi  # noqa: E402
 
 
 # ----------------------------- recovery metrics -----------------------------

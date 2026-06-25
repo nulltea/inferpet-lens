@@ -1,0 +1,104 @@
+{
+  "model": "unsloth/gemma-2-2b",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 64,
+  "defense": "local_dp",
+  "sigma_convention": "sigma = C*z/eps (sensitivity C, add/remove-to-zero adjacency)",
+  "clip_C": 198.9523468017578,
+  "delta": 1e-05,
+  "pool_size": 2048,
+  "seed": 20260621,
+  "layers": [
+    0,
+    25
+  ],
+  "epsilons": [
+    null,
+    256.0
+  ],
+  "attacks": [
+    "ridge",
+    "decoder"
+  ],
+  "probes": [
+    "club",
+    "vcap"
+  ],
+  "readout_note": "recovery = token-id top-1 over the candidate pool; *_sel = recovery minus a CLEAN-rep label-shuffle floor (per layer); vcap_perplexity = reader effective token candidates 2^(H_prior_empirical - PVI), clamped [1, 2^H_prior]; probes computed on all captured rows (probe_split=all).",
+  "correlation": {
+    "L0": {
+      "ridge_sel_vs_club": 0.9999999999999999,
+      "ridge_sel_vs_vcap": 0.9999999999999999,
+      "decoder_sel_vs_club": 0.9999999999999999,
+      "decoder_sel_vs_vcap": 0.9999999999999999
+    },
+    "L25": {
+      "ridge_sel_vs_club": 0.9999999999999999,
+      "ridge_sel_vs_vcap": -0.9999999999999999,
+      "decoder_sel_vs_club": 0.9999999999999999,
+      "decoder_sel_vs_vcap": -0.9999999999999999
+    }
+  },
+  "records": [
+    {
+      "epsilon": null,
+      "layer": 0,
+      "sigma": 0.0,
+      "ridge": 0.7734375,
+      "ridge_sel": 0.76953125,
+      "decoder": 0.34375,
+      "decoder_sel": 0.3359375,
+      "club_bits": 3171.57273501833,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 2.925329989906637,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.5824175824175825,
+      "vcap_perplexity": 39.173915462678785
+    },
+    {
+      "epsilon": null,
+      "layer": 25,
+      "sigma": 0.0,
+      "ridge": 0.1407185628742515,
+      "ridge_sel": 0.12275449101796407,
+      "decoder": 0.1347305389221557,
+      "decoder_sel": 0.12275449101796408,
+      "club_bits": 2132.637527658938,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 0.0042439229968953525,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.27472527472527475,
+      "vcap_perplexity": 296.7095383430422
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 0,
+      "sigma": 3.765177253097065,
+      "ridge": 0.203125,
+      "ridge_sel": 0.19921875,
+      "decoder": 0.09765625,
+      "decoder_sel": 0.08984375,
+      "club_bits": 1695.4001952154572,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 2.5602353087806367,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.45054945054945056,
+      "vcap_perplexity": 50.45467720901503
+    },
+    {
+      "epsilon": 256.0,
+      "layer": 25,
+      "sigma": 3.765177253097065,
+      "ridge": 0.0718562874251497,
+      "ridge_sel": 0.05389221556886227,
+      "decoder": 0.08682634730538923,
+      "decoder_sel": 0.07485029940119761,
+      "club_bits": 1782.9278623049372,
+      "club_bits_kind": "mi_upper_bound",
+      "vcap_bits": 1.0535399083678822,
+      "vcap_bits_kind": "capacity_v_info",
+      "vcap_reader_top1_acc": 0.3131868131868132,
+      "vcap_perplexity": 143.37120715110035
+    }
+  ]
+}

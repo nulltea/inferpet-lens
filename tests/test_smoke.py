@@ -15,7 +15,7 @@ import torch
 from talens.attacks import attn_score, cover_break, hidden_state
 from talens.calibration import calibrate
 from talens.capture.types import CaptureSet
-from talens.measures import club_mi_upper_bound, online_code_length, v_information
+from talens.probes import club_mi_upper_bound, online_code_length, v_information
 from talens.transforms import Identity
 
 VOCAB, DIM, N_PROMPTS, SEQ = 60, 24, 50, 10

@@ -1,5 +1,5 @@
 """Synthetic oracle for the MMI-PID attention-channel probe
-(:func:`talens.measures.pid.pid_mmi`) — model-free, CPU.
+(:func:`talens.probes.pid.pid_mmi`) — model-free, CPU.
 
 Three canonical bivariate sources with known PID structure, encoded as
 Gaussian-separated continuous features so the capacity-matched V-info readers
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.measures.pid import pid_mmi
+from talens.probes.pid import pid_mmi
 
 N, D = 1200, 16
 SEP = 4.0  # class separation in feature space

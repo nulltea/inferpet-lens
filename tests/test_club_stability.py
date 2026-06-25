@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.measures.club import club_mi_upper_bound
+from talens.probes.club import club_mi_upper_bound
 
 
 def _heavy_tailed(seed: int, n=400, d=64):

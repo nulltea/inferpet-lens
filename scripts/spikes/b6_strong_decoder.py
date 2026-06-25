@@ -21,8 +21,8 @@ sys.path.insert(0, str(HERE))
 from b2_propagated_dp import InputDPCover, capture  # noqa: E402
 from b2_lpos_decoder import train_decoder, decode_match, ridge_match, DEV  # noqa: E402
 sys.path.insert(0, str(HERE.parents[1] / "src"))
-from talens.measures.club import club_mi_upper_bound  # noqa: E402
-from talens.measures.vinfo_capacity import v_information_capacity  # noqa: E402
+from talens.probes.club import club_mi_upper_bound  # noqa: E402
+from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 
 
 def train_deep(Xtr, Ytr, *, hidden=1024, epochs=600, lr=1e-3, seed=0):

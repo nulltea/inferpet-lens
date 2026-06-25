@@ -34,7 +34,7 @@ sys.path.insert(0, str(REPO / "scripts" / "defenses"))
 import numpy as np  # noqa: E402
 from vec2text_attack import Vec2TextAttack  # noqa: E402
 from sgt import fit_covariance, build_sgt, _ig_bits  # noqa: E402
-from talens.measures.spectral_channel_mi import spectral_channel_mi_diag  # noqa: E402
+from talens.probes.spectral_channel_mi import spectral_channel_mi_diag  # noqa: E402
 
 
 def spearman(a, b):

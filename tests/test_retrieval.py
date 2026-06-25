@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from talens.measures import (
+from talens.probes import (
     online_code_length_retrieval,
     v_information,
     v_information_retrieval,

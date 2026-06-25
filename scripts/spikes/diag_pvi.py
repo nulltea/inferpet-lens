@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from talens.capture.cache import load_capture, load_embed
-from talens.measures.vinfo import v_information, v_information_retrieval
+from talens.probes.vinfo import v_information, v_information_retrieval
 
 
 def main() -> None:

@@ -30,7 +30,7 @@ import torch
 from .attacks import cover_break, hidden_state
 from .calibration import calibrate_records
 from .capture.types import CaptureSet
-from .measures import club_mi_upper_bound, online_code_length, v_information
+from .probes import club_mi_upper_bound, online_code_length, v_information
 from .transforms import Identity, Transform
 
 # CLUB fidelity presets. "fast" is rank-faithful but magnitude-loose

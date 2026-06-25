@@ -27,7 +27,7 @@ sys.path.insert(0, str(HERE))
 from b2_propagated_dp import InputDPCover, capture  # noqa: E402
 from b2_lpos_decoder import train_decoder, ridge_match, DEV  # noqa: E402
 sys.path.insert(0, str(HERE.parents[1] / "src"))
-from talens.measures.vinfo_capacity import v_information_capacity  # noqa: E402
+from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 from scipy import stats  # noqa: E402
 
 

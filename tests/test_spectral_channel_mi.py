@@ -8,7 +8,7 @@ import math
 import numpy as np
 import pytest
 
-from talens.measures.spectral_channel_mi import (
+from talens.probes.spectral_channel_mi import (
     spectral_channel_mi,
     spectral_channel_mi_diag,
     _invert_gamma,

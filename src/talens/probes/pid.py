@@ -28,7 +28,7 @@ The **MMI (minimum-mutual-information) redundancy** lattice (Barrett 2015,
 
 Each ``I(T;·)`` is estimated as **capacity-matched V-usable information** (the
 same independent token-id reader the rest of the pipeline uses,
-:func:`~talens.measures.vinfo_capacity.v_information_capacity`), so PID inherits
+:func:`~talens.probes.vinfo_capacity.v_information_capacity`), so PID inherits
 its well-posedness in ``d>n`` and never touches the embedding table — it is an
 *independent* probe, not the ISA attack. ``U_qk`` is the matched predictor for
 the ``kq`` attack surface; ``U_ov`` for ``kqv_out``.

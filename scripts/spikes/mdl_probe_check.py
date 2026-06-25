@@ -16,7 +16,7 @@ import numpy as np, torch
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from talens.measures.mdl import online_code_length  # noqa: E402
+from talens.probes.mdl import online_code_length  # noqa: E402
 
 CACHE = "results/capture_cache/capture-4ca8a33e16bfbec9.pt"
 LAYER = 12
