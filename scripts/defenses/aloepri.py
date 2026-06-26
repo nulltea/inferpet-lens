@@ -164,6 +164,72 @@ def m1_randomized_response(tokens, vocab: int, eps1: float, *, seed: int = 0):
     return out
 
 
+def _orthogonal_t(n, rng):
+    q, r = np.linalg.qr(rng.standard_normal((n, n)))
+    return q * np.sign(np.diag(r))
+
+
+def alg2_attention_keys(head_dim: int, rotary_ndims: int, n_heads: int, *, seed: int = 0):
+    """AloePri Algorithm 2 intra-head + inter-head attention keys (paper §5.2.3), per head:
+
+      * ``Mq`` (= M_k) : an orthogonal head_dim×head_dim mixing that COMMUTES with NeoX partial-rotary
+        — a 2D rotation on each rotary pair (i, i+rotary_ndims/2) (subsumes R̂qk·Ĥqk; a ±1 Ĥ sign is
+        just a π shift of the random angle) + a free orthogonal block on the non-rotary tail. Since
+        M_q=M_k, M_qᵀM_k=I so Q·Kᵀ is preserved exactly (Ẑblock=I at β=1; β>1 deferred).
+      * ``Uvo`` : an orthogonal head_dim×head_dim applied to V (and U_voᵀ to W_o's input) — cancels
+        through the V·O path.
+      * ``head_perm`` : the inter-head permutation (τ_kv = τ_group for MHA), applied consistently to
+        the qkv output head-blocks and the W_o input head-blocks.
+    """
+    rng = np.random.default_rng(seed)
+    Mq = np.zeros((n_heads, head_dim, head_dim))
+    Uvo = np.zeros((n_heads, head_dim, head_dim))
+    half = rotary_ndims // 2
+    for h in range(n_heads):
+        M = np.eye(head_dim)
+        for i in range(half):                              # 2D rotation per NeoX rotary pair (i, i+rd/2)
+            j = i + half
+            th = rng.uniform(0, 2 * np.pi)
+            c, s = np.cos(th), np.sin(th)
+            M[i, i], M[i, j], M[j, i], M[j, j] = c, -s, s, c
+        if rotary_ndims < head_dim:                        # free orthogonal on the non-rotary tail
+            M[rotary_ndims:, rotary_ndims:] = _orthogonal_t(head_dim - rotary_ndims, rng)
+        Mq[h] = M
+        Uvo[h] = _orthogonal_t(head_dim, rng)
+    return {"Mq": Mq, "Uvo": Uvo, "head_perm": rng.permutation(n_heads)}
+
+
+def _apply_alg2(layer, keys, n_heads: int, head_dim: int):
+    """Bake the Algorithm-2 head-axis transforms into a layer's qkv + dense weights IN PLACE (acts on
+    the head_dim output rows of qkv / input cols of dense — orthogonal to the residual-axis rewrite)."""
+    Mq = torch.from_numpy(keys["Mq"])
+    Uvo = torch.from_numpy(keys["Uvo"])
+    perm = torch.from_numpy(keys["head_perm"]).long()
+    qkv = layer.attention.query_key_value
+    dt, dev = qkv.weight.dtype, qkv.weight.device
+    Mq, Uvo, perm = Mq.to(device=dev, dtype=dt), Uvo.to(device=dev, dtype=dt), perm.to(dev)
+    hd, d_in = head_dim, qkv.weight.shape[1]
+
+    def _qkv_rows(t):                                      # t: (3d,) or (3d, d_in) → transform + perm
+        v = t.reshape(n_heads, 3 * hd, *t.shape[1:])
+        q, k, val = v[:, :hd], v[:, hd:2 * hd], v[:, 2 * hd:3 * hd]
+        q = torch.einsum("hij,hj...->hi...", Mq, q)
+        k = torch.einsum("hij,hj...->hi...", Mq, k)
+        val = torch.einsum("hij,hj...->hi...", Uvo, val)
+        out = torch.cat([q, k, val], dim=1)[perm]          # inter-head permutation
+        return out.reshape(t.shape)
+
+    with torch.no_grad():
+        qkv.weight = nn.Parameter(_qkv_rows(qkv.weight.data))
+        if qkv.bias is not None:
+            qkv.bias = nn.Parameter(_qkv_rows(qkv.bias.data))
+        dense = layer.attention.dense                      # (d_out, d=n_heads*hd): cols are head outputs
+        Wd = dense.weight.data.reshape(dense.weight.shape[0], n_heads, hd)
+        Wd = torch.einsum("dhi,hji->dhj", Wd, Uvo)         # right-multiply each head block by U_voᵀ
+        Wd = Wd[:, perm, :]                                # same inter-head permutation on W_o input
+        dense.weight = nn.Parameter(Wd.reshape(dense.weight.shape))
+
+
 # ───────────────────────── covariant model re-parameterization ─────────────────────────
 # Faithful AloePri offline obfuscation of a whole transformer (paper §5.2). One residual
 # key pair (P̂, Q̂), P̂ Q̂ = I_d (Algorithm 1), rewrites every residual-touching weight so the
@@ -220,8 +286,9 @@ def reparam_pythia(model, *, config: str = "keymat_only", h: int = 128, lam: flo
     """
     if config == "keymat_only":
         alpha_e = alpha_h = 0.0
-    elif config != "full_alg1":
-        raise NotImplementedError(f"config={config!r} not yet implemented (have keymat_only, full_alg1)")
+    elif config not in ("full_alg1", "alg2"):
+        raise NotImplementedError(f"config={config!r} (have keymat_only, full_alg1, alg2)")
+    do_alg2 = config == "alg2"
     net = model.gpt_neox
     d = net.embed_in.weight.shape[1]
     dev, dtype = net.embed_in.weight.device, net.embed_in.weight.dtype
@@ -251,7 +318,12 @@ def reparam_pythia(model, *, config: str = "keymat_only", h: int = 128, lam: flo
         # embedding writes the residual: looked-up (noised) row → row P̂
         net.embed_in.weight = nn.Parameter(_noised(net.embed_in.weight.data, alpha_e) @ P)
         net.embed_in.embedding_dim = net.embed_in.weight.shape[1]
-        for layer in net.layers:
+        n_heads = model.config.num_attention_heads
+        for li, layer in enumerate(net.layers):
+            if do_alg2:                                    # head-axis attention obfuscation (Alg 2)
+                hd, rd = layer.attention.head_size, layer.attention.rotary_ndims
+                keys = alg2_attention_keys(hd, rd, n_heads, seed=seed + 100 + li)
+                _apply_alg2(layer, keys, n_heads, hd)
             layer.input_layernorm = CovariantLayerNorm(layer.input_layernorm, P, Q)
             layer.post_attention_layernorm = CovariantLayerNorm(layer.post_attention_layernorm, P, Q)
             _read(layer.attention.query_key_value)

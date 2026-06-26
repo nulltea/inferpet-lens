@@ -77,6 +77,34 @@ def test_covariant_write_linear_produces_obf_residual():
     assert torch.allclose(y_obf, y_plain @ P, atol=1e-5), (y_obf - y_plain @ P).abs().max()
 
 
+def _neox_rope_rotation(head_dim, rotary_ndims, rng):
+    """A NeoX partial-rotary rotation: rotate each pair (i, i+rd/2) by a random angle; identity on
+    the non-rotary tail. Algorithm-2's per-head M must commute with this for ALL positions."""
+    R = np.eye(head_dim)
+    for i in range(rotary_ndims // 2):
+        j = i + rotary_ndims // 2
+        th = rng.uniform(0, 2 * np.pi)
+        c, s = np.cos(th), np.sin(th)
+        R[i, i], R[i, j], R[j, i], R[j, j] = c, -s, s, c
+    return R
+
+
+def test_alg2_keys_orthogonal_and_rope_commuting():
+    """Alg-2 head keys: M_q orthogonal AND commutes with NeoX partial-rotary (so Q·Kᵀ is preserved
+    through RoPE); U_vo orthogonal; head_perm a genuine permutation."""
+    from defenses.aloepri import alg2_attention_keys
+    hd, rd, nh = 64, 16, 4
+    keys = alg2_attention_keys(hd, rd, nh, seed=0)
+    Mq, Uvo, perm = keys["Mq"], keys["Uvo"], keys["head_perm"]
+    rng = np.random.default_rng(7)
+    for h in range(nh):
+        assert np.allclose(Mq[h].T @ Mq[h], np.eye(hd), atol=1e-9)        # orthogonal
+        assert np.allclose(Uvo[h].T @ Uvo[h], np.eye(hd), atol=1e-9)
+        R = _neox_rope_rotation(hd, rd, rng)
+        assert np.allclose(Mq[h] @ R, R @ Mq[h], atol=1e-9), np.abs(Mq[h] @ R - R @ Mq[h]).max()
+    assert sorted(perm.tolist()) == list(range(nh))
+
+
 # ───────────────────────── real-pythia logits-identity GATE (container) ─────────────────────────
 def test_reparam_pythia_preserves_logits():
     """THE gate: a covariantly re-parameterized pythia-160m (keymat only, Π=I, no noise)
@@ -139,3 +167,18 @@ def test_full_alg1_embedding_noise_is_lossy_but_runs():
         got = model(ids, use_cache=False).logits
     assert got.shape == ref.shape
     assert not torch.allclose(got, ref, atol=1e-2), "αₑ=1.0 embedding noise should perturb logits"
+
+
+def test_alg2_preserves_logits_at_noise_zero():
+    """Algorithm 2 (intra-head attention obfuscation) at β=1, no noise: M_q/M_k cancel in Q·Kᵀ,
+    U_vo cancels through V·O, head perms reorder consistently → obfuscated logits identical to
+    plaintext. The gate that verifies the whole attention-obfuscation construction."""
+    from defenses.aloepri import reparam_pythia
+    model, ids = _pythia()
+    with torch.no_grad():
+        ref = model(ids, use_cache=False).logits
+    reparam_pythia(model, config="alg2", h=128, lam=0.3, seed=0, alpha_e=0.0, alpha_h=0.0)
+    with torch.no_grad():
+        got = model(ids, use_cache=False).logits
+    assert got.shape == ref.shape
+    assert torch.allclose(got, ref, atol=2e-3, rtol=2e-3), (got - ref).abs().max().item()

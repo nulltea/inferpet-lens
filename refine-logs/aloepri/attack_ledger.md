@@ -18,8 +18,17 @@ TTRSR = Text Token Recovery Success Ratio (lower = better privacy). PASS = ≤ 0
 | 5 | **NN** (cosine-NN) | activations | keymat (blind) | **0.000** | PASS | leakage_sweep.json |
 | 6 | **TFMA** (freq-matching) | wire token-id | M1 ε1=∞ / 12 / 8 | **0.52 / 0.18 / 0.03** | FAIL→PASS | tokenid_sweep.json |
 | 7 | **SDA** (bigram decipher) | wire token-id | M1 ε1=∞ / 12 / 8 | **0.75 / 0.42 / 0.00** | FAIL→PASS | tokenid_sweep.json |
-| 8 | **ISA-AttnScore** | attention scores | plaintext / keymat (==) | **0.074 / 0.074** | PASS | attnscore.json |
+| 8 | **ISA-AttnScore** | attention scores | plaintext / keymat / **alg2** | **0.074 / 0.074 / 0.066** | PASS | attnscore.json |
 | — | QK-norm Γ eigendecomposition | obf weights | **N/A** — pythia (GPT-NeoX) has no QK-norm site | — | — | architecture |
+
+**Algorithm 2 is implemented + verified** (`reparam_pythia(config="alg2")`): intra-head R̂qk rotations
+(commute with NeoX partial-rotary) + per-pair scaling + Ûvo (V/O) + inter-head permutation, all
+orthogonal and self-cancelling → the logits-identity gate passes (obf logits == plaintext, β=1). A
+subtle, correct consequence: **Alg2 preserves the attention SCORES Q·Kᵀ by construction** (the model
+must still work), so ISA-AttnScore is ~unchanged under alg2 (0.066≈0.074, the small drop is the αₑ
+embedding noise). Alg2 defends the per-head Q/K/V **VALUE coordinates** (an attacker reading Q/K/V
+activation vectors sees them in the secret M/Ûvo basis), NOT the scores — so the right attack to
+demonstrate Alg2's defense is a Q/K/V-value inverter (queued), not the score reader.
 
 ## The synthesis (consistent across all surfaces)
 
@@ -53,7 +62,9 @@ escapes the information bound by changing the secret to a key — so its privacy
 - `aloepri_attnscore.json` — ISA-AttnScore (plaintext vs keymat)
 
 ## Queued
-- **Algorithm 2** (intra-head attention obfuscation) — would change ISA-AttnScore + Attn-IA's defense
-  mechanism; partial-rotary MHA adaptation for pythia.
+- **Q/K/V-value inverter** — the attack Algorithm 2 actually defends (ISA/NN on the per-head Q/K/V
+  activation vectors): keymat_only leaves them plaintext (recoverable), alg2 obfuscates them with the
+  secret M/Ûvo (blind inversion fails, oracle recovers). The score surface (ISA-AttnScore) is the
+  wrong demo — scores are preserved by construction.
 - Unsupervised basis-recovery blind attack (Procrustes/CCA/ICA) — the current "blind" is wrong-key,
   not a key-recovery attempt; this is the stronger blind the measurement loop calls for.

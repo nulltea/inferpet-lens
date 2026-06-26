@@ -21,6 +21,14 @@
       "feat_dim": 192,
       "isa_attnscore_ttrsr": 0.07395833333333333,
       "gate_pass": true
+    },
+    {
+      "config": "alg2",
+      "layer": 6,
+      "n_rows": 2825,
+      "feat_dim": 192,
+      "isa_attnscore_ttrsr": 0.065625,
+      "gate_pass": true
     }
   ]
 }
