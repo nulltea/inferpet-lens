@@ -28,7 +28,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-CLASS_COLOR = {"is": "#b55831", "are": "#c98a3e", "was": "#2f7d8a", "were": "#6a4c93"}
+CLASS_COLOR = {"is": "#e6194b", "are": "#3cb44b", "was": "#4363d8", "were": "#f58231"}
 EPS_COLOR = {"∞": "#1b1f24", "512": "#2f7d8a", "256": "#c98a3e", "128": "#b55831", "1024": "#6a4c93"}
 INK = "#14181c"
 
@@ -63,7 +63,7 @@ def cloud_grid(cells, layers, eps_rows, out_path):
                     xs = [p[0] for p in co if p[2] == lab]
                     ys = [p[1] for p in co if p[2] == lab]
                     if xs:
-                        ax.scatter(xs, ys, s=5, c=c, alpha=0.55, linewidths=0, label=lab)
+                        ax.scatter(xs, ys, s=7, c=c, alpha=0.8, linewidths=0, label=lab)
                 marg = rec.get("sep_bhat_dist")
                 ax.text(0.04, 0.93, f"D_B={marg:.0f}" if marg is not None else "", transform=ax.transAxes,
                         fontsize=7, va="top", color="#444")
