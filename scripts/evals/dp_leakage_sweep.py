@@ -206,10 +206,10 @@ def _spearman(a, b):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", default="unsloth/gemma-2-2b")
+    ap.add_argument("--model", default="EleutherAI/pythia-160m")
     ap.add_argument("--corpus", default="corpora/release-gate-512.txt")
     ap.add_argument("--max-prompts", type=int, default=160)
-    ap.add_argument("--layers", default="0,5,12,20", help="comma list of layer indices")
+    ap.add_argument("--layers", default="0,2,4,6,8,10,11", help="comma list of layer indices (pythia-160m has 12 blocks)")
     ap.add_argument("--epsilons", default="inf,512,256,128", help="comma list; 'inf' = clip-only")
     ap.add_argument("--attacks", default="ridge,lens,declens", help=f"subset of {sorted(ATTACKS)}")
     ap.add_argument("--probes", default="club,vcap", help=f"subset of {sorted(PROBES)}")
@@ -264,7 +264,7 @@ def main():
 
     # clip C from runtime embedding norms (so clip-only ≈ clean; the curve is noise-driven)
     cal = []
-    h = model.model.embed_tokens.register_forward_hook(
+    h = model.get_input_embeddings().register_forward_hook(  # model-agnostic (gemma/pythia/qwen)
         lambda m, i, o: cal.append(o.float().norm(dim=-1).flatten().cpu())
     )
     try:
@@ -315,28 +315,36 @@ def main():
     for ei, eps in enumerate(eps_list):
         sigma = 0.0 if math.isinf(eps) else C * z / eps
         for si, nseed in enumerate(noise_seeds):
-            torch.manual_seed(nseed + 1009 * ei)  # distinct noise draw per (seed, sweep point)
-            hk = model.model.embed_tokens.register_forward_hook(LocalDP(C, sigma))
-            try:
-                per, ids_chk = capture(model, tok, prompts, layers)
-            finally:
-                hk.remove()
-            assert all(np.array_equal(a, b) for a, b in zip(ids_chk, idc)), "token ids drifted under noise"
+            def _noised_capture(noise_seed):
+                torch.manual_seed(noise_seed)
+                hk = model.get_input_embeddings().register_forward_hook(LocalDP(C, sigma))  # model-agnostic
+                try:
+                    per, ids_chk = capture(model, tok, prompts, layers)
+                finally:
+                    hk.remove()
+                assert all(np.array_equal(a, b) for a, b in zip(ids_chk, idc)), "token ids drifted under noise"
+                return per
+            # WEIGHTS-PUB realism: the adversary trains on its OWN noise draw; the victim's released
+            # rep is an INDEPENDENT draw it never sees. Two captures ⇒ train/test DP randomness is
+            # structurally disjoint (not just per-position-iid). Train on per_tr, score/probe per_te.
+            per_tr = _noised_capture(nseed + 1009 * ei)
+            per_te = _noised_capture(nseed + 1009 * ei + 5_000_003)
             for L in layers:
-                X, _ = _stack(per[L], idc)
+                Xtr, _ = _stack(per_tr[L], idc)   # adversary-train draw
+                Xte, _ = _stack(per_te[L], idc)   # victim-test draw (the released surface)
                 s = split[L]
                 y, tr, te, pool, emb_y, floor, K = s["y"], s["tr"], s["te"], s["pool"], s["emb_y"], s["floor"], s["K"]
                 pe = table[pool]
                 rec = {"epsilon": (None if math.isinf(eps) else eps), "layer": L, "sigma": sigma, "seed": nseed}
                 for a in attacks:
-                    yhat = ATTACKS[a](X[tr], emb_y[tr], X[te], pe, pool,
+                    yhat = ATTACKS[a](Xtr[tr], emb_y[tr], Xte[te], pe, pool,
                                       ytr=y[tr], full_emb=table,  # CE attacks use ids + frozen table
                                       hidden=args.hidden, epochs=args.epochs, seed=args.seed)
                     top1 = float((yhat == y[te]).mean())
                     rec[a] = top1
                     rec[f"{a}_sel"] = top1 - floor[a]
                 for p in probes:
-                    out = PROBES[p](X, emb_y, y, K, club_max_rows=args.club_max_rows,
+                    out = PROBES[p](Xte, emb_y, y, K, club_max_rows=args.club_max_rows,
                                     full_emb=table, pool_size=args.pool_size, X_clean=s["X0"],
                                     sep_classes=sep_classes)
                     for k, v in out.items():
@@ -368,6 +376,9 @@ def main():
     Path(args.out).write_text(json.dumps({
         "model": args.model, "corpus": args.corpus, "n_prompts": len(prompts),
         "defense": "local_dp", "sigma_convention": "sigma = C*z/eps (sensitivity C, add/remove-to-zero adjacency)",
+        "noise_protocol": "channel-matched + independent DP draws: attack trains on an adversary noise "
+                          "draw, scored on an INDEPENDENT victim draw (the released surface); probes "
+                          "measure the victim draw. Train/test DP randomness structurally disjoint.",
         "clip_C": C, "delta": args.delta, "pool_size": args.pool_size, "seed": args.seed,
         "layers": layers, "epsilons": [None if math.isinf(e) else e for e in eps_list],
         "attacks": attacks, "probes": probes,
