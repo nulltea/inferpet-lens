@@ -4,8 +4,12 @@ from pathlib import Path
 
 import torch
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts" / "evals"))
 from defenses.snd import DxPrivacy, Denoiser
+from snd_utility_sweep import recovery_metrics
 
 
 def _apply(hook, x):
@@ -63,3 +67,21 @@ def test_denoiser_overfits_toward_clean():
         loss.backward(); opt.step()
     after = cos(m(e_n, X, Z), e_c).mean().item()
     assert after > base, (base, after)
+
+
+def test_recovery_metrics_perfect_denoise():
+    rng = np.random.default_rng(0)
+    e_c = rng.standard_normal((10, 8)).astype(np.float32)
+    e_n = e_c + rng.standard_normal((10, 8)).astype(np.float32)   # noised
+    e_d = e_c.copy()                                             # perfect recovery
+    m = recovery_metrics(e_c, e_n, e_d)
+    assert m["recovery_cos"] > 0.99 and m["recovery_mse"] > 0.99
+    assert m["cos_denoised"] > m["cos_noised"]
+
+
+def test_recovery_metrics_no_denoise():
+    rng = np.random.default_rng(1)
+    e_c = rng.standard_normal((10, 8)).astype(np.float32)
+    e_n = e_c + rng.standard_normal((10, 8)).astype(np.float32)
+    m = recovery_metrics(e_c, e_n, e_n.copy())                   # e_d == e_n
+    assert abs(m["recovery_cos"]) < 1e-5 and abs(m["recovery_mse"]) < 1e-5
