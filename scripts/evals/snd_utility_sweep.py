@@ -52,7 +52,7 @@ DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 @torch.no_grad()
-def capture_pooled(model, tok, prompts, eta, C, batch_size=32):
+def capture_pooled(model, tok, prompts, eta, C, batch_size=32, max_tokens=64):
     """Mean-pooled last-hidden (e), per-prompt input-embeddings X̃ (list of (n_i,d)), and lengths.
 
     eta=inf ⇒ clean (no DxPrivacy hook). A second hook grabs the embedding-layer output AFTER
@@ -64,7 +64,8 @@ def capture_pooled(model, tok, prompts, eta, C, batch_size=32):
     h2 = model.get_input_embeddings().register_forward_hook(lambda m, i, o: grab.__setitem__("x", o.detach()))
     try:
         for i in range(0, len(prompts), batch_size):
-            enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True)
+            enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True,
+                      truncation=True, max_length=max_tokens)   # bound denoiser seq (2T+1) on the iGPU
             ids, mask = enc.input_ids.to(DEV), enc.attention_mask.to(DEV)
             out = model(ids, attention_mask=mask, output_hidden_states=True, use_cache=False)
             last = out.hidden_states[-1].float()                       # (B,T,d) — post-hook, propagated
@@ -105,35 +106,49 @@ def _denoise(den, e_n, Xt, Xc, idx, d):
                pad_mask=torch.from_numpy(pad).to(DEV))
 
 
-def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, seed):
-    """Train ONE noise-aware denoiser on (e_n, X̃, Z, e_c) over several η. e_c/X captured once (clean)."""
+def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, seed,
+                   standardize=True, max_tokens=64):
+    """Train ONE noise-aware denoiser on (e_n, X̃, Z, e_c) over several η. e_c/X captured once (clean).
+
+    Pooled embeddings are STANDARDIZED per-dim by clean-train stats (μ,σ) before the denoiser sees
+    them — LLM hidden states are strongly anisotropic (a few outlier dims dominate raw L2/cosine),
+    so without this the denoiser wastes capacity on the huge dims and cos/MSE recovery is degenerate
+    (cos≈1 regardless of corruption). Returns (den, μ, σ); μ,σ are the public normalizer the eval
+    reuses. standardize=False ⇒ μ=0,σ=1 (raw space)."""
     torch.manual_seed(seed)
-    e_c, Xc = capture_pooled(model, tok, prompts, math.inf, C, batch_size)     # clean pooled + clean X
+    e_c, Xc = capture_pooled(model, tok, prompts, math.inf, C, batch_size, max_tokens)   # clean pooled + clean X
+    if standardize:
+        mu, sd = e_c.mean(0), e_c.std(0) + 1e-6
+    else:
+        mu, sd = np.zeros(d, np.float32), np.ones(d, np.float32)
+    e_c_s = ((e_c - mu) / sd).astype(np.float32)
     den = Denoiser(d=d).to(DEV)
     opt = torch.optim.Adam(den.parameters(), lr=1e-3)
     N = len(prompts)
     loss = torch.tensor(float("nan"))
     for ep in range(epochs):
         for eta in train_etas:
-            e_n, Xt = capture_pooled(model, tok, prompts, eta, C, batch_size)
+            e_n, Xt = capture_pooled(model, tok, prompts, eta, C, batch_size, max_tokens)
+            e_n_s = ((e_n - mu) / sd).astype(np.float32)
             order = np.random.default_rng(seed + ep).permutation(N)
             for s in range(0, N, batch_size):
                 idx = order[s:s + batch_size]
-                ed = _denoise(den, e_n, Xt, Xc, idx, d)
-                loss = ((ed - torch.from_numpy(e_c[idx]).to(DEV)) ** 2).mean()
+                ed = _denoise(den, e_n_s, Xt, Xc, idx, d)             # X̃,Z raw (input-embed scale)
+                loss = ((ed - torch.from_numpy(e_c_s[idx]).to(DEV)) ** 2).mean()
                 opt.zero_grad(); loss.backward(); opt.step()
         print(f"[snd] denoiser epoch {ep+1}/{epochs} last-loss {loss.item():.4f}", flush=True)
-    return den.eval()
+    return den.eval(), mu.astype(np.float32), sd.astype(np.float32)
 
 
 @torch.no_grad()
-def utility_pass(model, tok, prompts, eta, C, batch_size):
+def utility_pass(model, tok, prompts, eta, C, batch_size, max_tokens=64):
     """Teacher-forced perplexity + next-token top-1 acc under the dχ hook (eta=inf ⇒ clean)."""
     hk = None if math.isinf(eta) else model.get_input_embeddings().register_forward_hook(DxPrivacy(C, eta))
     ce_sum, n_tok, n_corr = 0.0, 0, 0
     try:
         for i in range(0, len(prompts), batch_size):
-            enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True)
+            enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True,
+                      truncation=True, max_length=max_tokens)
             ids, mask = enc.input_ids.to(DEV), enc.attention_mask.to(DEV)
             logits = model(ids, attention_mask=mask, use_cache=False).logits.float()
             pred, tgt, m = logits[:, :-1], ids[:, 1:], mask[:, 1:].bool()
@@ -152,11 +167,20 @@ def main():
     ap.add_argument("--corpus", default="corpora/rep2text-stratified.txt")
     ap.add_argument("--max-prompts", type=int, default=400)
     ap.add_argument("--train-frac", type=float, default=0.5)
-    ap.add_argument("--etas", default="inf,100,50,10,1", help="dχ budget sweep; 'inf'=clean")
-    ap.add_argument("--train-etas", default="50,10,1", help="η values the denoiser trains on")
+    # defaults calibrated for pythia-160m (token-embed C≈0.82, d=768 ⇒ mean noise mag = d/η): the
+    # clean→destroyed band is η≈[800,5000]; other models need their own band (mean noise mag = d/η vs C).
+    ap.add_argument("--etas", default="inf,5000,3000,2000,1500,1200,1000,800", help="dχ budget sweep; 'inf'=clean")
+    # train across the WHOLE eval band incl. the mild-noise end, else the denoiser over-denoises mild
+    # inputs and HURTS recovery at high η (it must learn near-identity when noise is small).
+    ap.add_argument("--train-etas", default="5000,2000,1200,800", help="η values the denoiser trains on")
     ap.add_argument("--epochs", type=int, default=2)
     ap.add_argument("--clip-percentile", type=float, default=99.9)
+    ap.add_argument("--no-standardize", action="store_true",
+                    help="measure cos/MSE in RAW pooled-embedding space (default standardizes per-dim "
+                         "by clean-train stats — LLM hidden states are anisotropic; raw cos is degenerate)")
     ap.add_argument("--batch-size", type=int, default=32)
+    ap.add_argument("--max-tokens", type=int, default=64, help="truncate prompts to N tokens — bounds the "
+                    "denoiser's 2T+1 sequence (attention is O(T²)) so length-stratified corpora don't OOM the iGPU")
     ap.add_argument("--seed", type=int, default=20260626)
     ap.add_argument("--out", default="refine-logs/snd/snd_utility_sweep.json")
     args = ap.parse_args()
@@ -183,7 +207,8 @@ def main():
     try:
         with torch.no_grad():
             for p in prompts[:48]:
-                model(tok(p, return_tensors="pt").input_ids.to(DEV), use_cache=False)
+                model(tok(p, return_tensors="pt", truncation=True, max_length=args.max_tokens
+                          ).input_ids.to(DEV), use_cache=False)
     finally:
         h.remove()
     C = float(np.percentile(torch.cat(cal).numpy(), args.clip_percentile))
@@ -196,21 +221,27 @@ def main():
     print(f"[snd] model={args.model} d={d} C={C:.3f} etas={etas} train_etas={train_etas} "
           f"train/test={len(tr_prompts)}/{len(te_prompts)} dev={DEV}", flush=True)
 
-    den = train_denoiser(model, tok, tr_prompts, train_etas, C, d, args.epochs, args.batch_size, args.seed)
+    den, mu, sd = train_denoiser(model, tok, tr_prompts, train_etas, C, d, args.epochs,
+                                 args.batch_size, args.seed, standardize=not args.no_standardize,
+                                 max_tokens=args.max_tokens)
 
-    e_c, Xc = capture_pooled(model, tok, te_prompts, math.inf, C, args.batch_size)      # clean test
-    base_ppl, base_acc = utility_pass(model, tok, te_prompts, math.inf, C, args.batch_size)
+    if DEV == "cuda":
+        torch.cuda.empty_cache()
+    e_c, Xc = capture_pooled(model, tok, te_prompts, math.inf, C, args.batch_size, args.max_tokens)  # clean test
+    e_c_s = ((e_c - mu) / sd).astype(np.float32)
+    base_ppl, base_acc = utility_pass(model, tok, te_prompts, math.inf, C, args.batch_size, args.max_tokens)
     records = []
     for eta in etas:
-        e_n, Xt = capture_pooled(model, tok, te_prompts, eta, C, args.batch_size)
-        e_d = np.zeros_like(e_n)
+        e_n, Xt = capture_pooled(model, tok, te_prompts, eta, C, args.batch_size, args.max_tokens)
+        e_n_s = ((e_n - mu) / sd).astype(np.float32)        # standardized space (cos/MSE + denoiser io)
+        e_d_s = np.zeros_like(e_n_s)
         with torch.no_grad():
             for s in range(0, len(te_prompts), args.batch_size):
                 idx = np.arange(s, min(s + args.batch_size, len(te_prompts)))
-                e_d[idx] = _denoise(den, e_n, Xt, Xc, idx, d).cpu().numpy()
+                e_d_s[idx] = _denoise(den, e_n_s, Xt, Xc, idx, d).cpu().numpy()
         rec = {"eta": (None if math.isinf(eta) else eta)}
-        rec.update(recovery_metrics(e_c, e_n, e_d))
-        ppl, acc = utility_pass(model, tok, te_prompts, eta, C, args.batch_size)
+        rec.update(recovery_metrics(e_c_s, e_n_s, e_d_s))
+        ppl, acc = utility_pass(model, tok, te_prompts, eta, C, args.batch_size, args.max_tokens)
         rec.update({"perplexity": ppl, "acc": acc,
                     "ppl_degradation": ppl / base_ppl - 1, "retention_acc": acc / base_acc if base_acc else None})
         records.append(rec)
@@ -223,6 +254,10 @@ def main():
     Path(args.out).write_text(json.dumps({
         "model": args.model, "corpus": args.corpus, "n_test": len(te_prompts), "hidden": d,
         "defense": "snd_dx", "clip_C": C, "clip_percentile": args.clip_percentile,
+        "standardized": not args.no_standardize,
+        "standardize_note": "cos/MSE measured on pooled embeddings standardized per-dim by clean-TRAIN "
+                            "(μ,σ); the denoiser is trained against the standardized target. Corrects "
+                            "LLM anisotropy so cos/MSE reflect content, not outlier-dim magnitude.",
         "budget_note": "eta is the dχ-privacy budget (larger=weaker privacy); NOT the Gaussian ε "
                        "of dp_leakage_sweep — the two are not interchangeable.",
         "etas": [None if math.isinf(e) else e for e in etas], "train_etas": train_etas,
