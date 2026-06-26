@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for defenses.*
 
 from defenses.aloepri import m1_randomized_response  # noqa: E402
-from talens.attacks.token_frequency import tfma_recover  # noqa: E402
+from talens.attacks.token_frequency import sda_recover, tfma_recover  # noqa: E402
 
 
 def _tokenize(corpus, tok, max_prompts):
@@ -80,6 +80,7 @@ def main():
     ap.add_argument("--max-prompts", type=int, default=512)
     ap.add_argument("--eps1", default="inf,16,14,12,11,10,8", help="comma list; 'inf' = no M1 (pure Π)")
     ap.add_argument("--top-k", type=int, default=100)
+    ap.add_argument("--sda-iters", type=int, default=4000, help="SDA bigram hill-climb iterations")
     ap.add_argument("--tau-seed", type=int, default=0, help="secret token-permutation τ seed")
     ap.add_argument("--m1-seed", type=int, default=20260626)
     ap.add_argument("--out", default="refine-logs/aloepri/aloepri_tokenid_sweep.json")
@@ -103,13 +104,15 @@ def main():
         released = m1_randomized_response(true, vocab=V, eps1=eps1, seed=args.m1_seed)
         obf = tau[released]                                      # released → obfuscated id via Π
         rec = tfma_recover(obf, ref_freq, tau_true=tau, top_k=args.top_k)["recovery_topk"]
+        sda = sda_recover(obf, ref_stream, tau_true=tau, top_k=args.top_k,
+                          n_iters=args.sda_iters)["recovery_topk"]
         p0 = 1.0 if math.isinf(eps1) else 1.0 / (1.0 + (V - 1) * math.exp(-eps1))
         mi, h_true = _mi_bits(true, V, p0)
         r = {"eps1": (None if math.isinf(eps1) else eps1), "keep_p0": p0,
-             "tfma_recovery_topk": rec, "mi_bits": mi, "h_true_bits": h_true}
+             "tfma_recovery_topk": rec, "sda_recovery_topk": sda, "mi_bits": mi, "h_true_bits": h_true}
         records.append(r)
         es = "inf" if math.isinf(eps1) else f"{eps1:g}"
-        print(f"[tokenid] ε1={es:>4} p0={p0:.3f} | TFMA top{args.top_k}={rec:.3f} | "
+        print(f"[tokenid] ε1={es:>4} p0={p0:.3f} | TFMA top{args.top_k}={rec:.3f} SDA={sda:.3f} | "
               f"I(rel;true)={mi:.2f}b (H={h_true:.2f}b)", flush=True)
 
     # does TFMA recovery track the independent MI probe across the ε1 sweep?

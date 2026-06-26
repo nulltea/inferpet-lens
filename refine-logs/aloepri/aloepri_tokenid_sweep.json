@@ -14,6 +14,7 @@
       "eps1": null,
       "keep_p0": 1.0,
       "tfma_recovery_topk": 0.52,
+      "sda_recovery_topk": 0.75,
       "mi_bits": 9.260988315654505,
       "h_true_bits": 9.260988315654505
     },
@@ -21,6 +22,7 @@
       "eps1": 16.0,
       "keep_p0": 0.9943740123723808,
       "tfma_recovery_topk": 0.46,
+      "sda_recovery_topk": 0.72,
       "mi_bits": 9.2051383141501,
       "h_true_bits": 9.260988315654505
     },
@@ -28,6 +30,7 @@
       "eps1": 14.0,
       "keep_p0": 0.9598716648067329,
       "tfma_recovery_topk": 0.34,
+      "sda_recovery_topk": 0.55,
       "mi_bits": 8.869061565979145,
       "h_true_bits": 9.260988315654505
     },
@@ -35,6 +38,7 @@
       "eps1": 12.0,
       "keep_p0": 0.7639965581261272,
       "tfma_recovery_topk": 0.18,
+      "sda_recovery_topk": 0.42,
       "mi_bits": 6.993506868237042,
       "h_true_bits": 9.260988315654505
     },
@@ -42,6 +46,7 @@
       "eps1": 11.0,
       "keep_p0": 0.5435684492354744,
       "tfma_recovery_topk": 0.12,
+      "sda_recovery_topk": 0.23,
       "mi_bits": 4.910982565942355,
       "h_true_bits": 9.260988315654505
     },
@@ -49,6 +54,7 @@
       "eps1": 10.0,
       "keep_p0": 0.3046433555574368,
       "tfma_recovery_topk": 0.08,
+      "sda_recovery_topk": 0.05,
       "mi_bits": 2.6847527816040504,
       "h_true_bits": 9.260988315654505
     },
@@ -56,6 +62,7 @@
       "eps1": 8.0,
       "keep_p0": 0.05597311787442014,
       "tfma_recovery_topk": 0.03,
+      "sda_recovery_topk": 0.0,
       "mi_bits": 0.4420031911216835,
       "h_true_bits": 9.260988315654505
     }
