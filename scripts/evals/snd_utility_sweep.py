@@ -19,6 +19,28 @@ from __future__ import annotations
 import numpy as np
 
 
+def make_eta_groups(train_etas, n_groups):
+    """Partition train η values into n_groups contiguous noise-strength bins (paper §A.5.3).
+
+    Returns (groups, reps): groups[g] = sorted η list for bin g (ascending η = strong→mild noise);
+    reps[g] = geometric-mean η of the bin (its representative, for routing)."""
+    import numpy as _np
+    etas = sorted(set(float(e) for e in train_etas))
+    n_groups = max(1, min(n_groups, len(etas)))
+    groups = [list(a) for a in _np.array_split(_np.array(etas), n_groups)]
+    reps = [float(_np.exp(_np.mean(_np.log(g)))) for g in groups]
+    return groups, reps
+
+
+def route_eta(eta, reps):
+    """Route an eval η to its denoiser group: nearest representative in log-η space.
+    η=inf (clean) → mildest-noise group (largest rep)."""
+    import math as _m
+    if eta is None or _m.isinf(eta):
+        return int(max(range(len(reps)), key=lambda i: reps[i]))
+    return int(min(range(len(reps)), key=lambda i: abs(_m.log(eta) - _m.log(reps[i]))))
+
+
 def recovery_metrics(e_c, e_n, e_d) -> dict:
     """cos/MSE of noised & denoised pooled embeddings vs clean, and the fraction of the gap closed."""
     def _cos(a, b):
@@ -106,38 +128,106 @@ def _denoise(den, e_n, Xt, Xc, idx, d):
                pad_mask=torch.from_numpy(pad).to(DEV))
 
 
-def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, seed,
-                   standardize=True, max_tokens=64):
-    """Train ONE noise-aware denoiser on (e_n, X̃, Z, e_c) over several η. e_c/X captured once (clean).
+def _cos_mse_loss(pred, target, cos_weight):
+    """MSE + cos_weight·(1 − cosine): aligns training with the cosine recovery metric."""
+    mse = ((pred - target) ** 2).mean()
+    cos = 1.0 - torch.nn.functional.cosine_similarity(pred, target, dim=-1).mean()
+    return mse + cos_weight * cos
 
-    Pooled embeddings are STANDARDIZED per-dim by clean-train stats (μ,σ) before the denoiser sees
-    them — LLM hidden states are strongly anisotropic (a few outlier dims dominate raw L2/cosine),
-    so without this the denoiser wastes capacity on the huge dims and cos/MSE recovery is degenerate
-    (cos≈1 regardless of corruption). Returns (den, μ, σ); μ,σ are the public normalizer the eval
-    reuses. standardize=False ⇒ μ=0,σ=1 (raw space)."""
+
+def _lr_at(ep, epochs, base_lr, warmup_frac=0.1):
+    """Linear warmup then cosine decay to 0 over `epochs` (per-epoch granularity)."""
+    we = max(1, int(warmup_frac * epochs))
+    if ep < we:
+        return base_lr * (ep + 1) / we
+    prog = (ep - we) / max(1, epochs - we)
+    return 0.5 * base_lr * (1.0 + math.cos(math.pi * prog))
+
+
+def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, seed,
+                   standardize=True, max_tokens=64, n_layers=6, d_ff=0, dropout=0.1,
+                   residual=True, lr=1e-3, cos_weight=1.0, patience=4, val_frac=0.15, n_groups=3):
+    """Train per-η-GROUP noise-aware denoisers (paper §A.5.3) on (e_n, X̃, Z, e_c). Returns
+    (dens, μ, σ, reps): one Denoiser per group, the shared standardizer, and group representatives
+    for routing (route_eta). e_c/X captured once (clean); a fresh noise draw per epoch (augmentation),
+    shared across groups within the epoch.
+
+    Pooled embeddings are STANDARDIZED per-dim by clean-TRAIN stats (μ,σ): LLM hidden states are
+    anisotropic (a few outlier dims dominate raw L2/cosine), so raw-space recovery is degenerate
+    (cos≈1 regardless of corruption). Training: MSE+cosine loss, AdamW, warmup→cosine LR, grad-clip,
+    val-split early-stop per group (best-val weights restored). standardize=False ⇒ raw space."""
     torch.manual_seed(seed)
     e_c, Xc = capture_pooled(model, tok, prompts, math.inf, C, batch_size, max_tokens)   # clean pooled + clean X
+    N = len(prompts)
+    rng = np.random.default_rng(seed)
+    shuf = rng.permutation(N)
+    nval = max(batch_size, int(val_frac * N))
+    val_idx, tr_idx = shuf[:nval], shuf[nval:]
     if standardize:
-        mu, sd = e_c.mean(0), e_c.std(0) + 1e-6
+        mu, sd = e_c[tr_idx].mean(0), e_c[tr_idx].std(0) + 1e-6     # stats from TRAIN split only
     else:
         mu, sd = np.zeros(d, np.float32), np.ones(d, np.float32)
     e_c_s = ((e_c - mu) / sd).astype(np.float32)
-    den = Denoiser(d=d).to(DEV)
-    opt = torch.optim.Adam(den.parameters(), lr=1e-3)
-    N = len(prompts)
-    loss = torch.tensor(float("nan"))
+
+    groups, reps = make_eta_groups(train_etas, n_groups)
+    unique_etas = sorted({e for g in groups for e in g})
+    dens = [Denoiser(d=d, n_layers=n_layers, d_ff=(d_ff or None), dropout=dropout,
+                     residual=residual).to(DEV) for _ in groups]
+    opts = [torch.optim.AdamW(m.parameters(), lr=lr) for m in dens]
+    best, best_state, bad = [math.inf] * len(groups), [None] * len(groups), [0] * len(groups)
+    print(f"[snd] groups={[ [int(x) for x in g] for g in groups]} reps={[round(r) for r in reps]} "
+          f"layers={n_layers} d_ff={d_ff or d} dropout={dropout} residual={residual} "
+          f"loss=MSE+{cos_weight}·(1-cos) train/val={len(tr_idx)}/{len(val_idx)}", flush=True)
+
+    def _epoch_loss(den, etas_caps, idx_set, train, opt=None, lr_now=None):
+        """One pass over idx_set across this group's etas; train (with opt) or eval. Returns mean loss."""
+        den.train() if train else den.eval()
+        if train and lr_now is not None:
+            for pg in opt.param_groups:
+                pg["lr"] = lr_now
+        tot, nb = 0.0, 0
+        order = rng.permutation(len(idx_set)) if train else np.arange(len(idx_set))
+        ctx = torch.enable_grad() if train else torch.no_grad()
+        with ctx:
+            for e_n_s, Xt in etas_caps:
+                for s in range(0, len(idx_set), batch_size):
+                    idx = idx_set[order[s:s + batch_size]]
+                    ed = _denoise(den, e_n_s, Xt, Xc, idx, d)
+                    loss = _cos_mse_loss(ed, torch.from_numpy(e_c_s[idx]).to(DEV), cos_weight)
+                    if train:
+                        opt.zero_grad(); loss.backward()
+                        torch.nn.utils.clip_grad_norm_(den.parameters(), 1.0); opt.step()
+                    tot += loss.item(); nb += 1
+        return tot / max(1, nb)
+
     for ep in range(epochs):
-        for eta in train_etas:
+        lr_now = _lr_at(ep, epochs, lr)
+        caps_s = {}                                  # fresh noise draw this epoch, shared across groups
+        for eta in unique_etas:
             e_n, Xt = capture_pooled(model, tok, prompts, eta, C, batch_size, max_tokens)
-            e_n_s = ((e_n - mu) / sd).astype(np.float32)
-            order = np.random.default_rng(seed + ep).permutation(N)
-            for s in range(0, N, batch_size):
-                idx = order[s:s + batch_size]
-                ed = _denoise(den, e_n_s, Xt, Xc, idx, d)             # X̃,Z raw (input-embed scale)
-                loss = ((ed - torch.from_numpy(e_c_s[idx]).to(DEV)) ** 2).mean()
-                opt.zero_grad(); loss.backward(); opt.step()
-        print(f"[snd] denoiser epoch {ep+1}/{epochs} last-loss {loss.item():.4f}", flush=True)
-    return den.eval(), mu.astype(np.float32), sd.astype(np.float32)
+            caps_s[eta] = (((e_n - mu) / sd).astype(np.float32), Xt)
+        msg = []
+        for gi, g in enumerate(groups):
+            if bad[gi] > patience:                   # frozen (early-stopped)
+                msg.append(f"g{gi}:stopped"); continue
+            gcaps = [caps_s[e] for e in g]
+            _epoch_loss(dens[gi], gcaps, tr_idx, train=True, opt=opts[gi], lr_now=lr_now)
+            vl = _epoch_loss(dens[gi], gcaps, val_idx, train=False)
+            if vl < best[gi] - 1e-4:
+                best[gi] = vl; bad[gi] = 0
+                best_state[gi] = {k: v.detach().clone() for k, v in dens[gi].state_dict().items()}
+            else:
+                bad[gi] += 1
+            msg.append(f"g{gi}:val={vl:.4f}{'*' if bad[gi] == 0 else ''}")
+        print(f"[snd] epoch {ep+1}/{epochs} lr={lr_now:.2e} | " + " ".join(msg), flush=True)
+        if all(bad[gi] > patience for gi in range(len(groups))):
+            print(f"[snd] all groups early-stopped at epoch {ep+1}", flush=True); break
+
+    for gi in range(len(groups)):                    # restore best-val weights
+        if best_state[gi] is not None:
+            dens[gi].load_state_dict(best_state[gi])
+        dens[gi].eval()
+    return dens, mu.astype(np.float32), sd.astype(np.float32), reps
 
 
 @torch.no_grad()
@@ -173,7 +263,17 @@ def main():
     # train across the WHOLE eval band incl. the mild-noise end, else the denoiser over-denoises mild
     # inputs and HURTS recovery at high η (it must learn near-identity when noise is small).
     ap.add_argument("--train-etas", default="5000,2000,1200,800", help="η values the denoiser trains on")
-    ap.add_argument("--epochs", type=int, default=2)
+    ap.add_argument("--epochs", type=int, default=15, help="max epochs (val early-stop usually ends sooner)")
+    # stronger denoiser (paper §A.5.3 + residual readout). See Denoiser docstring.
+    ap.add_argument("--n-groups", type=int, default=3, help="per-η-group denoisers (paper §A.5.3); 1 = single noise-aware model")
+    ap.add_argument("--denoiser-layers", type=int, default=6, help="transformer layers (paper Table 8: 6)")
+    ap.add_argument("--d-ff", type=int, default=0, help="FFN width (0 = d_model, paper-faithful)")
+    ap.add_argument("--dropout", type=float, default=0.1)
+    ap.add_argument("--no-residual", action="store_true", help="raw h_0^L readout (paper) instead of zero-init residual correction")
+    ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--cos-weight", type=float, default=1.0, help="λ in MSE + λ(1−cos)")
+    ap.add_argument("--patience", type=int, default=4, help="val early-stop patience (epochs)")
+    ap.add_argument("--val-frac", type=float, default=0.15)
     ap.add_argument("--clip-percentile", type=float, default=99.9)
     ap.add_argument("--no-standardize", action="store_true",
                     help="measure cos/MSE in RAW pooled-embedding space (default standardizes per-dim "
@@ -221,9 +321,11 @@ def main():
     print(f"[snd] model={args.model} d={d} C={C:.3f} etas={etas} train_etas={train_etas} "
           f"train/test={len(tr_prompts)}/{len(te_prompts)} dev={DEV}", flush=True)
 
-    den, mu, sd = train_denoiser(model, tok, tr_prompts, train_etas, C, d, args.epochs,
-                                 args.batch_size, args.seed, standardize=not args.no_standardize,
-                                 max_tokens=args.max_tokens)
+    dens, mu, sd, reps = train_denoiser(
+        model, tok, tr_prompts, train_etas, C, d, args.epochs, args.batch_size, args.seed,
+        standardize=not args.no_standardize, max_tokens=args.max_tokens, n_layers=args.denoiser_layers,
+        d_ff=args.d_ff, dropout=args.dropout, residual=not args.no_residual, lr=args.lr,
+        cos_weight=args.cos_weight, patience=args.patience, val_frac=args.val_frac, n_groups=args.n_groups)
 
     if DEV == "cuda":
         torch.cuda.empty_cache()
@@ -232,6 +334,8 @@ def main():
     base_ppl, base_acc = utility_pass(model, tok, te_prompts, math.inf, C, args.batch_size, args.max_tokens)
     records = []
     for eta in etas:
+        gi = route_eta(None if math.isinf(eta) else eta, reps)     # paper §A.5.3 routing
+        den = dens[gi]
         e_n, Xt = capture_pooled(model, tok, te_prompts, eta, C, args.batch_size, args.max_tokens)
         e_n_s = ((e_n - mu) / sd).astype(np.float32)        # standardized space (cos/MSE + denoiser io)
         e_d_s = np.zeros_like(e_n_s)
@@ -239,14 +343,14 @@ def main():
             for s in range(0, len(te_prompts), args.batch_size):
                 idx = np.arange(s, min(s + args.batch_size, len(te_prompts)))
                 e_d_s[idx] = _denoise(den, e_n_s, Xt, Xc, idx, d).cpu().numpy()
-        rec = {"eta": (None if math.isinf(eta) else eta)}
+        rec = {"eta": (None if math.isinf(eta) else eta), "group": gi}
         rec.update(recovery_metrics(e_c_s, e_n_s, e_d_s))
         ppl, acc = utility_pass(model, tok, te_prompts, eta, C, args.batch_size, args.max_tokens)
         rec.update({"perplexity": ppl, "acc": acc,
                     "ppl_degradation": ppl / base_ppl - 1, "retention_acc": acc / base_acc if base_acc else None})
         records.append(rec)
         es = "inf" if math.isinf(eta) else f"{eta:g}"
-        print(f"[snd] η={es:>5} | cos {rec['cos_noised']:.3f}->{rec['cos_denoised']:.3f} "
+        print(f"[snd] η={es:>5} g{gi} | cos {rec['cos_noised']:.3f}->{rec['cos_denoised']:.3f} "
               f"rec_cos={rec['recovery_cos']:.3f} rec_mse={rec['recovery_mse']:.3f} "
               f"ppl_deg={rec['ppl_degradation']:+.2%}", flush=True)
 
@@ -262,9 +366,17 @@ def main():
                        "of dp_leakage_sweep — the two are not interchangeable.",
         "etas": [None if math.isinf(e) else e for e in etas], "train_etas": train_etas,
         "epochs": args.epochs, "seed": args.seed,
+        "denoiser": {"n_groups": args.n_groups, "group_reps": [round(r, 1) for r in reps],
+                     "layers": args.denoiser_layers, "d_ff": args.d_ff or d, "dropout": args.dropout,
+                     "residual": not args.no_residual, "lr": args.lr, "cos_weight": args.cos_weight,
+                     "patience": args.patience, "val_frac": args.val_frac},
+        "denoiser_note": "STRONGER denoiser: per-η-group models (paper §A.5.3, route by η→nearest group "
+                         "rep in log-space; clean→mildest group) + zero-init RESIDUAL readout "
+                         "(e_d=e_n+head, starts as passthrough → recovery≥0, clean ceiling≈1) + "
+                         "MSE+λ(1−cos) loss + warmup/cosine LR + grad-clip + val early-stop.",
         "readout_note": "recovery_cos = fraction of (1-cos) gap closed by the denoiser; recovery_mse "
                         "= fraction of noised MSE removed; ppl/acc degradation = generation-utility "
-                        "cost of the dχ noise (denoiser does not touch logits).",
+                        "cost of the dχ noise (denoiser does not touch logits). 'group' = routed denoiser.",
         "records": records,
     }, indent=2))
     print(f"[snd] wrote {args.out}", flush=True)

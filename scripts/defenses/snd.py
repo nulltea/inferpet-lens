@@ -45,19 +45,32 @@ class Denoiser(nn.Module):
     """Noise-aware transformer: reconstruct clean pooled embedding e_c from (e_n, X̃, Z).
 
     Token sequence [e_n] ++ X̃ ++ Z (length 2T+1), + a learned type embedding (out/raw/noise)
-    + sinusoidal position, L encoder layers; read the e_n slot → linear → e_d. One model serves
-    the whole η sweep (conditions on Z). Padding masked via src_key_padding_mask.
+    + sinusoidal position, L encoder layers (paper Table 8 uses L=6, d_ff≈d for base-size models);
+    read the e_n slot → linear → e_d. Conditions on Z, so one model serves an η range; the paper
+    trains a separate model per η-group (route at inference). Padding masked via src_key_padding_mask.
+
+    residual=True (default): e_d = e_n + head(h₀) with head ZERO-INIT, so the denoiser starts as exact
+    passthrough and only learns the noise CORRECTION. This fixes the absorbing-denoiser failure (a
+    raw-readout denoiser can't even reproduce a lightly-noised embedding → hurts recovery at mild
+    noise; its clean ceiling sat at ~0.84). With the residual the clean ceiling is ~1.0 by construction
+    and recovery cannot go meaningfully negative. The paper's own h_t^l = h_t^{l-1}+a+m residual stream
+    motivates this; here it is made explicit at the readout.
     """
 
-    def __init__(self, d: int, n_layers: int = 3, n_heads: int = 8):
+    def __init__(self, d: int, n_layers: int = 3, n_heads: int = 8, d_ff: int | None = None,
+                 dropout: float = 0.0, residual: bool = True):
         super().__init__()
         self.d = d
+        self.residual = residual
         self.type_emb = nn.Embedding(3, d)              # 0=output, 1=raw, 2=noise
         layer = nn.TransformerEncoderLayer(
-            d_model=d, nhead=n_heads, dim_feedforward=d,
+            d_model=d, nhead=n_heads, dim_feedforward=(d_ff or d), dropout=dropout,
             activation="gelu", batch_first=True, norm_first=True)
         self.enc = nn.TransformerEncoder(layer, num_layers=n_layers)
         self.head = nn.Linear(d, d)
+        if residual:                                    # zero-init ⇒ e_d == e_n at init (passthrough)
+            nn.init.zeros_(self.head.weight)
+            nn.init.zeros_(self.head.bias)
 
     @staticmethod
     def _posenc(T: int, d: int, device) -> torch.Tensor:
@@ -84,4 +97,5 @@ class Denoiser(nn.Module):
             f = torch.zeros(B, 1, dtype=torch.bool, device=seq.device)
             kpm = torch.cat([f, pad_mask, pad_mask], dim=1)
         h = self.enc(seq, src_key_padding_mask=kpm)
-        return self.head(h[:, 0])                                       # e_n slot → e_d
+        out = self.head(h[:, 0])                                        # e_n slot → correction/e_d
+        return e_n + out if self.residual else out

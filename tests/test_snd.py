@@ -49,6 +49,16 @@ def test_denoiser_output_shape():
     assert e_d.shape == (B, d)
 
 
+def test_denoiser_residual_passthrough_at_init():
+    """residual=True with zero-init head ⇒ e_d == e_n exactly at init (only learns corrections)."""
+    torch.manual_seed(0)
+    B, T, d = 3, 6, 16
+    m = Denoiser(d=d, n_layers=2, n_heads=4, residual=True)
+    e_n = torch.randn(B, d)
+    e_d = m(e_n, torch.randn(B, T, d), torch.randn(B, T, d))
+    assert torch.allclose(e_d, e_n, atol=1e-5), (e_d - e_n).abs().max().item()
+
+
 def test_denoiser_overfits_toward_clean():
     """A few steps on a fixed batch should pull denoised cos-to-e_c above the raw cos(e_n,e_c)."""
     torch.manual_seed(0)
@@ -85,3 +95,15 @@ def test_recovery_metrics_no_denoise():
     e_n = e_c + rng.standard_normal((10, 8)).astype(np.float32)
     m = recovery_metrics(e_c, e_n, e_n.copy())                   # e_d == e_n
     assert abs(m["recovery_cos"]) < 1e-5 and abs(m["recovery_mse"]) < 1e-5
+
+
+def test_make_eta_groups_and_route():
+    from snd_utility_sweep import make_eta_groups, route_eta
+    import math
+    groups, reps = make_eta_groups([5000, 2000, 1200, 800], n_groups=3)
+    assert len(groups) == 3 and len(reps) == 3
+    assert sorted(x for g in groups for x in g) == [800, 1200, 2000, 5000]  # partition, no loss
+    assert reps == sorted(reps)                                            # ascending strength→mild
+    assert route_eta(float("inf"), reps) == 2          # clean → mildest (largest rep)
+    assert route_eta(800, reps) == 0                   # strong noise → first group
+    assert route_eta(5000, reps) == 2                  # mild noise → last group
