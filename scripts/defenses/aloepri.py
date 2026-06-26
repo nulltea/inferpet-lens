@@ -142,6 +142,28 @@ def obfuscate_embedding_table(
     )
 
 
+def m1_randomized_response(tokens, vocab: int, eps1: float, *, seed: int = 0):
+    """Online token-perturbation mechanism M1 (AloePri §5.3 / §6.2) — the exponential mechanism
+    p(y|x) ∝ e^{−ε1·d(x,y)} with the transposition metric (Def. 2). On single tokens d(x,y)∈{0,1},
+    so it reduces to randomized response: keep x with p₀ = 1/(1+(V−1)e^{−ε1}), else a UNIFORM token
+    among the other V−1. ε1=∞ ⇒ p₀=1 (identity). The token-id-surface privacy knob the TFMA sweep
+    walks (Π alone is a deterministic substitution cipher; M1 blurs the frequency fingerprint)."""
+    tokens = np.asarray(tokens, dtype=np.int64)
+    rng = np.random.default_rng(seed)
+    if not np.isfinite(eps1):
+        return tokens.copy()
+    p0 = 1.0 / (1.0 + (vocab - 1) * np.exp(-eps1))
+    out = tokens.copy()
+    sub_mask = rng.random(tokens.shape[0]) >= p0
+    k = int(sub_mask.sum())
+    if k:
+        sub = rng.integers(0, vocab - 1, size=k)            # uniform over the other V−1 tokens
+        orig = tokens[sub_mask]
+        sub[sub >= orig] += 1                               # skip self → exactly uniform-over-others
+        out[sub_mask] = sub
+    return out
+
+
 # ───────────────────────── covariant model re-parameterization ─────────────────────────
 # Faithful AloePri offline obfuscation of a whole transformer (paper §5.2). One residual
 # key pair (P̂, Q̂), P̂ Q̂ = I_d (Algorithm 1), rewrites every residual-touching weight so the
