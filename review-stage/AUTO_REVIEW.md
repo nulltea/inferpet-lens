@@ -1,46 +1,65 @@
-# Auto-review log — Task 10 (c11-viz-spectral): A2 leakage heatmaps + A5 eigenspectrum/noise-floor
+# Auto Review — CE logit-lens attack (implementation + run-plan)
+
+Target: `logit_lens_attack`/`LensHead` (src/talens/attacks/dp_inversion.py), eval wiring
+(scripts/evals/dp_leakage_sweep.py), doc (docs/research/ce-logit-lens-attack.md), test
+(tests/test_dp_inversion.py). Two gates: correctness + perf (scripts/harness/perf_gate.md).
+Reviewer: codex (gpt-5.5, xhigh), difficulty medium.
 
 ## Round 1 (2026-06-25)
 
 ### Assessment (Summary)
-- Score: 8.5/10
-- Verdict: READY (with one wording hardening, applied)
-- Backend: codex (gpt-5.5, xhigh). Reviewer sandbox could not read files (bwrap loopback
-  denied); artifacts + verbatim cross-checks were pasted inline for verification.
+- Score: 5/10 (correctness 8/10, run-plan 3/10)
+- Verdict: NOT READY (to launch the full GPU grid)
+- Correctness: CLEAN — reviewer found no target-index bug, no negative-collision bug, no
+  labelled-test-token leak, no probe/attack circularity, no scheme-core violation. Ridge warm-start
+  shape correct; train/val split disjoint; floor shuffles Etr+ytr with the same permutation; eval
+  argmax over the test pool only; head has no per-token params (open-set preserved).
+- Blockers are all PERFORMANCE / run-plan:
+  1. Run not optimal scope + no saturation pass → run a scoped lens,declens pilot first.
+  2. CE path may exceed the 10-min gate without evidence → benchmark one CE fit at scale.
+  3. Redundant ridge_W recompute across ridge/lens/declens → cache or drop ridge from this run.
+  4. CPU→GPU per-epoch candidate gather unproven at scale → benchmark; fix doc "≈ cosine decoder".
+  5. Add invariant guards (0<=ytr<V; positives in denominator).
 
-### What was reviewed
-Two A2 layer×parameter leakage heatmaps and one shared A5 eigenspectrum worked example,
-all rendered from on-disk data (no GPU) by `refine-logs/viz-spectral/gen_plots.py`:
-- A2 `resid-dp-attacks.html` — layer {L0,L5,L12,L20} × input-DP ε {plain,4k,1k,768,512,384,256},
-  fill = token-id top-1 recovery (`results/localdp_depth_L0_5_12_20.json`).
-- A2 `resid-depth-inversion.html` — {ridge,mlp2,NN} × 9 depths, fill = selectivity
-  (`runs/full/depth_sweep.json`).
-- A5 on `vec2text.html`, `probes-registry.html`, `resid-split.html` — eigenspectrum of the
-  error-weighted scatter S (`results/anisotropic_geometry_diagnostic.json`, gemma-2-2b, ε=128),
-  σ²=0.0246 noise floor, per-mode bits ½log₂(1+λ/σ²), eff_rank≈7 of 2304, top-10 = 81% energy.
+### Actions Taken (Phase C)
+- Fix #5: added `assert ytr aligned + 0<=ytr<V` in logit_lens_attack; documented that train_toks ⊆ cand
+  guarantees exact searchsorted indices (positives always in the CE denominator).
+- Fix #4 (doc): replaced the unmeasured "cost ≈ cosine decoder" with "measured in a scoped pilot
+  before the full grid".
+- Fix #1/#2/#4 (evidence): launched a scoped saturation pilot — L12 × {inf,256} × {lens,declens} ×
+  512 prompts (production n_train) → measure per-fit wall-time + GPU saturation, extrapolate to the
+  full grid; results below.
+- Fix #3: pilot drops `ridge` (already have ridge from dp-decoder-r3-fixed); ridge_W redundancy is a
+  sub-10s CPU cost vs CE training (will quantify), so no interface refactor — decided after pilot.
+- Tests still pass (3/3).
 
-### Faithfulness (verified by reviewer from pasted artifacts)
-- A2 dp L0 row matches the page's per-point L0 table within plot rounding: 0.809→0.81, 0.661→0.66,
-  0.428→0.43, 0.140→0.14.
-- A2 depth matches the per-layer table: ridge L0 0.685→0.69, L32 0.390→0.39; mlp2 L32 0.542→0.54; NN 0.000.
-- A5 matches the JSON ε=128 row: eff_rank_S=7.10→"≈7", top10_eval_frac=0.8139→"81%", σ²=0.02464→"0.025", d=2304.
+---
 
-### Reviewer raw response (verbatim)
-Score: 8.5/10. Verdict: READY, with one wording hardening I would still make.
-Numeric faithfulness checks pass. Weaknesses ranked:
-1. A5 honesty acceptable but slightly easy to misread on vec2text — add an explicit parenthetical
-   that this is not the GTR Cov(e₀) spectrum and does not resolve the deferred empirical localization.
-2. Keep A5 formula language illustrative ("worked example", "representative anisotropic geometry").
-3. A2 DP x-axis: clarify the `plain` column is not an ε value (label `plain / ε=∞` or note clean_top1).
-No blocking faithfulness issue. Plot-style/accessibility/on-disk-only/inline-SVG validity sufficient.
+# Topic: MI-probe configuration note (docs/research/2026-06-26-mi-probe-configuration.md)
 
-### Actions taken (post-review hardening — all applied)
-1. A5 Read (all 3 pages): appended "It is not the GTR embedding Cov(e₀) spectrum and does not resolve
-   vec2text's deferred empirical-localization claim."
-2. A2 dp Read: added "The plaintext column is the no-noise baseline (clean_top1, ε=∞), not an ε value."
-3. (#2 already satisfied: "worked example" + "gemma-2-2b codebook scatter S" present in the visible text.)
-All edits mirrored into the generator `gen_plots.py`; regeneration reproduces the live pages exactly.
+threadId: 019f040f-44d5-73a3-b92f-73abc93cfb23 · reviewer: codex/gpt-5.5 xhigh · difficulty: medium
+
+## Round 1 (2026-06-26) — Score 5→ **6/10**, Verdict: not ready
+Key criticisms: central "L20 ≠ token-id" inference overclaimed; Voita extrapolation needs external-validity
+caveat; vocab-disjoint split impossible for closed-set class PVI/MDL; protocol ≠ current eval; **attack
+split is layer-dependent (RNG advances inside layer loop) → depth confound**; PAC bound stated as absolute
+(it is one-sided); monotonicity overread; citations swapped (MDL=2003.12298, Bottom-up=1909.01380); CLUB
+param count 590k→~198k; MDL "no tuning" overgeneralized.
+
+### Actions taken
+Fixed all 10: softened central inference to "unlikely, not ruled out → adjudicate"; added external-validity
+paragraph; corrected split guidance (row-split + type-control for class probes, disjoint only for
+CLUB/retrieval); marked protocol as target-not-current; **fixed the layer-dependent split bug in
+dp_leakage_sweep.py (split/pool/shuffle computed once, with assert)**; one-sided PAC; monotonicity caveat;
+citations corrected; CLUB ≈198k; MDL softened to "verify by size sweep".
+
+## Round 2 (2026-06-26) — **7/10**, Verdict: **Almost** → STOP (score≥6 AND verdict∈{ready,almost})
+Reviewer confirmed fixes are real (verified the split fix in code). Remaining minimum fixes (all applied
+post-round): type-control vs row-shuffle distinction (type-control can subtract token-id signal); split
+PVI into PVI_class(→token-id, softmax) vs V_Gauss(→embedding, R²/Prop.1.5); disclose probe
+controls/selectivity not wired; soften MDL table language; require class-coverage reporting; disambiguate
+"L20" as the Gemma observation (Pythia=analogous mid/deep peak).
 
 ### Status
-- Stopping: score 8.5 ≥ 6 AND verdict ∈ {ready, almost}. Gate met.
-- Difficulty: medium.
+Loop complete at Round 2 (7/10, Almost). All round-2 minimum fixes folded into the note. Verdict reflects an
+internal methodology note, not a submission.

@@ -281,23 +281,29 @@ def main():
 
     # clean capture once: defines the vocab-disjoint split + candidate pool + per-attack shuffle floor
     perc, idc = capture(model, tok, prompts, layers)
+    # The token-id split, candidate pool and label-shuffle are LAYER-INDEPENDENT — token ids are identical
+    # across layers (same prompts/positions), only the reps differ. Compute them ONCE so every depth is
+    # compared on the SAME held-out tokens and the SAME pool. (Previously these were drawn inside the layer
+    # loop with an advancing RNG, giving each layer a different split/pool — a depth-comparison confound.)
+    _, y0 = _stack(perc[layers[0]], idc)
+    distinct = rng.permutation(np.unique(y0))
+    ntr = int(0.7 * distinct.size)
+    tr_ids, te_ids = set(distinct[:ntr].tolist()), set(distinct[ntr:].tolist())
+    tr = np.array([i for i, t in enumerate(y0) if t in tr_ids])
+    te = np.array([i for i, t in enumerate(y0) if t in te_ids])
+    true_pool = np.unique(y0[te])
+    if true_pool.size > args.pool_size:
+        print(f"[dp-sweep] WARN: {true_pool.size} test tokens > pool-size {args.pool_size}; "
+              f"pool = all test tokens", flush=True)
+    avail = np.setdiff1d(np.arange(vocab, dtype=np.int64), true_pool)
+    fill = rng.choice(avail, size=max(0, args.pool_size - true_pool.size), replace=False)
+    pool = np.concatenate([true_pool, fill.astype(np.int64)])  # true_pool ⊆ pool, disjoint fill
+    permsh = rng.permutation(tr.size)  # label-shuffle control → CLEAN-rep recovery floor per attack
     split = {}
     for L in layers:
         X0, y = _stack(perc[L], idc)
-        distinct = rng.permutation(np.unique(y))
-        ntr = int(0.7 * distinct.size)
-        tr_ids, te_ids = set(distinct[:ntr].tolist()), set(distinct[ntr:].tolist())
-        tr = np.array([i for i, t in enumerate(y) if t in tr_ids])
-        te = np.array([i for i, t in enumerate(y) if t in te_ids])
-        true_pool = np.unique(y[te])
-        if true_pool.size > args.pool_size:
-            print(f"[dp-sweep] WARN L{L}: {true_pool.size} test tokens > pool-size {args.pool_size}; "
-                  f"pool = all test tokens", flush=True)
-        avail = np.setdiff1d(np.arange(vocab, dtype=np.int64), true_pool)
-        fill = rng.choice(avail, size=max(0, args.pool_size - true_pool.size), replace=False)
-        pool = np.concatenate([true_pool, fill.astype(np.int64)])  # true_pool ⊆ pool, disjoint fill
+        assert np.array_equal(y, y0), "token ids must be identical across layers (shared split)"
         emb_y = table[y]
-        permsh = rng.permutation(tr.size)  # label-shuffle control → CLEAN-rep recovery floor per attack
         floor = {}
         for a in attacks:
             yhat = ATTACKS[a](X0[tr], emb_y[tr][permsh], X0[te], table[pool], pool,
