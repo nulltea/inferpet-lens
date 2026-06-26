@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 from talens.weights.types import WeightPair
 
@@ -139,6 +140,107 @@ def obfuscate_embedding_table(
         token_ids=np.asarray(token_ids, dtype=np.int64), kind="embed",
         model_id="aloepri-synthetic",
     )
+
+
+# ───────────────────────── covariant model re-parameterization ─────────────────────────
+# Faithful AloePri offline obfuscation of a whole transformer (paper §5.2). One residual
+# key pair (P̂, Q̂), P̂ Q̂ = I_d (Algorithm 1), rewrites every residual-touching weight so the
+# obfuscated forward is bit-equivalent to plaintext while the residual the server sees is the
+# obfuscated x' = x P̂. The paper treats only RMSNorm (§5.2.5, a Gaussian κ approximation);
+# the LayerNorm covariance below is derived EXACTLY from P̂ Q̂ = I — no approximation.
+
+
+def obf_read_weight(W: torch.Tensor, Q: torch.Tensor) -> torch.Tensor:
+    """Rewrite a linear that READS the residual (q/k/v, mlp-in, head): W̃ = W Q̂ᵀ.
+    On the obfuscated residual x'=xP̂, F.linear gives x'(WQ̂ᵀ)ᵀ = (x'Q̂)Wᵀ = xWᵀ. Bias is
+    unchanged (the output is the within-block plaintext space)."""
+    return W @ Q.to(W.dtype).t()
+
+
+def obf_write_weight(W: torch.Tensor, b: torch.Tensor | None, P: torch.Tensor):
+    """Rewrite a linear that WRITES the residual (attn-out, mlp-out): W̃ = P̂ᵀW, b̃ = P̂ᵀb.
+    Output becomes (Wx+b)P̂ — the plaintext output mapped into the P̂-basis."""
+    Pf = P.to(W.dtype)
+    W2 = Pf.t() @ W
+    b2 = None if b is None else Pf.t() @ b
+    return W2, b2
+
+
+class CovariantLayerNorm(nn.Module):
+    """LayerNorm on the obfuscated residual that reproduces the plaintext LayerNorm output
+    in the P̂-basis, exactly: LN(x' Q̂) P̂ = LN(x) P̂. Wraps the original norm module (keeps its
+    weight/bias/eps) and applies the residual key pair around it."""
+
+    def __init__(self, ln: nn.Module, P: torch.Tensor, Q: torch.Tensor):
+        super().__init__()
+        self.ln = ln
+        self.register_buffer("P", P)
+        self.register_buffer("Q", Q)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.ln(x @ self.Q.to(x.dtype)) @ self.P.to(x.dtype)
+
+
+def reparam_pythia(model, *, config: str = "keymat_only", h: int = 128, lam: float = 0.3,
+                   seed: int = 0, alpha_e: float = 1.0, alpha_h: float = 0.2,
+                   noise_seed: int = 0):
+    """Covariantly re-parameterize a HuggingFace GPT-NeoX (pythia) model IN PLACE so its
+    residual stream is obfuscated to x' = x P̂ (width d → d+2h) while the forward output is
+    preserved up to the embedding/head noise. One residual key pair P̂/Q̂ (Alg 1, P̂Q̂=I_d) is
+    applied to every residual-touching weight.
+
+      * ``keymat_only`` — P̂/Q̂ alone, lossless: logits identical to plaintext (the gate config).
+      * ``full_alg1``   — + embedding noise W̃ₑ = (Wₑ+αₑσₑE)P̂ and head noise (αₑ, α_h). The token
+        permutation Π is OMITTED here: it is activation-inert (the residual for a true token is
+        (Wₑ[t]+αₑσₑE)P̂ regardless of τ), so Π's protection is measured on the token-id surface
+        (TFMA / ε1 sweep), not here.
+      * ``alg2`` — + intra-head attention obfuscation (added separately).
+    """
+    if config == "keymat_only":
+        alpha_e = alpha_h = 0.0
+    elif config != "full_alg1":
+        raise NotImplementedError(f"config={config!r} not yet implemented (have keymat_only, full_alg1)")
+    net = model.gpt_neox
+    d = net.embed_in.weight.shape[1]
+    dev, dtype = net.embed_in.weight.device, net.embed_in.weight.dtype
+    P_np, Q_np = keymat_gen(d, h, lam=lam, seed=seed)
+    P = torch.from_numpy(P_np).to(device=dev, dtype=dtype)
+    Q = torch.from_numpy(Q_np).to(device=dev, dtype=dtype)
+    gen = torch.Generator().manual_seed(noise_seed)         # CPU generator (reproducible draw)
+
+    def _noised(W, alpha):
+        if alpha <= 0:
+            return W
+        noise = torch.randn(W.shape, generator=gen, dtype=W.dtype).to(W.device)
+        return W + alpha * float(W.std()) * noise
+
+    def _read(linear):
+        linear.weight = nn.Parameter(obf_read_weight(linear.weight.data, Q))
+        linear.in_features = linear.weight.shape[1]
+
+    def _write(linear):
+        W2, b2 = obf_write_weight(linear.weight.data, linear.bias.data if linear.bias is not None else None, P)
+        linear.weight = nn.Parameter(W2)
+        if b2 is not None:
+            linear.bias = nn.Parameter(b2)
+        linear.out_features = linear.weight.shape[0]
+
+    with torch.no_grad():
+        # embedding writes the residual: looked-up (noised) row → row P̂
+        net.embed_in.weight = nn.Parameter(_noised(net.embed_in.weight.data, alpha_e) @ P)
+        net.embed_in.embedding_dim = net.embed_in.weight.shape[1]
+        for layer in net.layers:
+            layer.input_layernorm = CovariantLayerNorm(layer.input_layernorm, P, Q)
+            layer.post_attention_layernorm = CovariantLayerNorm(layer.post_attention_layernorm, P, Q)
+            _read(layer.attention.query_key_value)
+            _write(layer.attention.dense)
+            _read(layer.mlp.dense_h_to_4h)
+            _write(layer.mlp.dense_4h_to_h)
+        net.final_layer_norm = CovariantLayerNorm(net.final_layer_norm, P, Q)
+        # head reads the residual: (W_head + α_h noise) Q̂ᵀ (no Π — see docstring)
+        model.embed_out.weight = nn.Parameter(obf_read_weight(_noised(model.embed_out.weight.data, alpha_h), Q))
+        model.embed_out.in_features = model.embed_out.weight.shape[1]
+    return {"P": P, "Q": Q, "d": d, "h": h, "config": config}
 
 
 class AloePriPermCover:
