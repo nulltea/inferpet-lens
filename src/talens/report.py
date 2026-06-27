@@ -209,7 +209,6 @@ def error_band_readout(*, p_e_lb: float | None, p_e_ub: float | None) -> Readout
 # Keeps the bits-extraction in ONE place instead of scattered across the CLI/spikes.
 _BITS_REGISTRY: dict[str, tuple[str, str]] = {
     "v_information": ("v_information_bits", "v_info"),
-    "v_information_retrieval": ("v_information_bits", "v_info"),
     "v_information_capacity": ("v_information_bits", "capacity_v_info"),
     "club": ("club_mi_bits", "mi_upper_bound"),
     "mdl": ("surplus_description_length_bits", "sdl"),

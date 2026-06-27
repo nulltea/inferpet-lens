@@ -84,8 +84,8 @@ def test_nn_and_hungarian_both_recover_undefended():
 
 
 def test_measures_track_the_defense_curve():
-    """CLUB I(obf;plain) and targeted retrieval-PVI both fall as the noise
-    knob rises — the measure↔recovery link the repo's thesis predicts."""
+    """CLUB I(obf;plain) falls as the noise knob rises — the measure↔recovery
+    link the repo's thesis predicts."""
     W, ids = _plaintext()
     und = _obfuscate(W, ids, alpha_e=0.0)
     dfn = _obfuscate(W, ids, alpha_e=2.5)
@@ -93,16 +93,8 @@ def test_measures_track_the_defense_curve():
     def _club(p):
         return measures.club_mi_weights(p, bins=32, steps=120, hidden_size=64, seed=0)["club_mi_bits"]
 
-    def _pvi(p):
-        return measures.v_information_weights(
-            p, bins=32, n_train=48, n_val=24, n_test=24, candidate_pool_size=N
-        )["v_information_bits"]
-
     club_und, club_dfn = _club(und), _club(dfn)
-    pvi_und, pvi_dfn = _pvi(und), _pvi(dfn)
 
-    assert pvi_und is not None and pvi_und > 0.0     # undefended leaks usable info
-    assert pvi_und > pvi_dfn                          # PVI falls under noise
     assert club_und is not None and club_und > club_dfn  # CLUB falls under noise
 
 

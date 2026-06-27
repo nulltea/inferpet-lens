@@ -52,16 +52,24 @@ DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 @torch.no_grad()
-def capture(model, tok, prompts, layers):
-    """Per-token residual_post at each requested layer + the token ids (one array per prompt)."""
+def capture(model, tok, prompts, layers, batch_size=32):
+    """Per-token residual_post at each requested layer + the token ids (one array per prompt).
+
+    Batched + right-padded to saturate the iGPU (a 160M model is idle at batch=1). Right padding
+    keeps real-token rotary positions and causal context identical to the unbatched forward; pads are
+    masked (attention_mask) and dropped per row via the real length, so reps match unbatched exactly.
+    """
     per = {L: [] for L in layers}
     ids = []
-    for p in prompts:
-        i = tok(p, return_tensors="pt").input_ids.to(DEV)
-        hs = model(i, output_hidden_states=True, use_cache=False).hidden_states
-        for L in layers:
-            per[L].append(hs[L + 1][0].float().cpu().numpy())
-        ids.append(i[0].cpu().numpy())
+    for i in range(0, len(prompts), batch_size):
+        enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True)
+        input_ids, mask = enc.input_ids.to(DEV), enc.attention_mask.to(DEV)
+        hs = model(input_ids, attention_mask=mask, output_hidden_states=True, use_cache=False).hidden_states
+        lens = mask.sum(dim=1).tolist()
+        for b, n in enumerate(lens):
+            for L in layers:
+                per[L].append(hs[L + 1][b, :n].float().cpu().numpy())
+            ids.append(input_ids[b, :n].cpu().numpy())
     return per, ids
 
 
@@ -91,47 +99,57 @@ def probe_club(X, E, y, K, *, club_max_rows=600, **_):
     return {"bits": None if bits is None else float(bits), "bits_kind": "mi_upper_bound"}
 
 
+def _vcap_ppl(pvi, y):
+    """reader perplexity = 2^(H_cond), H_cond = H_prior − PVI, clamped to [1, 2^H_prior]."""
+    if pvi is None:
+        return None
+    _, counts = np.unique(y, return_counts=True)
+    p = counts / counts.sum()
+    h_prior = float(-(p * np.log2(p)).sum())
+    return perplexity_from_bits(min(max(h_prior - pvi, 0.0), h_prior))
+
+
 def probe_vcap(X, E, y, K, **_):
     """V_cap capacity-matched predictive V-information (bits) + a readable reader readout.
 
-    Readout: reader_top1_acc, and reader perplexity = 2^(H_cond) where H_cond = H_prior − PVI and
-    H_prior is the EMPIRICAL token-label entropy (v_information_capacity's PVI is anchored to the
-    empirical prior, not log₂K). Clamped to [1, 2^H_prior] = the effective number of token
-    candidates the reader is choosing among.
+    Emits TWO families on the SAME (X, y) to adjudicate whether the k=64 PCA reduction discards
+    token signal (PCA keeps top-VARIANCE axes; under DP noise variance ≠ discriminative):
+      * `bits`        — pca_softmax, dim=64  : capacity-bounded by truncation (current headline).
+      * `bits_gauss`  — gauss, dim=768       : LDA-diagonal in a full-rank PCA rotation (no
+        truncation; capacity bounded by the diagonal-covariance structure, not by dropping dims).
+    gauss ≥ pca ⇒ PCA-64 was discarding signal (use gauss as the no-truncation reference); they
+    agree ⇒ the k=64 capacity bound was the whole story. Readout: reader_top1_acc + perplexity.
+    H_prior is the EMPIRICAL token-label entropy (PVI is anchored to the empirical prior, not log₂K).
     """
     r = v_information_capacity(X, y, family="pca_softmax", dim=64, l2=0.1)
+    g = v_information_capacity(X, y, family="gauss", dim=768)  # clamped to n-1: full-rank, no trunc
     pvi = r.get("v_information_bits")
-    acc = r.get("reader_top1_acc")
-    ppl = None
-    if pvi is not None:
-        _, counts = np.unique(y, return_counts=True)
-        p = counts / counts.sum()
-        h_prior = float(-(p * np.log2(p)).sum())
-        h_cond = min(max(h_prior - pvi, 0.0), h_prior)
-        ppl = perplexity_from_bits(h_cond)
-    return {"bits": pvi, "bits_kind": "capacity_v_info", "reader_top1_acc": acc, "perplexity": ppl}
+    return {"bits": pvi, "bits_kind": "capacity_v_info",
+            "reader_top1_acc": r.get("reader_top1_acc"), "perplexity": _vcap_ppl(pvi, y),
+            "bits_gauss": g.get("v_information_bits"), "gauss_eff_dim": g.get("eff_dim"),
+            "gauss_top1_acc": g.get("reader_top1_acc")}
 
 
-def probe_mdl(X, E, y, K, *, full_emb=None, pool_size=2048, **_):
-    """MDL (RETRIEVAL family) prequential online code length of the tokens given the rep, in bits.
+def probe_mdl(X, E, y, K, *, mdl_classes=256, **_):
+    """Voita & Titov (2020) FAITHFUL MDL — prequential online code length of the discrete token-id
+    given the rep, under a CLOSED-SET softmax probe (top-`mdl_classes` token-ids). This is the
+    canonical class-MDL: train the probe on a growing data prefix, pay the next block's CE; sum =
+    online codelength = area under the learning curve. NOT the retrieval variant (ridge X→emb is
+    circular with the attack) — that one is dropped.
 
-    Retrieval family (ridge X→embedding + retrieval softmax) — generalizes to unseen tokens, matching
-    the vocab-disjoint surface (the class-probe family is closed-set). Headline `bits` is leakage-
-    POSITIVE: info_bits = uniform_code − online_code ≈ N·I(rep;token) (rises with leakage → correlates
-    the right way with recovery). MDL total code length, compression, and Whitney SDL are kept beside
-    it. SDL is non-monotone across ε (the surplus shrinks when there is little left to learn), so MDL/
-    info_bits — not SDL — is the representative leakage signal here.
+    Headline `bits` is leakage-POSITIVE: info = uniform_code − online_code (rises with leakage →
+    correlates the right way with recovery). compression = uniform/online and the Whitney SDL are
+    kept beside it (SDL is non-monotone across ε, so info — not SDL — is the representative signal).
     """
-    import torch
-    from talens.probes.mdl import online_code_length_retrieval
-    r = online_code_length_retrieval(X, y, torch.from_numpy(np.ascontiguousarray(full_emb)),
-                                     candidate_pool_size=pool_size, seed=0)
+    from talens.probes.mdl import online_code_length
+    r = online_code_length(X, y, max_classes=mdl_classes, seed=0)
     code = r.get("online_code_length_bits")
     uni = r.get("uniform_code_length_bits")
     info = None if (code is None or uni is None) else float(uni - code)
-    return {"bits": info, "bits_kind": "mdl_info_retrieval",
+    return {"bits": info, "bits_kind": "mdl_info_class",
             "mdl_code_bits": code, "compression": r.get("compression"),
             "sdl_bits": r.get("surplus_description_length_bits"),
+            "num_classes": r.get("num_classes"),
             "floor_ce_bits_per_row": r.get("floor_ce_bits_per_row")}
 
 
@@ -224,6 +242,10 @@ def main():
     ap.add_argument("--seed", type=int, default=20260621, help="base seed (split, floor, probe/attack init — fixed across noise seeds)")
     ap.add_argument("--seeds", default="", help="comma list of DP-noise seeds for multi-seed error bars (varies ONLY the noise draw); empty = single run at --seed")
     ap.add_argument("--out", default="refine-logs/dp-decoder-grid/dp_leakage_sweep.json")
+    ap.add_argument("--cache-dir", default="", help="if set, dump victim Xte / clean X0 / shared meta "
+                    "as .npy so probe-family experiments re-run offline (CPU) without re-capturing")
+    ap.add_argument("--batch-size", type=int, default=32, help="prompts per forward pass (batched + "
+                    "right-padded to saturate the GPU; reps match unbatched exactly)")
     args = ap.parse_args()
 
     layers = [int(s) for s in args.layers.split(",") if s.strip()]
@@ -244,8 +266,15 @@ def main():
 
     prompts = [l.strip() for l in Path(args.corpus).read_text().splitlines() if l.strip()][: args.max_prompts]
     tok = AutoTokenizer.from_pretrained(args.model)
+    if tok.pad_token is None:           # GPT-NeoX tokenizer ships no pad token; reuse EOS for masking
+        tok.pad_token = tok.eos_token
+    tok.padding_side = "right"          # real-token positions/context unchanged vs unbatched
+    # fp32, NOT bf16: batched bf16 GEMM on ROCm is not batch-invariant (verified: reps drift ~18% by
+    # mid-depth vs unbatched, fp32 drifts ~1e-5). Batched capture is required to saturate the iGPU, and
+    # the I_G probe reads noise = Xte − X0, so a batch-dependent rounding artifact would corrupt the
+    # small-ε noise estimate. fp32 is deterministic + batch-invariant and trivially cheap at 160M.
     model = AutoModelForCausalLM.from_pretrained(
-        args.model, torch_dtype=torch.bfloat16, attn_implementation="eager", device_map=DEV
+        args.model, torch_dtype=torch.float32, attn_implementation="eager", device_map=DEV
     ).eval()
     table = model.get_input_embeddings().weight.detach().float().cpu().numpy().astype(np.float32)
     vocab = table.shape[0]
@@ -280,7 +309,7 @@ def main():
           f"prompts={len(prompts)} dev={DEV}", flush=True)
 
     # clean capture once: defines the vocab-disjoint split + candidate pool + per-attack shuffle floor
-    perc, idc = capture(model, tok, prompts, layers)
+    perc, idc = capture(model, tok, prompts, layers, batch_size=args.batch_size)
     # The token-id split, candidate pool and label-shuffle are LAYER-INDEPENDENT — token ids are identical
     # across layers (same prompts/positions), only the reps differ. Compute them ONCE so every depth is
     # compared on the SAME held-out tokens and the SAME pool. (Previously these were drawn inside the layer
@@ -313,6 +342,18 @@ def main():
         split[L] = dict(y=y, tr=tr, te=te, pool=pool, emb_y=emb_y, floor=floor,
                         K=int(np.unique(y).size), X0=X0)  # X0 = clean rep (for I_G noise estimate)
 
+    # cache shared (layer/ε-independent) meta + clean reps once, so any probe re-runs offline on
+    # the SAME rows the live run measured (probes consume Xte / X0 / y — Xtr is attack-only, skipped).
+    cdir = Path(args.cache_dir) if args.cache_dir else None
+    if cdir:
+        cdir.mkdir(parents=True, exist_ok=True)
+        np.savez(cdir / "meta.npz", y=y0, tr=tr, te=te, pool=pool, table=table, layers=np.array(layers),
+                 draw_seed_note=np.array("Xtr draw seed = base+1009*eps_idx; Xte draw seed = "
+                                         "base+1009*eps_idx+5_000_003 — independent DP draws"))
+        for L in layers:
+            np.save(cdir / f"clean_L{L}.npy", split[L]["X0"])
+        print(f"[dp-sweep] cached meta + clean reps → {cdir}", flush=True)
+
     # noise seeds: hoist all noise-INDEPENDENT work (model, clean capture, split, floor) above; only
     # the noised capture + probes + attacks repeat per seed. Fixed split + probe init → isolates the
     # DP-noise-draw variance (the multi-seed error bar on the probe/recovery values).
@@ -325,7 +366,7 @@ def main():
                 torch.manual_seed(noise_seed)
                 hk = model.get_input_embeddings().register_forward_hook(LocalDP(C, sigma))  # model-agnostic
                 try:
-                    per, ids_chk = capture(model, tok, prompts, layers)
+                    per, ids_chk = capture(model, tok, prompts, layers, batch_size=args.batch_size)
                 finally:
                     hk.remove()
                 assert all(np.array_equal(a, b) for a, b in zip(ids_chk, idc)), "token ids drifted under noise"
@@ -333,11 +374,17 @@ def main():
             # WEIGHTS-PUB realism: the adversary trains on its OWN noise draw; the victim's released
             # rep is an INDEPENDENT draw it never sees. Two captures ⇒ train/test DP randomness is
             # structurally disjoint (not just per-position-iid). Train on per_tr, score/probe per_te.
-            per_tr = _noised_capture(nseed + 1009 * ei)
-            per_te = _noised_capture(nseed + 1009 * ei + 5_000_003)
+            tr_seed = nseed + 1009 * ei                    # adversary/train DP draw seed
+            te_seed = nseed + 1009 * ei + 5_000_003        # victim/released DP draw seed (≠ tr_seed)
+            per_tr = _noised_capture(tr_seed)
+            per_te = _noised_capture(te_seed)
             for L in layers:
                 Xtr, _ = _stack(per_tr[L], idc)   # adversary-train draw
                 Xte, _ = _stack(per_te[L], idc)   # victim-test draw (the released surface)
+                if cdir:  # cache BOTH independent draws: adversary-train (tr_seed) + victim/released
+                    es_c = "inf" if math.isinf(eps) else f"{eps:g}"  # (te_seed). Distinct DP seeds.
+                    np.save(cdir / f"Xtr_eps{es_c}_seed{nseed}_L{L}.npy", Xtr)
+                    np.save(cdir / f"Xte_eps{es_c}_seed{nseed}_L{L}.npy", Xte)
                 s = split[L]
                 y, tr, te, pool, emb_y, floor, K = s["y"], s["tr"], s["te"], s["pool"], s["emb_y"], s["floor"], s["K"]
                 pe = table[pool]

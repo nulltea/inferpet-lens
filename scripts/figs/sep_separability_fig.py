@@ -29,7 +29,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 CLASS_COLOR = {"is": "#e6194b", "are": "#3cb44b", "was": "#4363d8", "were": "#f58231"}
-EPS_COLOR = {"∞": "#1b1f24", "512": "#2f7d8a", "256": "#c98a3e", "128": "#b55831", "1024": "#6a4c93"}
+EPS_COLOR = {"∞": "#1b1f24", "1024": "#6a4c93", "512": "#2f7d8a", "256": "#c98a3e", "128": "#b55831",
+             "64": "#2f5e87", "32": "#2f7d8a", "16": "#c98a3e", "8": "#b55831"}
 INK = "#14181c"
 
 plt.rcParams.update({
@@ -110,7 +111,7 @@ def trajectory(cells, layers, eps_list, out_path):
             ax.axhline(2.0, ls="--", lw=0.8, color="#999")
             ax.text(layers[-1], 2.0, " log₂K", va="bottom", ha="right", fontsize=7, color="#999")
     axes.flat[0].legend(frameon=False, loc="upper right")
-    fig.suptitle("separability vs depth across ε — margin & MDL fall with depth (no L20 peak)",
+    fig.suptitle("separability vs depth across ε — margin & MDL fall with depth (no mid-depth peak)",
                  fontsize=11, color=INK)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(out_path, bbox_inches="tight")
@@ -121,16 +122,19 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--in", dest="inp", default="refine-logs/sep-test/dp_sep_grid.json")
     ap.add_argument("--outdir", default="docs/html/img")
+    ap.add_argument("--cloud-layers", default="", help="comma layer subset for the cloud grid "
+                    "(too many layers makes 2D panels unreadable); default = all layers in the run")
     args = ap.parse_args()
 
     d = json.loads(Path(args.inp).read_text())
     cells = _by_cell(d["records"])
     layers = d["layers"]
     eps_list = d["epsilons"]  # None for ∞
+    cloud_layers = [int(s) for s in args.cloud_layers.split(",") if s.strip()] or layers
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    cloud_grid(cells, layers, eps_list, outdir / "sep_cloud_grid.png")
+    cloud_grid(cells, cloud_layers, eps_list, outdir / "sep_cloud_grid.png")
     trajectory(cells, layers, eps_list, outdir / "sep_trajectory.png")
     print(f"wrote {outdir}/sep_cloud_grid.png and sep_trajectory.png "
           f"({len(cells)} cells, layers={layers}, eps={[_eps_label(e) for e in eps_list]})")

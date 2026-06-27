@@ -38,3 +38,6 @@ scripts/harness/campaign.env
 # detached campaign run logs
 refine-logs/_campaign-logs/
 refine-logs/utility-tradeoff/.heartbeat
+
+# Large activation caches from dp_leakage_sweep --cache-dir (regenerable, ~GBs)
+refine-logs/**/cache

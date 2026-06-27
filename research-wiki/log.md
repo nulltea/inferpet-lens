@@ -83,3 +83,14 @@ _Append-only timeline._
 - `2026-06-24T09:15:55Z` add_claim: updated claim:sgt-channel-mi-shape-blind-metric-bound-vec2text [status=verified] prov=refine-logs/embed-sgt/proof/PROOF_AUDIT.json
 - `2026-06-24T09:15:55Z` add_experiment: updated exp:embed-sgt-channel-mi-shape-blindness [verdict=partial confidence=high]
 - `2026-06-24T09:18:52Z` result-to-claim: exp:embed-sgt-channel-mi-shape-blindness verdict=partial; claim:sgt-channel-mi-shape-blind-metric-bound-vec2text verified (proof PASS)
+- `2026-06-26T16:44:30Z` add_experiment: added exp:dp-utility-vs-eps-160m [verdict=yes confidence=high]
+- `2026-06-26T17:17:57Z` ingest_paper: ingested paper:makhdoumi2014_from_information_bottleneck (arxiv:1402.1774)
+- `2026-06-26T17:17:58Z` ingest_paper: ingested paper:mai2023_splitanddenoise_protect_large (arxiv:2310.09130)
+- `2026-06-26T17:17:58Z` ingest_paper: ingested paper:du2023_dpforward_finetuning_inference (arxiv:2309.06746)
+- `2026-06-26T17:17:58Z` ingest_paper: ingested paper:arefeen2023_metamorphosis_taskoriented_privacy (arxiv:2305.07815)
+- `2026-06-26T17:17:59Z` ingest_paper: ingested paper:mireshghallah2019_shredder_learning_noise (arxiv:1905.11814)
+- `2026-06-26T17:17:59Z` ingest_paper: ingested paper:shi2021_selective_differential_privacy (arxiv:2108.12944)
+- `2026-06-26T17:18:00Z` ingest_paper: ingested paper:asoodeh2015_maximal_correlation_mutual (arxiv:1510.02330)
+- `2026-06-26T17:18:58Z` add_claim: added claim:privacy-funnel-llm-regime-split [status=drafted] prov=refine-logs/pythia-depth/dp_utility.json; research literature (arxiv 1402.1774, 2310.09130)
+- `2026-06-26T17:59:55Z` ingest_paper: ingested paper:zhang2024_free_lunch_theorem (arxiv:2405.20681)
+- `2026-06-26T17:59:55Z` ingest_paper: ingested paper:tong2023_inferdpt_privacypreserving_inference (arxiv:2310.12214)

@@ -1,0 +1,71 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 64,
+  "defense": "aloepri_covariant_obfuscation",
+  "surface": "residual_activations",
+  "keymat": {
+    "h": 128,
+    "lam": 0.3,
+    "seed": 0
+  },
+  "threat_note": "matched=adversary trains on obf reps (basis-adaptive); oracle=plaintext-trained tested on X_obf\u00b7Q\u0302_true; blind=tested on X_obf\u00b7Q\u0302_wrong (right scheme, wrong key). oracle\u2212blind = key-gated access control; \u03b1\u2091-noise drop = info-theoretic loss. Probes on obf reps ~flat across the lossless basis change (invertible\u21d2MI preserved).",
+  "layers": [
+    6
+  ],
+  "configs": [
+    "plaintext",
+    "keymat_only",
+    "full_alg1@1.0"
+  ],
+  "attacks": [
+    "ridge"
+  ],
+  "probes": [
+    "club"
+  ],
+  "pool_size": 2048,
+  "floors": {
+    "L6": {
+      "ridge": 0.0438871473354232
+    }
+  },
+  "matched_vs_probe_corr": {
+    "L6": {}
+  },
+  "records": [
+    {
+      "config": "plaintext",
+      "layer": 6,
+      "obf_dim": 768,
+      "ridge_matched": 0.8150470219435737,
+      "ridge_matched_sel": 0.7711598746081505,
+      "club_bits": 506.69569322692405,
+      "club_bits_kind": "mi_upper_bound"
+    },
+    {
+      "config": "keymat_only",
+      "layer": 6,
+      "obf_dim": 1024,
+      "ridge_matched": 0.774294670846395,
+      "ridge_matched_sel": 0.7304075235109718,
+      "ridge_oracle": 0.8150470219435737,
+      "ridge_blind": 0.0,
+      "ridge_access_control": 0.8150470219435737,
+      "club_bits": 499.3618026496511,
+      "club_bits_kind": "mi_upper_bound"
+    },
+    {
+      "config": "full_alg1@1.0",
+      "layer": 6,
+      "obf_dim": 1024,
+      "ridge_matched": 0.567398119122257,
+      "ridge_matched_sel": 0.5235109717868338,
+      "ridge_oracle": 0.6614420062695925,
+      "ridge_blind": 0.0,
+      "ridge_access_control": 0.6614420062695925,
+      "club_bits": 487.5568254393107,
+      "club_bits_kind": "mi_upper_bound"
+    }
+  ]
+}

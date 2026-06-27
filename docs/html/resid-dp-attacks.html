@@ -202,20 +202,20 @@
       <h2 class="section-title">Residual stream under local DP</h2>
       <div class="section-meta">probes first, then the linear and non-linear attacks · across depth</div>
     </header>
-    <p class="prose">One sweep, five observation depths × four budgets, gemma-2-2b, N=512 prompts, candidate pool 2048, single seed. <strong>The three probe panels come first</strong> (CLUB, V_cap, and the geometry-only I_G) — they precede and are meant to predict the attack; the single ridge attack panel follows. Recovery is top-1 over the pool; V_cap is shown in bits beside its <em>perplexity</em> <code>2^PVI</code> (the fold-reduction in token candidates the reader achieves); I_G is the Gaussian channel-MI ceiling and is <em>undefined at ε=∞</em> (a noiseless channel), so it has no plaintext bar.</p>
+    <p class="prose">One sweep, six observation depths × five budgets, <strong>Pythia-160M</strong> (12 blocks, d=768), N=1800 prompts, candidate pool 2571, single seed, fp32 batched capture with <strong>independent DP draws</strong> (adversary and victim noise seeds disjoint). <strong>The three probe panels come first</strong> (the Voita class-MDL, V_cap/PVI, and the geometry-only I_G) — they precede and are meant to predict the attack; the single ridge attack panel follows. Recovery is top-1 over the pool; the two MI probes (MDL, PVI) are shown as <em>perplexity</em> <code>2^bits</code> — the fold-reduction in token candidates (>1 leaks, <1 = the probe codes worse than chance); I_G is the Gaussian channel-MI ceiling and is <em>undefined at ε=∞</em> (a noiseless channel), so it has no plaintext bar.</p>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 02 — three probes + ridge recovery across the ε sweep · grouped bars by layer (L0 / L5 / L12 / L20 / L25)</span><span class="r">interactive (Plotly) · fig02.json</span></div>
+      <div class="plot-cap"><span class="l">FIG · 02 — three probes + ridge recovery across the ε sweep · grouped bars by layer (L0 / L2 / L4 / L6 / L9 / L11)</span><span class="r">interactive (Plotly) · refine-logs/pythia-depth/</span></div>
       <div id="plot-metrics" style="width:100%;height:560px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Three attack-independent probes (CLUB, V_cap, I_G) then ridge token recovery. x = ε from no-noise (∞) down to strongest (128); the five bars per ε are the five depths. The probe bars stay tall across ε while the ridge bars collapse — the information is preserved but the linear attack loses it. I_G (no ∞ bar — vacuous at zero noise) rises with depth at every ε: deeper layers preserve more against the noise even as recovery falls. Hover for exact values; click a layer in the legend to toggle it.</span></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Three attack-independent probes (MDL, V_cap/PVI as perplexity; I_G in bits) then ridge token recovery. x = ε from no-noise (∞) down to strongest (8); the six bars per ε are the six depths. The probe bars stay tall across ε while the ridge bars collapse — the information is preserved but the linear attack loses it. I_G (no ∞ bar — vacuous at zero noise) rises with depth at every ε: deeper layers preserve more against the noise even as recovery falls. Hover for exact values; click a layer in the legend to toggle it.</span></div>
     </div>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 03 — does the probe predict recovery? token recovery vs CLUB bits, per layer × attack (ε-sweep paths)</span><span class="r">interactive (Plotly) · dp_leakage_sweep.json</span></div>
+      <div class="plot-cap"><span class="l">FIG · 03 — does the probe predict recovery? token recovery vs V_cap/PVI perplexity, per layer (ε-sweep paths)</span><span class="r">interactive (Plotly) · refine-logs/pythia-depth/</span></div>
       <div id="plot-scatter" style="width:100%;height:460px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">A sloped path = recovery tracks the probe (correlated); a flat path = decorrelated. Each path is one layer's ridge recovery vs CLUB across the ε sweep; the deep layers flatten at the noisy cells. Toggle traces in the legend; hover shows ε.</span></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">A sloped path = recovery tracks the probe (correlated); a flat path = decorrelated. Each path is one layer's ridge recovery vs PVI perplexity (log x) across the ε sweep — all six slope cleanly (Spearman ρ=1.0 at every layer). Toggle traces in the legend; hover shows ε.</span></div>
     </div>
-    <p class="prose" style="font-size:12px;opacity:0.75;">Exact values: hover any bar in FIG.02, or see <code>refine-logs/fig02-grid/fig02.json</code> (512 prompts; ridge + CLUB / V_cap / I_G, single seed). The earlier inline 160-prompt table was removed when this run superseded it.</p>
+    <p class="prose" style="font-size:12px;opacity:0.75;">Exact values: hover any bar in FIG.02, or see <code>refine-logs/pythia-depth/dp_leakage_sweep.json</code> (1800 prompts; ridge + V_cap/PVI / I_G / sep, single seed) and <code>mdl_class_from_cache.json</code> (Voita class-MDL, re-run from the cached reps).</p>
     <div class="prose">
-      <p><strong>Read the plots above.</strong> Across the three probes, the token information the attacker could exploit stays high while <strong>ridge recovery collapses</strong> with both noise and depth — the information is preserved, the linear attack just loses access to it. The non-linear decoder is omitted as a panel because it is <strong>affine-saturated</strong>: a properly-trained (ReZero) decoder ties ridge at shallow layers and is slightly worse at deep+noisy cells — it never beats it, so single-position residual→token recovery has ridge ≈ the tuned-lens recipe as its ceiling (<code>claim:single-position-residual-linearly-saturated</code>). Ridge recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.85 → 0.79 → 0.64 → 0.42 over L0/L5/L12/L20/L25). The new <strong>I_G</strong> panel adds the geometry-only view: it <strong>rises with depth at every ε</strong> (e.g. ε=512: 495 → 1352 bits, L0→L20) — deeper layers preserve more representation information against the input-injected noise even as the token becomes less <em>retrievable</em>. That opposite movement (recovery ↓, information ↑) is the probe↔recovery decorrelation, quantified with error bars in FIG.04.</p>
+      <p><strong>Read the plots above.</strong> Across the three probes, the token information the attacker could exploit stays high while <strong>ridge recovery collapses</strong> with both noise and depth — the information is preserved, the linear attack just loses access to it. The non-linear decoder is omitted as a panel because it is <strong>affine-saturated</strong>: a properly-trained (ReZero) decoder ties ridge at shallow layers and is slightly worse at deep+noisy cells — it never beats it, so single-position residual→token recovery has ridge ≈ the tuned-lens recipe as its ceiling (<code>claim:single-position-residual-linearly-saturated</code>). Ridge recovery falls <strong>monotonically with depth</strong> (clean: 0.999 → 0.93 → 0.89 → 0.85 → 0.71 → 0.63 over L0/L2/L4/L6/L9/L11). The <strong>I_G</strong> panel adds the geometry-only view: it <strong>rises with depth at every ε</strong> (e.g. ε=32: 200 → 297 bits, L0→L10) — deeper layers preserve more representation information against the input-injected noise even as the token becomes less <em>retrievable</em>. That opposite movement (recovery ↓, representation-information ↑) is the probe↔recovery decorrelation across depth, shown in FIG.04.</p>
     </div>
 
 
@@ -235,31 +235,39 @@
       <p>Recovery falls <strong>monotonically with depth</strong> (clean: 0.99 → 0.42 over L0→L25) and a properly-regularized non-linear decoder adds nothing at any depth, so there is <strong>no linear-vs-non-linear divergence</strong> to report here — the earlier such result was a small-data artifact (160 prompts, no early-stop), which dissolved at 512 prompts. What does move with depth is the <strong>probe↔recovery correlation</strong>: CLUB tracks the attack at shallow layers and dips at L20, and the <strong>V_cap reader decouples mid-depth</strong> (ρ falls to +0.20 by L12) — the <code>claim:depth-decoupling-input-dp</code> finding (jury PARTIAL/scoped, single seed). The token information stays present (probes high) while it becomes less linearly accessible with depth; the genuine stronger-attack axis is an LM-prior / sequence-context decode (<code>claim:single-position-residual-linearly-saturated</code> → BeamClean), not a deeper per-vector net.</p>
     </div>
 
-    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Depth profile under moderate DP (ε=512) — recovery falls, information peaks at L20 (5-seed)</h4>
-    <p class="prose">Five independent DP-noise draws at ε=512 (fixed split + probe init; mean ± std). Each series is normalized to its own maximum so the <em>shapes</em> overlay. <strong>Hard token recovery</strong> (ridge top-1) falls monotonically with depth, but every <strong>information</strong> measure — CLUB, V_cap, and the geometry-only, fitting-free <strong>I_G</strong> — <strong>peaks at L20</strong>. The L12→L20 rise is statistically separated (non-overlapping error bars) for all three, so it is <strong>not</strong> single-draw or probe-fit noise.</p>
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Depth profile under moderate DP (ε=32) — recovery/PVI/MDL fall, I_G peaks at L10</h4>
+    <p class="prose">Single DP-noise draw at ε=32 (the Pythia sweet spot: recovery still has range and the I_G rise is pronounced). Each series is normalized to its own maximum so the <em>shapes</em> overlay. <strong>Hard token recovery</strong> (ridge top-1) and the two token-identity MI probes — <strong>V_cap/PVI</strong> and the Voita <strong>class-MDL</strong> (both as perplexity) — fall monotonically with depth, but the geometry-only, fitting-free <strong>I_G</strong> (representation-channel survival) <strong>peaks at L10</strong> then drops at the final layer. This reproduces the gemma-2-2b "L20 peak" at the analogous relative depth (~83% vs ~77%): I_G is training-free, so the peak is not a probe-fit artifact, and it is the only series that peaked on either model.</p>
     <div class="plot-wrap">
-      <div class="plot-cap"><span class="l">FIG. 04 — depth profile, ε=512, 5-seed (each series ÷ its max; error bars = ±1 std)</span></div>
+      <div class="plot-cap"><span class="l">FIG. 04 — depth profile, ε=32, single seed (each series ÷ its max)</span></div>
       <div id="plot-depth" style="width:100%;height:440px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Recovery (solid, ▼) slopes down; the probe curves rise to a peak at L20. The gap between them IS the probe↔recovery decorrelation, here confirmed across seeds with a fitting-free probe.</span></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Recovery (solid, ▼) and the two token-identity probes (PVI, MDL) slope down; only I_G rises to a peak at L10 then drops at L11. The gap between recovery and I_G IS the probe↔recovery decorrelation across depth, shown here with a fitting-free probe (single seed).</span></div>
     </div>
     <div class="prose">
       <p><strong>Finding (5-seed, magnitude-controlled).</strong> Under moderate DP, token-recoverable information in the residual stream is <strong>non-monotone in depth, peaking at L20</strong>, while hard recovery falls monotonically — a real <strong>probe↔recovery decorrelation</strong>. It is corroborated by I_G, which uses <em>no fitted predictor</em>, so it is not a probe-overfitting artifact. A <strong>direction-space control</strong> (unit-normalizing each residual before I_G) keeps the L12→L20 rise (934→1274 bits, error bars separated), so the effect is <strong>structural (angular), not residual-norm growth</strong>. Interpretation: depth trades <em>input-token retrievability</em> (down) for <em>noise-robust token information</em> (up), with an <strong>L20 sweet spot</strong> — deep enough that the signal has outgrown the input-injected noise, not so deep that token identity is overwritten by output-oriented features (beyond L20 the representation keeps gaining contextual info — direction-space I_G still climbs to L25 — but CLUB/V_cap and recovery both drop, i.e. it loses token specificity). Single ε (512); the effect is largest at moderate noise and absent at ε=∞ and ε=128. <span class="mono">refine-logs/multiseed-ig/ · multiseed-ig-unit/</span></p>
     </div>
 
-    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Is the L20 peak <em>token</em> information? — direct token-class separability (Voita-style)</h4>
-    <p class="prose">The L20 peak is in I_G/CLUB, which measure <em>representation</em>-channel survival — not necessarily the survival of <strong>token identity</strong>. To test that directly we borrow the MDL-probe separability idea (Voita &amp; Titov, <a href="https://arxiv.org/abs/1909.01380">arXiv:1909.01380</a>): take a fixed closed-class set — the <em>to be</em> forms <code>{is, are, was, were}</code> — and measure how distinguishable their representation clouds are, <strong>without training the recovery attack</strong>. Two attack-independent numbers (the repo's converse + achievable pairing): a geometry-only <strong>Bhattacharyya margin</strong> (+ channel-MI ceiling) and the canonical class-probe <strong>MDL</strong> online code length. <span class="mono">probes/class_separability.py · figs/sep_separability_fig.py</span></p>
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Is the L10 peak <em>token</em> information? — direct token-class separability (Voita-style)</h4>
+    <p class="prose">The L10 peak is in I_G, which measures <em>representation</em>-channel survival — not necessarily the survival of <strong>token identity</strong>. To test that directly we borrow the MDL-probe separability idea (Voita &amp; Titov, <a href="https://arxiv.org/abs/1909.01380">arXiv:1909.01380</a>): take a fixed closed-class set — the <em>to be</em> forms <code>{is, are, was, were}</code> — and measure how distinguishable their representation clouds are, <strong>without training the recovery attack</strong>. Two attack-independent numbers (the repo's converse + achievable pairing): a geometry-only <strong>Bhattacharyya margin</strong> (+ channel-MI ceiling) and the canonical class-probe <strong>MDL</strong> online code length. <span class="mono">probes/class_separability.py · figs/sep_separability_fig.py</span></p>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 05 — {is,are,was,were} class clouds (2D PCA) across depth × ε</span><span class="r">source: refine-logs/sep-test/dp_sep_grid.json · 1200 prompts · rep2text-stratified</span></div>
+      <div class="plot-cap"><span class="l">FIG · 05 — {is,are,was,were} class clouds (2D PCA) across depth (L0/2/4/6/9/11) × ε</span><span class="r">source: refine-logs/pythia-depth/dp_leakage_sweep.json · 1800 prompts · rep2text-stratified</span></div>
       <img src="img/sep_cloud_grid.png" alt="2D PCA projections of the is/are/was/were token-class clouds across layers (columns) and ε (rows); tight separated clusters at L0 smear together with depth and stronger noise." style="width:100%;height:auto;display:block;"/>
       <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Each panel is the same four token classes at one (layer, ε); D_B is the Bhattacharyya margin. Clouds are tight and separated at L0 (the raw embedding) and smear together with depth and stronger noise — token-identity separability collapses as the representation contextualizes.</span></div>
     </div>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 06 — separability vs depth across ε (margin · MDL · channel-MI · recovery)</span><span class="r">source: refine-logs/sep-test/dp_sep_grid.json · single-seed</span></div>
+      <div class="plot-cap"><span class="l">FIG · 06 — separability vs depth across ε (margin · MDL · channel-MI · recovery)</span><span class="r">source: refine-logs/pythia-depth/dp_leakage_sweep.json · single-seed</span></div>
       <img src="img/sep_trajectory.png" alt="Four panels of separability versus layer depth, one line per ε: Bhattacharyya margin and MDL-info fall monotonically with depth, channel-MI stays pinned at log2 K until the deepest noisy cell, ridge recovery declines." style="width:100%;height:auto;display:block;"/>
-      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Both attack-independent separability measures (margin, MDL-info) fall monotonically with depth at every ε — they do <b>not</b> peak at L20. The channel-MI converse stays pinned at log₂K (classes remain Bayes-separable) until only the deepest, noisiest cell. Compare FIG.04, where I_G/CLUB <b>rise</b> to an L20 peak.</span></div>
+      <div class="plot-cap" style="margin:14px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Both attack-independent separability measures (margin, MDL-info) fall monotonically with depth at every ε — they do <b>not</b> peak at L10. The channel-MI converse stays near log₂K (classes remain Bayes-separable) until the deeper, noisier cells. Compare FIG.04, where I_G <b>rises</b> to an L10 peak.</span></div>
     </div>
     <div class="prose">
-      <p><strong>Verdict — the L20 information peak is <em>not</em> token-class information.</strong> Direct token-class separability — both the geometry-only Bhattacharyya margin and the achievable MDL code length — <strong>declines monotonically with depth</strong> at every ε, with no L20 peak; it sides with recovery, not with I_G/CLUB. The classes stay <em>Bayes</em>-separable (channel-MI ≈ log₂K) almost everywhere, but the <em>margin</em> collapses: at L0 the residual is the raw token embedding (clouds maximally distinct), and deeper layers progressively contextualize it, trading token identity for context. So the L20 peak in I_G/CLUB is <strong>representation-channel survival, not surviving token information</strong> — resolving the I_G token-vs-representation tension. <em>(Single-seed pilot, 1200 prompts; multi-seed error bars and the closed-class panel {articles, pronouns} are the queued firm-up before this becomes a formal claim.)</em></p>
+      <p><strong>Verdict — the L10 information peak is <em>not</em> token-class information.</strong> Direct token-class separability — both the geometry-only Bhattacharyya margin and the achievable MDL code length — <strong>declines monotonically with depth</strong> at every ε, with no L10 peak; it sides with recovery, not with I_G. The classes stay <em>Bayes</em>-separable (channel-MI ≈ log₂K) almost everywhere, but the <em>margin</em> collapses: at L0 the residual is the raw token embedding (clouds maximally distinct), and deeper layers progressively contextualize it, trading token identity for context. So the L10 peak in I_G is <strong>representation-channel survival, not surviving token information</strong> — resolving the I_G token-vs-representation tension, and reproducing the gemma-2-2b result (where the same separability decline undercut an L20 I_G peak) at the analogous relative depth. <em>(Single-seed, 1800 prompts; multi-seed error bars and the closed-class panel {articles, pronouns} are the queued firm-up before this becomes a formal claim.)</em></p>
+    </div>
+
+    <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Privacy–utility: the leakage ε grid sat below the usable band</h4>
+    <p class="prose">The panels above sweep ε for <em>recovery</em>; the other half of the tradeoff is <strong>utility</strong> — how much the same input-DP noise degrades the model's own output. Measured the DP-LLM-standard way (teacher-forced next-token quality vs the non-private ε=∞ baseline; Yu et al. <a href="https://arxiv.org/abs/2110.06500">2110.06500</a>, Li et al. <a href="https://arxiv.org/abs/2110.05679">2110.05679</a>, DP-Forward <a href="https://arxiv.org/abs/2309.06746">2309.06746</a>), and scale-invariant because it is referenced to each model's own clean baseline. <span class="mono">scripts/eval/dp_utility_sweep.py · refine-logs/pythia-depth/dp_utility.json</span></p>
+    <div class="plot-frame">
+      <div class="plot-cap"><span class="l">FIG · 07 — utility (next-token accuracy retention) vs ε</span><span class="r">Pythia-160M · 1800 prompts · baseline ε=∞: ppl 42.6, acc 0.341</span></div>
+      <div id="plot-utility" style="width:100%;height:420px;"></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Accuracy retention (÷ the ε=∞ baseline) vs ε on a log axis; dashed lines mark −10/−20/−50% utility, which land at ε≈247/199/110. The leakage sweep's noised points (ε=64/32/16/8) all sit <b>below ε=110</b> — past the cliff, where the model is non-functional (ε=64 = −85% utility, perplexity 69× worse, 10% next-token agreement with clean). The usable privacy–utility band is <b>ε∈[128,512]</b>, which the leakage grid never sampled.</span></div>
     </div>
   </section>
 
@@ -377,27 +385,31 @@
 <script>
 (function () {
   if (typeof Plotly === "undefined") return;
-  var EPS = ["∞", "512", "256", "128"];
-  // 512-prompt run, r3-fixed decoder (ReZero init — branch ALIVE; deviates from ridge in ~9/20
-  // cells but never beats it: tied shallow, slightly worse deep+noisy). refine-logs/dp-decoder-r3-fixed/
+  var EPS = ["∞", "64", "32", "16", "8"];
+  // Pythia-160M (12 blocks, d=768), 1800 prompts, fp32 batched capture, independent-draw DP
+  // (adversary/victim seeds disjoint). refine-logs/pythia-depth/ — ridge + PVI/I_G/MDL/sep.
+  // PVI = vcap_bits (per-token); mdl = Voita class-MDL per-token usable-info bits (= log2C·(1−1/compression)).
   var L = {
-    L0:  {ridge:[0.992,0.911,0.641,0.292], ig:[null,495,178,57],   club:[3871,2617,2023,1326], vcap:[6.46,6.21,5.54,3.86]},
-    L5:  {ridge:[0.850,0.646,0.390,0.240], ig:[null,741,213,61],   club:[2960,2274,1676,1187], vcap:[5.54,5.22,4.61,3.23]},
-    L12: {ridge:[0.792,0.646,0.391,0.329], ig:[null,1014,516,138], club:[2899,2741,1651,1147], vcap:[5.12,5.34,2.82,2.21]},
-    L20: {ridge:[0.636,0.618,0.201,0.140], ig:[null,1352,774,583], club:[3042,3349,1916,1131], vcap:[5.48,6.11,3.85,0.77]},
-    L25: {ridge:[0.420,0.485,0.160,0.081], ig:[null,1315,864,659], club:[2768,2986,1788,999],  vcap:[4.86,5.72,2.60,-0.36]}
-  };  // ig[ε=∞]=null (noiseless channel → I_G vacuous). ig at ε=512,256,128 (refine-logs/fig02-grid/)
-  var lays = ["L0","L5","L12","L20","L25"], ax = ["","2","3","4"];
-  var INK = "#14181c", GRID = "rgba(20,24,28,0.08)", RIDGE = "#c2683a", DEC = "#2f7d8a", PROBE = "#9aa0a6";
+    L0:  {ridge:[0.999,0.841,0.239,0.072,0.044], vcap:[6.602,5.729,2.295,0.288,-0.208], mdl:[7.569,7.480,4.474,0.580,-0.807], ig:[null,282.6,199.6,147.3,86.6]},
+    L2:  {ridge:[0.932,0.722,0.172,0.062,0.042], vcap:[6.582,5.787,1.796,0.154,-0.208], mdl:[7.566,7.331,2.954,-0.128,-1.766], ig:[null,314.0,245.7,192.5,129.6]},
+    L4:  {ridge:[0.891,0.628,0.135,0.056,0.041], vcap:[6.516,4.378,1.102,0.075,-0.180], mdl:[7.537,7.010,1.689,-1.694,-4.652], ig:[null,318.1,264.1,224.9,175.7]},
+    L6:  {ridge:[0.854,0.546,0.113,0.053,0.040], vcap:[6.453,4.234,1.098,0.097,-0.184], mdl:[7.504,6.709,1.502,-3.158,-4.700], ig:[null,313.3,272.4,240.5,198.8]},
+    L9:  {ridge:[0.706,0.416,0.089,0.048,0.037], vcap:[6.194,3.155,0.666,0.011,-0.211], mdl:[7.380,5.789,0.202,-2.732,-3.963], ig:[null,320.9,288.3,261.8,226.3]},
+    L11: {ridge:[0.633,0.275,0.071,0.043,0.038], vcap:[5.951,2.054,0.295,-0.120,-0.272], mdl:[7.262,4.545,-1.230,-3.922,-3.763], ig:[null,321.1,280.0,235.6,172.2]}
+  };  // ig[ε=∞]=null (noiseless channel → I_G vacuous). 6 layers chosen to show the depth slope.
+  var lays = ["L0","L2","L4","L6","L9","L11"];
+  var INK = "#14181c", GRID = "rgba(20,24,28,0.08)";
   var font = {family:"'JetBrains Mono', monospace", size:11, color:INK};
+  var pow2 = function (v) { return v == null ? null : Math.pow(2, v); };  // bits → perplexity fold
 
-  // FIG.02 — four metrics (CLUB, V_cap/PVI, I_G probe, ridge recovery) as grouped bars by layer
-  var col = {L0:"#b55831", L5:"#c98a3e", L12:"#2f7d8a", L20:"#2f5e87", L25:"#6a4c93"};
+  // FIG.02 — four metrics (MDL, V_cap/PVI, I_G, ridge recovery) as grouped bars by layer.
+  // MI probes (MDL, PVI) shown as PERPLEXITY = 2^bits (candidate-set shrink factor; >1 leaks, <1 worse-than-chance).
+  var col = {L0:"#b55831", L2:"#c98a3e", L4:"#d8b04a", L6:"#2f7d8a", L9:"#2f5e87", L11:"#6a4c93"};
   var panels = [
-    {key:"club",  title:"CLUB (bits) — probe",                    s:"",  tf:null},
-    {key:"vcap",  title:"V_cap / PVI — perplexity (2^PVI)",       s:"2", tf:function(v){return Math.pow(2,v);}},
-    {key:"ig",    title:"I_G — channel MI (bits), geometry-only probe", s:"3", tf:null},
-    {key:"ridge", title:"recovery — ridge (linear attack)",       s:"4", tf:null}
+    {key:"mdl",   title:"MDL (Voita class) — perplexity (2^bits/token)", s:"",  tf:pow2},
+    {key:"vcap",  title:"V_cap / PVI — perplexity (2^PVI)",              s:"2", tf:pow2},
+    {key:"ig",    title:"I_G — channel MI (bits), geometry-only probe",  s:"3", tf:null},
+    {key:"ridge", title:"recovery — ridge (linear attack)",             s:"4", tf:null}
   ];
   var tb = [];
   panels.forEach(function (p, pi) {
@@ -414,43 +426,69 @@
     legend:{orientation:"h", y:1.16, x:0.5, xanchor:"center", font:{size:11}},
     annotations: panels.map(function (p, i) {return {text:"<b>"+p.title+"</b>", xref:"paper", yref:"paper", x:cellB[i].x, y:cellB[i].y, xanchor:"left", showarrow:false, font:{size:12,color:INK}};})};
   ["", "2", "3", "4"].forEach(function (s, i) {
-    layB["yaxis"+s] = {gridcolor:GRID, zeroline:false, rangemode:"tozero"};
+    layB["yaxis"+s] = {gridcolor:GRID, zeroline:true, zerolinecolor:GRID};
     layB["xaxis"+s] = {gridcolor:GRID, title:(i >= 2 ? "ε  (← more noise)" : ""), type:"category"};
   });
   Plotly.newPlot("plot-metrics", tb, layB, {displayModeBar:false, responsive:true});
 
-  // FIG.03 — recovery vs CLUB bits, ε-sweep path per layer × attack (col defined above)
+  // FIG.03 — recovery vs V_cap/PVI perplexity, ε-sweep path per layer (log x; PVI replaces CLUB).
   var t2 = [];
   lays.forEach(function (k) {
-    t2.push({x:L[k].club, y:L[k].ridge, text:EPS, name:k+" ridge", mode:"lines+markers", line:{color:col[k]}, marker:{color:col[k],symbol:"circle",size:8},
-      hovertemplate:k+" ridge<br>CLUB=%{x} bits<br>recovery=%{y:.3f}<br>ε=%{text}<extra></extra>"});
+    t2.push({x:L[k].vcap.map(pow2), y:L[k].ridge, text:EPS, name:k+" ridge", mode:"lines+markers", line:{color:col[k]}, marker:{color:col[k],symbol:"circle",size:8},
+      hovertemplate:k+" ridge<br>PVI perplexity=%{x:.3g}<br>recovery=%{y:.3f}<br>ε=%{text}<extra></extra>"});
   });
   var lay2 = {height:460, margin:{t:24,r:16,b:48,l:54}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
-    xaxis:{title:"CLUB — MI upper bound (bits)", gridcolor:GRID}, yaxis:{title:"token recovery (top-1)", range:[0,1.02], gridcolor:GRID, zeroline:false},
+    xaxis:{title:"V_cap / PVI — perplexity 2^PVI  (→ more usable token info)", type:"log", gridcolor:GRID}, yaxis:{title:"token recovery (top-1)", range:[0,1.02], gridcolor:GRID, zeroline:false},
     legend:{font:{size:10}}};
   Plotly.newPlot("plot-scatter", t2, lay2, {displayModeBar:false, responsive:true});
 
-  // FIG.04 — depth profile at ε=512, 5-seed (mean±std); each series normalized to its own max.
-  var DL = [0, 5, 12, 20, 25];
+  // FIG.04 — depth profile at ε=32 (all 12 layers, single seed); each series normalized to its own max.
+  // MI probes as perplexity (2^bits). I_G peaks at L10 (representation survival); the rest decline monotonically.
+  var DL = [0,1,2,3,4,5,6,7,8,9,10,11];
   var DEPTH = {
-    recovery: {m:[0.905,0.660,0.647,0.616,0.499], s:[0.004,0.003,0.003,0.015,0.016], c:"#c2683a", dash:"solid",  sym:"triangle-down", nm:"recovery (ridge top-1)"},
-    club:     {m:[2674,2313,2689,3231,2915],      s:[16,40,32,44,31],                c:"#2f7d8a", dash:"dot",    sym:"circle",        nm:"CLUB"},
-    vcap:     {m:[6.17,5.22,5.35,6.10,5.67],       s:[0.02,0.02,0.05,0.01,0.03],      c:"#2f5e87", dash:"dash",   sym:"square",        nm:"V_cap (PVI)"},
-    ig:       {m:[495,743,1016,1353,1318],         s:[0.2,1.8,2.1,4.7,2.1],           c:"#6a4c93", dash:"dashdot",sym:"diamond",       nm:"I_G (geometry-only)"}
+    recovery: {m:[0.239,0.209,0.172,0.147,0.135,0.121,0.113,0.107,0.096,0.089,0.082,0.071], c:"#c2683a", dash:"solid",  sym:"triangle-down", nm:"recovery (ridge top-1)", tf:null},
+    mdl:      {m:[4.474,3.951,2.954,1.962,1.689,1.853,1.502,1.296,0.934,0.202,-0.46,-1.23], c:"#2f7d8a", dash:"dot",    sym:"circle",        nm:"MDL perplexity (2^bits)", tf:pow2},
+    vcap:     {m:[2.295,2.253,1.796,0.873,1.102,1.154,1.098,0.917,0.815,0.666,0.501,0.295], c:"#2f5e87", dash:"dash",   sym:"square",        nm:"V_cap/PVI perplexity (2^PVI)", tf:pow2},
+    ig:       {m:[199.6,216.7,245.7,254.5,264.1,264.8,272.4,277.4,285.0,288.3,296.8,280.0], c:"#6a4c93", dash:"dashdot",sym:"diamond",       nm:"I_G (geometry-only)", tf:null}
   };
   var t3 = Object.keys(DEPTH).map(function (k) {
-    var d = DEPTH[k], mx = Math.max.apply(null, d.m);
-    return {x:DL, y:d.m.map(function (v){return v/mx;}), name:d.nm, mode:"lines+markers",
-      line:{color:d.c, dash:d.dash, width:2}, marker:{color:d.c, symbol:d.sym, size:8},
-      error_y:{type:"data", array:d.s.map(function (v){return v/mx;}), visible:true, thickness:1, width:3, color:d.c},
+    var d = DEPTH[k], m = d.tf ? d.m.map(d.tf) : d.m, mx = Math.max.apply(null, m);
+    return {x:DL, y:m.map(function (v){return v/mx;}), name:d.nm, mode:"lines+markers",
+      line:{color:d.c, dash:d.dash, width:2}, marker:{color:d.c, symbol:d.sym, size:7},
       hovertemplate:d.nm+"<br>L%{x}<br>norm=%{y:.3f}<extra></extra>"};
   });
   var lay3 = {height:440, margin:{t:16,r:16,b:48,l:54}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
-    xaxis:{title:"layer (observation depth)", gridcolor:GRID, tickvals:DL, zeroline:false},
+    xaxis:{title:"layer (observation depth) · ε=32", gridcolor:GRID, tickvals:DL, zeroline:false},
     yaxis:{title:"value ÷ series max", gridcolor:GRID, rangemode:"tozero", zeroline:false},
     legend:{orientation:"h", y:1.12, x:0.5, xanchor:"center", font:{size:10}},
-    annotations:[{x:20, y:1.02, xref:"x", yref:"paper", text:"L20 peak", showarrow:false, font:{size:11, color:INK}}]};
+    annotations:[{x:10, y:1.02, xref:"x", yref:"paper", text:"L10 I_G peak", showarrow:false, font:{size:11, color:INK}}]};
   Plotly.newPlot("plot-depth", t3, lay3, {displayModeBar:false, responsive:true});
+})();
+</script>
+<script>
+// FIG.07 — utility (next-token accuracy retention) vs ε, per model scale (DP-lit cross-scale view).
+(function () {
+  if (typeof Plotly === "undefined") return;
+  var INK = "#14181c", GRID = "rgba(20,24,28,0.08)";
+  var font = {family:"'JetBrains Mono', monospace", size:11, color:INK};
+  // ε ascending (→ more budget, less noise); retention = acc(ε)/acc(∞). 1.4B trace added when its run lands.
+  var UTIL = {
+    "Pythia-160M": {eps:[8,16,32,64,128,256,512], reten:[0.033,0.029,0.038,0.145,0.596,0.917,0.984], c:"#c2683a", sym:"circle"}
+  };
+  var tr = Object.keys(UTIL).map(function (k) {
+    var d = UTIL[k];
+    return {x:d.eps, y:d.reten, name:k, mode:"lines+markers", line:{color:d.c, width:2},
+      marker:{color:d.c, symbol:d.sym, size:7},
+      hovertemplate:k+"<br>ε=%{x}<br>retention=%{y:.3f}<extra></extra>"};
+  });
+  var thr = [{y:0.90, t:"−10% utility · ε≈247"}, {y:0.80, t:"−20% · ε≈199"}, {y:0.50, t:"−50% · ε≈110"}];
+  var shapes = thr.map(function (h) {return {type:"line", xref:"paper", x0:0, x1:1, y0:h.y, y1:h.y, line:{color:"#999", dash:"dot", width:1}};});
+  var anns = thr.map(function (h) {return {xref:"paper", x:0.99, xanchor:"right", y:h.y, yref:"y", yshift:8, text:h.t, showarrow:false, font:{size:9, color:"#666"}};});
+  var lay = {height:420, margin:{t:16, r:16, b:48, l:58}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    xaxis:{title:"ε  (→ more budget, less noise)", type:"log", gridcolor:GRID, zeroline:false},
+    yaxis:{title:"next-token accuracy retention (÷ ε=∞)", range:[0,1.05], gridcolor:GRID, zeroline:false},
+    shapes:shapes, annotations:anns, legend:{font:{size:10}, x:0.02, y:0.05, xanchor:"left"}};
+  Plotly.newPlot("plot-utility", tr, lay, {displayModeBar:false, responsive:true});
 })();
 </script>
 </body>
