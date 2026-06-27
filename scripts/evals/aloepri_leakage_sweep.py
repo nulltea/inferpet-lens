@@ -47,12 +47,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for defenses.*, evals.*
 
 from defenses.aloepri import keymat_gen, reparam_pythia  # noqa: E402
-from evals.dp_leakage_sweep import ATTACKS as _ATTACKS, _spearman, _stack, capture, probe_club, probe_vcap  # noqa: E402
+from evals.dp_leakage_sweep import (ATTACKS as _ATTACKS, _spearman, _stack, capture,  # noqa: E402
+                                    probe_club, probe_mdl, probe_vcap)
 from talens.attacks.dp_inversion import nn_attack  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 ATTACKS = {**_ATTACKS, "nn": nn_attack}            # + NN (training-free cosine-NN, paper §F.1)
-PROBES = {"club": probe_club, "vcap": probe_vcap}
+PROBES = {"club": probe_club, "vcap": probe_vcap, "mdl": probe_mdl}
 
 
 def _parse_config(spec: str):
@@ -64,6 +65,9 @@ def _parse_config(spec: str):
     if spec.startswith("full_alg1"):
         alpha = float(spec.split("@", 1)[1]) if "@" in spec else 1.0
         return spec, dict(config="full_alg1", alpha_e=alpha, alpha_h=0.0)
+    if spec.startswith("alg2"):
+        alpha = float(spec.split("@", 1)[1]) if "@" in spec else 0.0
+        return spec, dict(config="alg2", alpha_e=alpha, alpha_h=0.0)
     raise ValueError(f"unknown config spec {spec!r}")
 
 
