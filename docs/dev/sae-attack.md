@@ -389,13 +389,13 @@ tool **only** on the pooled/single-vector surface.
 
 **Clean implementation** (kept OUT of the core `talens` library — heavy external
 dep, non-`CaptureSet` surface; per the two-part library/eval-scripts convention):
-- `scripts/eval/vec2text_attack.py` — `Vec2TextAttack` handler: `embed`,
+- `scripts/evals/vec2text/vec2text_attack.py` — `Vec2TextAttack` handler: `embed`,
   `canonicalize` (32-tok Morris regime), `invert(num_steps, beam)`, `score`
   (BLEU/token-F1/exact/cos), plus `dp_noise` / `gaussian_sigma` (the **external** DP
   defense on the released embedding — clip to C, add `N(0,σ²)`, `σ=C·z/ε`).
-- `scripts/eval/vec2text_dp_eval.py` — leakage-vs-ε eval + matched-probe test:
+- `scripts/evals/vec2text/vec2text_dp_eval.py` — leakage-vs-ε eval + matched-probe test:
   ```
-  scripts/run_in_rocm.sh python3 scripts/eval/vec2text_dp_eval.py \
+  scripts/run_in_rocm.sh python3 scripts/evals/vec2text/vec2text_dp_eval.py \
       --n 128 --num-steps 20 --beam 1 --epsilons inf,1024,512,256,128 --base
   ```
 

@@ -4,7 +4,7 @@ status: current
 created: 2026-06-26
 updated: 2026-06-26
 tags: [mi-probe, club, pvi, v-information, mdl, configuration, dp, pythia, l20-peak, voita]
-companion: scripts/evals/dp_leakage_sweep.py
+companion: scripts/evals/dp/dp_leakage_sweep.py
 ---
 
 # Correct configuration of the token-MI probes (CLUB · PVI · MDL) for the DP×depth study

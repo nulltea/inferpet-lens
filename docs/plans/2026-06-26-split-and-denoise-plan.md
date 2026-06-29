@@ -254,7 +254,7 @@ git commit -m "feat(defenses): SnD noise-aware transformer Denoiser"
 ### Task 3: utility-recovery metric helpers
 
 **Files:**
-- Create: `scripts/evals/snd_utility_sweep.py` (helpers first; main in Task 4)
+- Create: `scripts/evals/dp/snd_utility_sweep.py` (helpers first; main in Task 4)
 - Test: `tests/test_snd.py`
 
 **Interfaces:**
@@ -308,7 +308,7 @@ utility cost; the denoiser does not touch that surface). Privacy axis stays in d
 
 GPU: ONE process at a time; run via scripts/run_in_rocm.sh. Output JSON under refine-logs/snd/.
 
-  scripts/run_in_rocm.sh python3 scripts/evals/snd_utility_sweep.py \
+  scripts/run_in_rocm.sh python3 scripts/evals/dp/snd_utility_sweep.py \
       --etas inf,100,50,10,1 --train-etas 50,10,1 --out refine-logs/snd/snd_utility_sweep.json
 """
 from __future__ import annotations
@@ -342,7 +342,7 @@ Expected: PASS (7 tests)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/evals/snd_utility_sweep.py tests/test_snd.py
+git add scripts/evals/dp/snd_utility_sweep.py tests/test_snd.py
 git commit -m "feat(eval): SnD utility-recovery metric helpers"
 ```
 
@@ -351,7 +351,7 @@ git commit -m "feat(eval): SnD utility-recovery metric helpers"
 ### Task 4: SnD sweep — capture, denoiser train, η sweep, JSON
 
 **Files:**
-- Modify: `scripts/evals/snd_utility_sweep.py` (add capture, training, main)
+- Modify: `scripts/evals/dp/snd_utility_sweep.py` (add capture, training, main)
 
 **Interfaces:**
 - Consumes: `DxPrivacy`, `Denoiser` (Task 1/2), `recovery_metrics` (Task 3).
@@ -359,7 +359,7 @@ git commit -m "feat(eval): SnD utility-recovery metric helpers"
 
 - [ ] **Step 1: Add capture + pooled-embedding + denoiser-training + main**
 
-Append to `scripts/evals/snd_utility_sweep.py`:
+Append to `scripts/evals/dp/snd_utility_sweep.py`:
 
 ```python
 import argparse, json, math, sys
@@ -561,7 +561,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Verify it imports and arg-parses (CPU, no run)**
 
-Run: `.venv/bin/python -c "import sys; sys.argv=['x','--help']; exec(open('scripts/evals/snd_utility_sweep.py').read())" 2>&1 | head -5`
+Run: `.venv/bin/python -c "import sys; sys.argv=['x','--help']; exec(open('scripts/evals/dp/snd_utility_sweep.py').read())" 2>&1 | head -5`
 Expected: argparse help text prints (no import/syntax error).
 
 - [ ] **Step 3: Re-run the unit tests (helpers unchanged)**
@@ -572,7 +572,7 @@ Expected: PASS (7 tests)
 - [ ] **Step 4: Commit**
 
 ```bash
-git add scripts/evals/snd_utility_sweep.py
+git add scripts/evals/dp/snd_utility_sweep.py
 git commit -m "feat(eval): SnD utility-recovery sweep (dχ capture + denoiser train + η sweep)"
 ```
 
@@ -592,7 +592,7 @@ Expected: `True`
 
 Run:
 ```bash
-scripts/run_in_rocm.sh python3 scripts/evals/snd_utility_sweep.py \
+scripts/run_in_rocm.sh python3 scripts/evals/dp/snd_utility_sweep.py \
     --max-prompts 40 --train-frac 0.5 --etas inf,50,1 --train-etas 10 --epochs 1 \
     --out refine-logs/snd/_smoke.json
 ```
@@ -602,7 +602,7 @@ Expected: prints per-η lines; writes `_smoke.json`; `cos_denoised` finite; no c
 
 Run:
 ```bash
-scripts/run_in_rocm.sh python3 scripts/evals/snd_utility_sweep.py \
+scripts/run_in_rocm.sh python3 scripts/evals/dp/snd_utility_sweep.py \
     --etas inf,100,50,10,1,0.1 --train-etas 50,10,1 --epochs 2 \
     --out refine-logs/snd/snd_utility_sweep.json
 ```

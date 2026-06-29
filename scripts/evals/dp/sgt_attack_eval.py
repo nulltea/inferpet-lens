@@ -20,16 +20,16 @@ Reads:
 
 Covariance ``Σ`` is estimated from a LARGE clean pool (cheap, no attack) so it is full-rank;
 Vec2Text recovery is evaluated on a held-out subset. Run in the ROCm container:
-    scripts/run_in_rocm.sh python3 scripts/eval/sgt_attack_eval.py --pool-n 1200 --eval-n 96
+    scripts/run_in_rocm.sh python3 scripts/evals/sgt_attack_eval.py --pool-n 1200 --eval-n 96
 """
 from __future__ import annotations
 
 import argparse, json, math, os, sys, time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))
-sys.path.insert(0, str(REPO / "scripts" / "eval"))
+sys.path.insert(0, str(REPO / "scripts" / "evals" / "vec2text"))
 sys.path.insert(0, str(REPO / "scripts" / "defenses"))
 import numpy as np  # noqa: E402
 from vec2text_attack import Vec2TextAttack  # noqa: E402

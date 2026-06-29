@@ -39,8 +39,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for defenses.*
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # scripts/ for defenses.*
 from talens.probes.club import club_mi_upper_bound  # noqa: E402
 from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 from talens.report import perplexity_from_bits  # noqa: E402
@@ -109,7 +109,7 @@ def _vcap_ppl(pvi, y):
     return perplexity_from_bits(min(max(h_prior - pvi, 0.0), h_prior))
 
 
-def probe_vcap(X, E, y, K, **_):
+def probe_vcap(X, E, y, K, *, fit_X=None, fit_y=None, **_):
     """V_cap capacity-matched predictive V-information (bits) + a readable reader readout.
 
     Emits TWO families on the SAME (X, y) to adjudicate whether the k=64 PCA reduction discards
@@ -120,9 +120,13 @@ def probe_vcap(X, E, y, K, **_):
     gauss ≥ pca ⇒ PCA-64 was discarding signal (use gauss as the no-truncation reference); they
     agree ⇒ the k=64 capacity bound was the whole story. Readout: reader_top1_acc + perplexity.
     H_prior is the EMPIRICAL token-label entropy (PVI is anchored to the empirical prior, not log₂K).
-    """
-    r = v_information_capacity(X, y, family="pca_softmax", dim=64, l2=0.1)
-    g = v_information_capacity(X, y, family="gauss", dim=768)  # clamped to n-1: full-rank, no trunc
+
+    `fit_X` / `fit_y` (optional): the attack-accessible (representation, label) pairs the reader is
+    allowed to train on. Omit for attacker-reproducible releases (DP); supply synthetic own-key reps
+    for secret-key schemes so the probe is scored on the released X but never trains on a
+    deployment-basis true-label pair the attack could not obtain. See v_information_capacity."""
+    r = v_information_capacity(X, y, family="pca_softmax", dim=64, l2=0.1, fit_X=fit_X, fit_y=fit_y)
+    g = v_information_capacity(X, y, family="gauss", dim=768, fit_X=fit_X, fit_y=fit_y)  # full-rank, no trunc
     pvi = r.get("v_information_bits")
     return {"bits": pvi, "bits_kind": "capacity_v_info",
             "reader_top1_acc": r.get("reader_top1_acc"), "perplexity": _vcap_ppl(pvi, y),

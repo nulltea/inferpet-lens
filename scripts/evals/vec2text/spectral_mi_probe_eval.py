@@ -9,7 +9,7 @@ C1 Spearman(probe, recovery) over ε and the C2 Fano/RD ceilings (with explicit,
 flagged H_X/H_e0 proxies). Geometry-only: I_G never sees the attack.
 
 Run inside the ROCm container (see vec2text-rocm dependency recipe):
-    scripts/run_in_rocm.sh python3 scripts/eval/spectral_mi_probe_eval.py --n 96
+    scripts/run_in_rocm.sh python3 scripts/evals/spectral_mi_probe_eval.py --n 96
 """
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ import argparse, json, math, os, sys, time
 from collections import Counter
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))
-sys.path.insert(0, str(REPO / "scripts" / "eval"))
+sys.path.insert(0, str(REPO / "scripts" / "evals" / "vec2text"))
 import numpy as np  # noqa: E402
 from vec2text_attack import Vec2TextAttack, dp_noise, gaussian_sigma, normalize_text  # noqa: E402
 from talens.probes.club import club_mi_upper_bound  # noqa: E402

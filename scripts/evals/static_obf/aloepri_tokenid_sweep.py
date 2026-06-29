@@ -33,8 +33,8 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for defenses.*
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # scripts/ for defenses.*
 
 from defenses.aloepri import m1_randomized_response  # noqa: E402
 from talens.attacks.token_frequency import sda_recover, tfma_recover  # noqa: E402

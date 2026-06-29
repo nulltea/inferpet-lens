@@ -63,7 +63,7 @@ final layer → linear `R^d→R^d` → `e_d`. Padding tokens masked via `src_key
 One model serves the whole η sweep (it conditions on `Z`, so it is noise-level aware). Per-η-group
 denoisers (paper §A.5.3) are **deliberately skipped** — add only if recovery collapses at extreme η.
 
-### 3. Utility-recovery eval — `scripts/evals/snd_utility_sweep.py`
+### 3. Utility-recovery eval — `scripts/evals/dp/snd_utility_sweep.py`
 
 Config-driven sweep that only orchestrates `DxPrivacy` + `Denoiser` + capture.
 

@@ -46,6 +46,7 @@
         <span class="navgroup-label">defenses</span>
         <div class="navgroup-menu">
           <a class="current" href="resid-dp-attacks.html">differential privacy</a>
+          <a href="static-obf.html">static obfuscation (AloePri)</a>
           <a href="resid-gelo.html">GELO</a>
           <a href="resid-split.html">split inference (PriPert)</a>
           <a href="embed-sgt.html">Stained Glass</a>
@@ -191,7 +192,7 @@
       </svg>
     </div>
     <div class="prose">
-      <p>For each surface we run the <strong>measurement loop</strong>: (1) run an attack on the released representation → graded recovery; (2) run an attack-<em>independent</em> probe on the same representation → bits; (3) sweep the DP budget ε; (4) test whether bits and recovery correlate across the sweep. The probes never consume the attack's output, so any correlation is real, not circular. The residual sweep (§04) reads all four arms — CLUB, V_cap, ridge, decoder — from one tool, <code>scripts/evals/dp_leakage_sweep.py</code>, so the numbers splice into one table.</p>
+      <p>For each surface we run the <strong>measurement loop</strong>: (1) run an attack on the released representation → graded recovery; (2) run an attack-<em>independent</em> probe on the same representation → bits; (3) sweep the DP budget ε; (4) test whether bits and recovery correlate across the sweep. The probes never consume the attack's output, so any correlation is real, not circular. The residual sweep (§04) reads all four arms — CLUB, V_cap, ridge, decoder — from one tool, <code>scripts/evals/dp/dp_leakage_sweep.py</code>, so the numbers splice into one table.</p>
     </div>
   </section>
 
@@ -263,7 +264,7 @@
     </div>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Privacy–utility: the leakage ε grid sat below the usable band</h4>
-    <p class="prose">The panels above sweep ε for <em>recovery</em>; the other half of the tradeoff is <strong>utility</strong> — how much the same input-DP noise degrades the model's own output. Measured the DP-LLM-standard way (teacher-forced next-token quality vs the non-private ε=∞ baseline; Yu et al. <a href="https://arxiv.org/abs/2110.06500">2110.06500</a>, Li et al. <a href="https://arxiv.org/abs/2110.05679">2110.05679</a>, DP-Forward <a href="https://arxiv.org/abs/2309.06746">2309.06746</a>), and scale-invariant because it is referenced to each model's own clean baseline. <span class="mono">scripts/eval/dp_utility_sweep.py · refine-logs/pythia-depth/dp_utility.json</span></p>
+    <p class="prose">The panels above sweep ε for <em>recovery</em>; the other half of the tradeoff is <strong>utility</strong> — how much the same input-DP noise degrades the model's own output. Measured the DP-LLM-standard way (teacher-forced next-token quality vs the non-private ε=∞ baseline; Yu et al. <a href="https://arxiv.org/abs/2110.06500">2110.06500</a>, Li et al. <a href="https://arxiv.org/abs/2110.05679">2110.05679</a>, DP-Forward <a href="https://arxiv.org/abs/2309.06746">2309.06746</a>), and scale-invariant because it is referenced to each model's own clean baseline. <span class="mono">scripts/evals/dp/dp_utility_sweep.py · refine-logs/pythia-depth/dp_utility.json</span></p>
     <div class="plot-frame">
       <div class="plot-cap"><span class="l">FIG · 07 — utility (next-token accuracy retention) vs ε</span><span class="r">Pythia-160M · 1800 prompts · baseline ε=∞: ppl 42.6, acc 0.341</span></div>
       <div id="plot-utility" style="width:100%;height:420px;"></div>
@@ -353,7 +354,7 @@
     <div>
       <h5>Code &amp; data</h5>
       <ul>
-        <li><code>scripts/evals/dp_leakage_sweep.py</code> · reusable sweep</li>
+        <li><code>scripts/evals/dp/dp_leakage_sweep.py</code> · reusable sweep</li>
         <li><code>refine-logs/dp-decoder-r3-fixed/dp_leakage_sweep.json</code> · §04</li>
         <li><code>refine-logs/bnn-error-bounds/</code> · §05 BNN</li>
         <li><code>results/v2t_dp_sweep.json</code> · §05 Vec2Text</li>

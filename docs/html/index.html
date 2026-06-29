@@ -46,6 +46,7 @@
         <span class="navgroup-label">defenses</span>
         <div class="navgroup-menu">
           <a href="resid-dp-attacks.html">differential privacy</a>
+          <a href="static-obf.html">static obfuscation (AloePri)</a>
           <a href="resid-gelo.html">GELO</a>
           <a href="resid-split.html">split inference (PriPert)</a>
           <a href="embed-sgt.html">Stained Glass</a>
@@ -164,6 +165,19 @@
           <dt>attack</dt><dd>joint-diagonalization source separation and amortized ridge inversion</dd>
           <dt>finding</dt><dd>fresh row mixing defeats per-row source separation and amortized inversion, but an orthogonal mixing exposes the exact feature Gram; the whitened-row negentropy probe does not track the separation margin (0.29 to 0.51), which locates the leak in a feature-Gram channel the probe does not read</dd>
           <dt>read</dt><dd><a href="resid-gelo.html">GELO defense →</a></dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <span class="tag client">multi-surface · defense</span>
+        <h3>Static obfuscation (AloePri)</h3>
+        <p class="one">A static covariant re-parameterization measured across four surfaces under a no-key, no-paired-data threat model.</p>
+        <dl>
+          <dt>secret</dt><dd>token behind obfuscated residuals, attention scores, per-head value coordinates, weights, and the token-id wire</dd>
+          <dt>probe</dt><dd>mutual-information family on the residual (flat across the lossless basis change)</dd>
+          <dt>attack</dt><dd>multi-key blind ridge, score and value inverters, VMA, ArrowMatch, TFMA and SDA</dd>
+          <dt>finding</dt><dd>the key material is access control, not information hiding: plaintext, keymat, and Algorithm 2 without noise give identical recovery on the value surface, so the orthogonal rotation is absorbed by a matched attacker; the in-model multi-key blind stays under the gate; the only information-theoretic lever is the additive noise</dd>
+          <dt>read</dt><dd><a href="static-obf.html">static obfuscation →</a></dd>
         </dl>
       </div>
 
@@ -341,7 +355,7 @@
         <li><em>attacks</em> · <a href="resid-rep2text.html">Rep2Text inversion</a> · <a href="resid-depth-inversion.html">depth inversion</a></li>
         <li><a href="vec2text.html">Vec2Text inversion</a> · <a href="bnn-attack.html">Bayes-NN bounds</a></li>
         <li><a href="kv-accumulation.html">KV/QKV source separation</a></li>
-        <li><em>defenses</em> · <a href="resid-dp-attacks.html">differential privacy</a> · <a href="resid-gelo.html">GELO</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
+        <li><em>defenses</em> · <a href="resid-dp-attacks.html">differential privacy</a> · <a href="static-obf.html">static obfuscation (AloePri)</a> · <a href="resid-gelo.html">GELO</a> · <a href="resid-split.html">split inference (PriPert)</a></li>
         <li><a href="embed-sgt.html">Stained Glass</a> · <a href="kv-cloak.html">KV-Cloak</a> · <a href="perm-cover.html">permutation cover</a></li>
       </ul>
     </div>

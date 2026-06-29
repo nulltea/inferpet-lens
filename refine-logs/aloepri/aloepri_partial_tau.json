@@ -1,0 +1,153 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 160,
+  "surface": "residual_activations",
+  "defense": "aloepri_covariant_obfuscation",
+  "config": "keymat_only",
+  "keymat": {
+    "h": 128,
+    "lam": 0.3,
+    "seed": 0
+  },
+  "n_keys_aug": 16,
+  "order": "freq",
+  "label_noise": 0.0,
+  "release_gate_ttrsr": 0.15,
+  "note": "Two-stage cascade: harvest \u03c4 for top-k frequency token TYPES (oracle labels unless label_noise>0), train ridge on those deployment-basis pairs (+ blind multi-key synthetic aug), score recovery on the HELD-OUT unharvested types. unharvested = generalization (the bootstrap signal); k=0 = blind baseline. freq order = realistic TFMA priority; random = low-diversity control. Same cascade primitive is generic over the target rep (residual here; pass obf table rows for IMA-EmbedRow).",
+  "layers": [
+    0,
+    6
+  ],
+  "ks": [
+    0,
+    20,
+    100,
+    293,
+    313,
+    1024
+  ],
+  "pool_size": 2048,
+  "records": [
+    {
+      "layer": 0,
+      "k": 0,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.013451327433628318,
+      "harvested": null,
+      "n_harv_types": 0,
+      "n_held": 2825
+    },
+    {
+      "layer": 0,
+      "k": 20,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0,
+      "harvested": 0.9722222222222222,
+      "n_harv_types": 20,
+      "n_held": 1889
+    },
+    {
+      "layer": 0,
+      "k": 100,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0006915629322268327,
+      "harvested": 0.8411892675852066,
+      "n_harv_types": 100,
+      "n_held": 1446
+    },
+    {
+      "layer": 0,
+      "k": 293,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0029296875,
+      "harvested": 0.7518045530260966,
+      "n_harv_types": 293,
+      "n_held": 1024
+    },
+    {
+      "layer": 0,
+      "k": 313,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.00398406374501992,
+      "harvested": 0.7468423942888522,
+      "n_harv_types": 313,
+      "n_held": 1004
+    },
+    {
+      "layer": 0,
+      "k": 1024,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.12627986348122866,
+      "harvested": 0.6911532385466035,
+      "n_harv_types": 1024,
+      "n_held": 293
+    },
+    {
+      "layer": 6,
+      "k": 0,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0038938053097345134,
+      "harvested": null,
+      "n_harv_types": 0,
+      "n_held": 2825
+    },
+    {
+      "layer": 6,
+      "k": 20,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0,
+      "harvested": 0.8653846153846154,
+      "n_harv_types": 20,
+      "n_held": 1889
+    },
+    {
+      "layer": 6,
+      "k": 100,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0,
+      "harvested": 0.6831036983321247,
+      "n_harv_types": 100,
+      "n_held": 1446
+    },
+    {
+      "layer": 6,
+      "k": 293,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.0009765625,
+      "harvested": 0.5791227096057746,
+      "n_harv_types": 293,
+      "n_held": 1024
+    },
+    {
+      "layer": 6,
+      "k": 313,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.00099601593625498,
+      "harvested": 0.5777045579352005,
+      "n_harv_types": 313,
+      "n_held": 1004
+    },
+    {
+      "layer": 6,
+      "k": 1024,
+      "order": "freq",
+      "label_noise": 0.0,
+      "unharvested": 0.023890784982935155,
+      "harvested": 0.5114533965244866,
+      "n_harv_types": 1024,
+      "n_held": 293
+    }
+  ]
+}

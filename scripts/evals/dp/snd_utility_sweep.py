@@ -41,24 +41,6 @@ def route_eta(eta, reps):
     return int(min(range(len(reps)), key=lambda i: abs(_m.log(eta) - _m.log(reps[i]))))
 
 
-def recovery_metrics(e_c, e_n, e_d) -> dict:
-    """cos/MSE of noised & denoised pooled embeddings vs clean, and the fraction of the gap closed."""
-    def _cos(a, b):
-        a = a / (np.linalg.norm(a, axis=1, keepdims=True) + 1e-9)
-        b = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-9)
-        return float((a * b).sum(1).mean())
-
-    cos_n, cos_d = _cos(e_n, e_c), _cos(e_d, e_c)
-    mse_n = float(((e_n - e_c) ** 2).mean())
-    mse_d = float(((e_d - e_c) ** 2).mean())
-    return {
-        "cos_noised": cos_n, "cos_denoised": cos_d,
-        "mse_noised": mse_n, "mse_denoised": mse_d,
-        "recovery_cos": (cos_d - cos_n) / (1 - cos_n) if (1 - cos_n) > 1e-9 else 0.0,
-        "recovery_mse": 1 - mse_d / mse_n if mse_n > 1e-12 else 0.0,
-    }
-
-
 import argparse  # noqa: E402
 import json  # noqa: E402
 import math  # noqa: E402
@@ -67,8 +49,12 @@ from pathlib import Path  # noqa: E402
 
 import torch  # noqa: E402
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))          # scripts/ for defenses.*
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))  # talens.*
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))          # scripts/ for defenses.*
 from defenses.snd import DxPrivacy, Denoiser                          # noqa: E402
+from talens.probes.utility import (  # noqa: E402  (standardized utility probes; comparable across schemes)
+    teacher_forced_pass, next_token_accuracy, perplexity, output_agreement,
+    embedding_recovery, retention_thresholds)
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -149,8 +135,8 @@ def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, se
                    residual=True, lr=1e-3, cos_weight=1.0, patience=4, val_frac=0.15, n_groups=3):
     """Train per-η-GROUP noise-aware denoisers (paper §A.5.3) on (e_n, X̃, Z, e_c). Returns
     (dens, μ, σ, reps): one Denoiser per group, the shared standardizer, and group representatives
-    for routing (route_eta). e_c/X captured once (clean); a fresh noise draw per epoch (augmentation),
-    shared across groups within the epoch.
+    for routing (route_eta). e_c/X captured once (clean); each train-η's noised set captured once and
+    reused across epochs (shared across groups).
 
     Pooled embeddings are STANDARDIZED per-dim by clean-TRAIN stats (μ,σ): LLM hidden states are
     anisotropic (a few outlier dims dominate raw L2/cosine), so raw-space recovery is degenerate
@@ -161,7 +147,7 @@ def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, se
     N = len(prompts)
     rng = np.random.default_rng(seed)
     shuf = rng.permutation(N)
-    nval = max(batch_size, int(val_frac * N))
+    nval = min(max(1, int(val_frac * N)), N - 1)   # ≥1 val, always leave ≥1 train (robust for small N)
     val_idx, tr_idx = shuf[:nval], shuf[nval:]
     if standardize:
         mu, sd = e_c[tr_idx].mean(0), e_c[tr_idx].std(0) + 1e-6     # stats from TRAIN split only
@@ -200,12 +186,16 @@ def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, se
                     tot += loss.item(); nb += 1
         return tot / max(1, nb)
 
+    # capture each train-η's noised set ONCE and reuse across epochs (standard multi-epoch training on
+    # a fixed set). Capturing inside the epoch loop re-ran a full model forward per η per epoch — the
+    # dominant cost (≈7× slower) for noise augmentation we don't need at this corpus size.
+    caps_s = {}
+    for eta in unique_etas:
+        e_n, Xt = capture_pooled(model, tok, prompts, eta, C, batch_size, max_tokens)
+        caps_s[eta] = (((e_n - mu) / sd).astype(np.float32), Xt)
+
     for ep in range(epochs):
         lr_now = _lr_at(ep, epochs, lr)
-        caps_s = {}                                  # fresh noise draw this epoch, shared across groups
-        for eta in unique_etas:
-            e_n, Xt = capture_pooled(model, tok, prompts, eta, C, batch_size, max_tokens)
-            caps_s[eta] = (((e_n - mu) / sd).astype(np.float32), Xt)
         msg = []
         for gi, g in enumerate(groups):
             if bad[gi] > patience:                   # frozen (early-stopped)
@@ -228,27 +218,6 @@ def train_denoiser(model, tok, prompts, train_etas, C, d, epochs, batch_size, se
             dens[gi].load_state_dict(best_state[gi])
         dens[gi].eval()
     return dens, mu.astype(np.float32), sd.astype(np.float32), reps
-
-
-@torch.no_grad()
-def utility_pass(model, tok, prompts, eta, C, batch_size, max_tokens=64):
-    """Teacher-forced perplexity + next-token top-1 acc under the dχ hook (eta=inf ⇒ clean)."""
-    hk = None if math.isinf(eta) else model.get_input_embeddings().register_forward_hook(DxPrivacy(C, eta))
-    ce_sum, n_tok, n_corr = 0.0, 0, 0
-    try:
-        for i in range(0, len(prompts), batch_size):
-            enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True,
-                      truncation=True, max_length=max_tokens)
-            ids, mask = enc.input_ids.to(DEV), enc.attention_mask.to(DEV)
-            logits = model(ids, attention_mask=mask, use_cache=False).logits.float()
-            pred, tgt, m = logits[:, :-1], ids[:, 1:], mask[:, 1:].bool()
-            lp = torch.log_softmax(pred, -1).gather(-1, tgt.unsqueeze(-1)).squeeze(-1)
-            ce_sum += float(-(lp[m]).sum()); n_tok += int(m.sum())
-            n_corr += int((pred.argmax(-1)[m] == tgt[m]).sum())
-    finally:
-        if hk is not None:
-            hk.remove()
-    return math.exp(ce_sum / max(1, n_tok)), n_corr / max(1, n_tok)
 
 
 def main():
@@ -331,7 +300,9 @@ def main():
         torch.cuda.empty_cache()
     e_c, Xc = capture_pooled(model, tok, te_prompts, math.inf, C, args.batch_size, args.max_tokens)  # clean test
     e_c_s = ((e_c - mu) / sd).astype(np.float32)
-    base_ppl, base_acc = utility_pass(model, tok, te_prompts, math.inf, C, args.batch_size, args.max_tokens)
+    # generation utility (standardized talens.probes.utility): clean baseline = unhooked pass
+    clean_pass = teacher_forced_pass(model, tok, te_prompts, hook=None,
+                                     max_tokens=args.max_tokens, batch_size=args.batch_size)
     records = []
     for eta in etas:
         gi = route_eta(None if math.isinf(eta) else eta, reps)     # paper §A.5.3 routing
@@ -344,20 +315,30 @@ def main():
                 idx = np.arange(s, min(s + args.batch_size, len(te_prompts)))
                 e_d_s[idx] = _denoise(den, e_n_s, Xt, Xc, idx, d).cpu().numpy()
         rec = {"eta": (None if math.isinf(eta) else eta), "group": gi}
-        rec.update(recovery_metrics(e_c_s, e_n_s, e_d_s))
-        ppl, acc = utility_pass(model, tok, te_prompts, eta, C, args.batch_size, args.max_tokens)
-        rec.update({"perplexity": ppl, "acc": acc,
-                    "ppl_degradation": ppl / base_ppl - 1, "retention_acc": acc / base_acc if base_acc else None})
+        rec.update(embedding_recovery(e_c_s, e_n_s, e_d_s))                 # embedding-utility probe
+        dp = clean_pass if math.isinf(eta) else teacher_forced_pass(
+            model, tok, te_prompts, hook=DxPrivacy(C, eta), max_tokens=args.max_tokens, batch_size=args.batch_size)
+        acc_r, ppl_r, agr_r = (next_token_accuracy(dp, clean_pass),       # generation-utility probes
+                               perplexity(dp, clean_pass), output_agreement(dp, clean_pass))
+        rec.update({"perplexity": ppl_r.defended, "acc": acc_r.defended,
+                    "ppl_degradation": ppl_r.extra["degradation"], "retention_acc": acc_r.retention,
+                    "agree_clean": agr_r.defended,
+                    "utility": {r.metric: r.as_dict() for r in (acc_r, ppl_r, agr_r)}})
         records.append(rec)
         es = "inf" if math.isinf(eta) else f"{eta:g}"
         print(f"[snd] η={es:>5} g{gi} | cos {rec['cos_noised']:.3f}->{rec['cos_denoised']:.3f} "
               f"rec_cos={rec['recovery_cos']:.3f} rec_mse={rec['recovery_mse']:.3f} "
-              f"ppl_deg={rec['ppl_degradation']:+.2%}", flush=True)
+              f"ret_acc={acc_r.retention:.3f} ppl_deg={rec['ppl_degradation']:+.2%}", flush=True)
+
+    noised = [r for r in records if r["eta"] is not None]
+    eta_thresholds = retention_thresholds([r["eta"] for r in noised], [r["retention_acc"] for r in noised])
+    print(f"[snd] η for −10/−20/−50% acc-retention: {eta_thresholds}", flush=True)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps({
         "model": args.model, "corpus": args.corpus, "n_test": len(te_prompts), "hidden": d,
         "defense": "snd_dx", "clip_C": C, "clip_percentile": args.clip_percentile,
+        "eta_thresholds": eta_thresholds,
         "standardized": not args.no_standardize,
         "standardize_note": "cos/MSE measured on pooled embeddings standardized per-dim by clean-TRAIN "
                             "(μ,σ); the denoiser is trained against the standardized target. Corrects "
@@ -374,9 +355,13 @@ def main():
                          "rep in log-space; clean→mildest group) + zero-init RESIDUAL readout "
                          "(e_d=e_n+head, starts as passthrough → recovery≥0, clean ceiling≈1) + "
                          "MSE+λ(1−cos) loss + warmup/cosine LR + grad-clip + val early-stop.",
+        "utility_note": "generation utility via standardized talens.probes.utility (retention∈[0,1], "
+                        "1=lossless): next_token_accuracy + perplexity + output_agreement vs the clean "
+                        "(unhooked) pass — per-record 'utility' block; comparable across schemes via 'retention'.",
         "readout_note": "recovery_cos = fraction of (1-cos) gap closed by the denoiser; recovery_mse "
-                        "= fraction of noised MSE removed; ppl/acc degradation = generation-utility "
-                        "cost of the dχ noise (denoiser does not touch logits). 'group' = routed denoiser.",
+                        "= fraction of noised MSE removed (embedding-utility probe); ppl/acc degradation "
+                        "= generation-utility cost of the dχ noise (denoiser does not touch logits). "
+                        "'group' = routed denoiser.",
         "records": records,
     }, indent=2))
     print(f"[snd] wrote {args.out}", flush=True)

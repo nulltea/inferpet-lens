@@ -136,6 +136,8 @@ def v_information_capacity(
     X: np.ndarray,
     y: np.ndarray,
     *,
+    fit_X: np.ndarray | None = None,
+    fit_y: np.ndarray | None = None,
     family: str = "gauss",
     dim: int = 128,
     n_neighbors: int = 15,
@@ -153,11 +155,27 @@ def v_information_capacity(
     ``randproj_softmax``, ``gauss``, ``knn``}. ``dim`` is the reduced
     dimensionality for the projection families (choose ``< n_val`` to keep the
     estimator well-posed). Mirrors ``vinfo.v_information``'s class selection,
-    row-split, shuffle control and null (class prior)."""
+    row-split, shuffle control and null (class prior).
+
+    **Threat-model fit pairs.** V-information is the information a predictor can
+    extract *given the data it is allowed to train on*. By default the reader is
+    fit on a row-split of the released ``X`` itself — the correct in-model choice
+    when the release distribution is attacker-reproducible (a public mechanism:
+    e.g. differential privacy, where the adversary self-generates noised pairs).
+    For a **secret-key** scheme the adversary cannot reproduce the released
+    distribution, so it must train on its own accessible reps and transfer: pass
+    ``fit_X`` / ``fit_y`` (the attack-accessible (representation, label) pairs,
+    e.g. synthetic own-key reps) and the reader is fit on those and *scored on the
+    released* ``(X, y)``. The probe then never sees a deployment-basis true-label
+    pair the attack could not also obtain. ``classes`` are always defined by the
+    released labels ``y``; ``fit_y`` is mapped onto them (rows whose class is
+    absent from the released set are dropped)."""
     if X.shape[0] < 4:
         return {"v_information_bits": None, "note": "too few rows"}
     if dim < 1 or n_neighbors < 1:
         raise ValueError("dim and n_neighbors must be ≥ 1")
+    if (fit_X is None) != (fit_y is None):
+        raise ValueError("pass fit_X and fit_y together, or neither")
 
     y_idx_all, classes = to_class_indices(y)
     if classes.size > max_classes:
@@ -172,18 +190,35 @@ def v_information_capacity(
         sel = np.random.default_rng(seed).choice(X.shape[0], size=max_rows, replace=False)
         X, y_idx_all = X[sel], y_idx_all[sel]
 
-    if control == "shuffle":
-        y_idx_all = y_idx_all[np.random.default_rng(control_seed).permutation(y_idx_all.size)]
+    # Fit pairs (what the predictor may train on) vs eval pairs (the released reps we score).
+    if fit_X is None:
+        # in-model when the release is attacker-reproducible: row-split X against itself
+        tr, te = row_split(X.shape[0], train_frac, seed)
+        if tr.size == 0 or te.size == 0:
+            return {"v_information_bits": None, "note": "empty split"}
+        Xtr_raw, ytr = X[tr], y_idx_all[tr]
+        Xte_raw, yte = X[te], y_idx_all[te]
+    else:
+        # explicit attack-accessible fit pairs; evaluate on the whole released (X, y)
+        cls_to_idx = {int(c): i for i, c in enumerate(classes)}
+        fyi = np.fromiter((cls_to_idx.get(int(c), -1) for c in np.asarray(fit_y)), dtype=np.int64,
+                          count=len(fit_y))
+        keep = fyi >= 0
+        if not keep.any():
+            return {"v_information_bits": None, "note": "no fit rows in released class set"}
+        Xtr_raw, ytr = np.asarray(fit_X)[keep], fyi[keep]
+        if max_rows is not None and Xtr_raw.shape[0] > max_rows:
+            s = np.random.default_rng(seed).choice(Xtr_raw.shape[0], size=max_rows, replace=False)
+            Xtr_raw, ytr = Xtr_raw[s], ytr[s]
+        Xte_raw, yte = X, y_idx_all
 
-    tr, te = row_split(X.shape[0], train_frac, seed)
-    if tr.size == 0 or te.size == 0:
-        return {"v_information_bits": None, "note": "empty split"}
+    if control == "shuffle":                              # Hewitt–Liang control: corrupt the FIT labels
+        ytr = ytr[np.random.default_rng(control_seed).permutation(ytr.size)]
 
-    # standardise on train stats (shared by every family)
-    mean, std = standardize_fit(X[tr])
-    Xtr = ((X[tr] - mean) / std).astype(np.float32)
-    Xte = ((X[te] - mean) / std).astype(np.float32)
-    ytr, yte = y_idx_all[tr], y_idx_all[te]
+    # standardise on fit stats (shared by every family)
+    mean, std = standardize_fit(Xtr_raw)
+    Xtr = ((Xtr_raw - mean) / std).astype(np.float32)
+    Xte = ((Xte_raw - mean) / std).astype(np.float32)
 
     # Every family is capacity-matched by reducing to ``dim`` first: a free
     # softmax / Gaussian / kNN at full ``d`` (≫ rows/class) is overconfident and
@@ -223,8 +258,9 @@ def v_information_capacity(
         "family": family,
         "eff_dim": int(eff_dim),
         "num_classes": num_classes,
-        "n_train": int(tr.size),
-        "n_test": int(te.size),
+        "n_train": int(Xtr.shape[0]),
+        "n_test": int(Xte.shape[0]),
+        "fit": "external" if fit_X is not None else "row_split",
         "control": control,
     }
     if family in ("pca_softmax", "randproj_softmax"):

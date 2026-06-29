@@ -1,0 +1,76 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 160,
+  "attack": "ridge",
+  "surface": "embed_table",
+  "config": "keymat_only",
+  "keymat": {
+    "h": 128,
+    "lam": 0.3,
+    "seed": 0
+  },
+  "n_keys_aug": 16,
+  "order": "random",
+  "label_noise": 0.0,
+  "release_gate_ttrsr": 0.15,
+  "note": "two-stage \u03c4-leak cascade (cascade_attack): harvest top-k frequency token TYPES, train the attack on those deployment-basis pairs (+ blind aug for residual), score recovery on HELD-OUT types. unharvested = generalization (bootstrap signal); k=0 = blind baseline. Generic over (attack \u00d7 surface). embed_table = IMA-EmbedRow-ridge on the static obf table.",
+  "layers": "0,6",
+  "ks": [
+    100,
+    293,
+    512,
+    1024
+  ],
+  "pool_size": 2048,
+  "records": [
+    {
+      "surface": "embed_table",
+      "attack": "ridge",
+      "cell": "table",
+      "k": 100,
+      "order": "random",
+      "label_noise": 0.0,
+      "unharvested": 0.004615384615384616,
+      "harvested": 1.0,
+      "n_harv_types": 100,
+      "n_held": 3900
+    },
+    {
+      "surface": "embed_table",
+      "attack": "ridge",
+      "cell": "table",
+      "k": 293,
+      "order": "random",
+      "label_noise": 0.0,
+      "unharvested": 0.8840032371189641,
+      "harvested": 0.9897610921501706,
+      "n_harv_types": 293,
+      "n_held": 3707
+    },
+    {
+      "surface": "embed_table",
+      "attack": "ridge",
+      "cell": "table",
+      "k": 512,
+      "order": "random",
+      "label_noise": 0.0,
+      "unharvested": 0.994552752293578,
+      "harvested": 0.9921875,
+      "n_harv_types": 512,
+      "n_held": 3488
+    },
+    {
+      "surface": "embed_table",
+      "attack": "ridge",
+      "cell": "table",
+      "k": 1024,
+      "order": "random",
+      "label_noise": 0.0,
+      "unharvested": 0.9986559139784946,
+      "harvested": 0.9951171875,
+      "n_harv_types": 1024,
+      "n_held": 2976
+    }
+  ]
+}

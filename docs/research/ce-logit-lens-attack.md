@@ -12,7 +12,7 @@ superseded_by:
 # CE logit-lens attack — the objective-matched, fair non-linearity test
 
 Terse design note for the cross-entropy logit-lens residual→token attack. Home:
-`src/talens/attacks/dp_inversion.py` (`logit_lens_attack`); driven by `scripts/evals/dp_leakage_sweep.py`.
+`src/talens/attacks/dp_inversion.py` (`logit_lens_attack`); driven by `scripts/evals/dp/dp_leakage_sweep.py`.
 
 ## Why it exists — the objective mismatch
 

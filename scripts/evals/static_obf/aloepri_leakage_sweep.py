@@ -43,11 +43,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for defenses.*, evals.*
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # scripts/ for defenses.*, evals.*
 
 from defenses.aloepri import keymat_gen, reparam_pythia  # noqa: E402
-from evals.dp_leakage_sweep import (ATTACKS as _ATTACKS, _spearman, _stack, capture,  # noqa: E402
+from evals.dp.dp_leakage_sweep import (ATTACKS as _ATTACKS, _spearman, _stack, capture,  # noqa: E402
                                     probe_club, probe_mdl, probe_vcap)
 from talens.attacks.dp_inversion import nn_attack  # noqa: E402
 

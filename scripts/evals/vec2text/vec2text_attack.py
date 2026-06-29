@@ -30,7 +30,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[2]
+_REPO = Path(__file__).resolve().parents[3]
 # vec2text + transformers-4.44 shadow (transformers 5.x rejects vec2text's nested
 # from_pretrained under its meta-device init); torch stays the container's ROCm build.
 sys.path.insert(0, str(_REPO / ".deps"))

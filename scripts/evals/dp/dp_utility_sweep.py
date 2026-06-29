@@ -15,7 +15,7 @@ literature (Yu et al. 2021 arXiv:2110.06500; Li et al. 2021 arXiv:2110.05679; DP
 
 Teacher-forced, one forward per ε (no generation, no draws, no hidden-state storage) → cheap.
 
-  scripts/run_in_rocm.sh python3 scripts/eval/dp_utility_sweep.py \
+  scripts/run_in_rocm.sh python3 scripts/evals/dp_utility_sweep.py \
       --corpus corpora/rep2text-stratified.txt --max-prompts 1800 \
       --epsilons inf,512,256,128,64,32,16,8 --out refine-logs/pythia-depth/dp_utility.json
 """
@@ -25,46 +25,13 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, "scripts")
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))   # talens.*
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))           # scripts/ for defenses.*
 from defenses.local_dp import LocalDP  # noqa: E402
+from talens.probes.utility import (  # noqa: E402
+    teacher_forced_pass, next_token_accuracy, perplexity, output_agreement, retention_thresholds)
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-def utility_pass(model, tok, prompts, sigma, C, batch_size, clean_argmax=None):
-    """One teacher-forced forward sweep at a given σ. Returns (mean_ce_nats, acc, n_tokens,
-    argmax_flat, agree_clean). LocalDP hook active when σ>0 (σ=0 ⇒ clip-only ≈ clean)."""
-    hk = model.get_input_embeddings().register_forward_hook(LocalDP(C, sigma))
-    ce_sum, n_tok, n_correct, n_agree = 0.0, 0, 0, 0
-    argmax_flat = []
-    ci = 0  # cursor into clean_argmax
-    try:
-        with torch.no_grad():
-            for i in range(0, len(prompts), batch_size):
-                enc = tok(prompts[i:i + batch_size], return_tensors="pt", padding=True)
-                ids, mask = enc.input_ids.to(DEV), enc.attention_mask.to(DEV)
-                logits = model(ids, attention_mask=mask, use_cache=False).logits.float()
-                pred = logits[:, :-1, :]                       # predict token t+1 from ≤t
-                tgt = ids[:, 1:]
-                m = mask[:, 1:].bool()                         # target position is a real token
-                lp = torch.log_softmax(pred, dim=-1)
-                tok_lp = lp.gather(-1, tgt.unsqueeze(-1)).squeeze(-1)
-                am = pred.argmax(dim=-1)
-                ce_sum += float(-(tok_lp[m]).sum())
-                n_correct += int((am[m] == tgt[m]).sum())
-                n_tok += int(m.sum())
-                af = am[m].cpu().numpy()
-                argmax_flat.append(af)
-                if clean_argmax is not None:                   # self-consistency vs clean run
-                    n_agree += int((af == clean_argmax[ci:ci + af.size]).sum())
-                    ci += af.size
-    finally:
-        hk.remove()
-    argmax_flat = np.concatenate(argmax_flat) if argmax_flat else np.array([], dtype=np.int64)
-    mean_ce = ce_sum / max(1, n_tok)
-    acc = n_correct / max(1, n_tok)
-    agree = (n_agree / max(1, n_tok)) if clean_argmax is not None else None
-    return mean_ce, acc, n_tok, argmax_flat, agree
 
 
 def main():
@@ -108,44 +75,39 @@ def main():
     z = math.sqrt(2 * math.log(1.25 / args.delta))
     print(f"[util] model={args.model} C={C:.3f} z={z:.3f} eps={eps_list} prompts={len(prompts)} dev={DEV}", flush=True)
 
-    recs, clean_argmax, base_ppl, base_acc = [], None, None, None
+    # clean baseline = clip-only (σ=0) pass, captured once; all retention is referenced to it.
+    clean = teacher_forced_pass(model, tok, prompts, hook=LocalDP(C, 0.0), batch_size=args.batch_size)
+    recs = []
     for eps in eps_list:
         sigma = 0.0 if math.isinf(eps) else C * z / eps
-        ce, acc, ntok, am, agree = utility_pass(model, tok, prompts, sigma, C, args.batch_size, clean_argmax)
-        ppl = math.exp(ce)
-        if math.isinf(eps):
-            clean_argmax, base_ppl, base_acc = am, ppl, acc
-        rec = {"epsilon": (None if math.isinf(eps) else eps), "sigma": sigma, "n_tokens": ntok,
-               "perplexity": ppl, "acc": acc,
-               "retention_acc": acc / base_acc if base_acc else None,
-               "ppl_degradation": ppl / base_ppl - 1.0 if base_ppl else None,
-               "agree_clean": agree}
+        dp = clean if sigma == 0 else teacher_forced_pass(
+            model, tok, prompts, hook=LocalDP(C, sigma), batch_size=args.batch_size)
+        acc_r = next_token_accuracy(dp, clean)        # standardized utility probes (talens.probes.utility)
+        ppl_r = perplexity(dp, clean)
+        agr_r = output_agreement(dp, clean)
+        rec = {"epsilon": (None if math.isinf(eps) else eps), "sigma": sigma,
+               "n_tokens": acc_r.extra["n_tokens"],
+               "perplexity": ppl_r.defended, "acc": acc_r.defended,
+               "retention_acc": acc_r.retention, "ppl_degradation": ppl_r.extra["degradation"],
+               "agree_clean": agr_r.defended,
+               "utility": {r.metric: r.as_dict() for r in (acc_r, ppl_r, agr_r)}}
         recs.append(rec)
         es = "inf" if math.isinf(eps) else f"{eps:g}"
-        print(f"[util] ε={es:>5} σ/C={(0 if math.isinf(eps) else z/eps):.3f} | ppl={ppl:8.2f} "
-              f"acc={acc:.4f} retention={rec['retention_acc']:.3f} pplΔ={rec['ppl_degradation']:+.2%} "
-              f"agree_clean={'—' if agree is None else f'{agree:.4f}'}", flush=True)
+        print(f"[util] ε={es:>5} σ/C={(0 if math.isinf(eps) else z/eps):.3f} | ppl={ppl_r.defended:8.2f} "
+              f"acc={acc_r.defended:.4f} retention={acc_r.retention:.3f} pplΔ={ppl_r.extra['degradation']:+.2%} "
+              f"agree_clean={agr_r.defended:.4f}", flush=True)
 
-    # locate the ε crossings for −10/−20/−50% accuracy retention (linear interp on log ε)
-    thr = {}
     noised = [r for r in recs if r["epsilon"] is not None]
-    for target in (0.90, 0.80, 0.50):
-        cross = None
-        for a, b in zip(noised, noised[1:]):  # noised is descending ε (retention falling)
-            ra, rb = a["retention_acc"], b["retention_acc"]
-            if ra is not None and rb is not None and ra >= target >= rb:
-                la, lb = math.log(a["epsilon"]), math.log(b["epsilon"])
-                t = (ra - target) / (ra - rb) if ra != rb else 0.0
-                cross = math.exp(la + t * (lb - la))
-                break
-        thr[f"retention_{int(target*100)}pct"] = cross
+    thr = retention_thresholds([r["epsilon"] for r in noised], [r["retention_acc"] for r in noised])
     print(f"[util] ε for −10/−20/−50% acc-retention: {thr}", flush=True)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps({
         "model": args.model, "corpus": args.corpus, "n_prompts": len(prompts), "clip_C": C, "z": z,
-        "utility_note": "teacher-forced next-token; perplexity + ground-truth top-1 acc referenced to "
-                        "the ε=∞ baseline (DP-LLM convention); agree_clean = self-consistency vs clean.",
+        "defense": "local_dp_gaussian",
+        "utility_note": "teacher-forced next-token; standardized talens.probes.utility (retention∈[0,1], "
+                        "1=lossless): next_token_accuracy + perplexity + output_agreement, referenced to "
+                        "the clip-only (σ=0) baseline. Comparable across schemes via 'retention'.",
         "epsilon_thresholds": thr, "records": recs}, indent=2))
     print(f"[util] wrote {args.out}", flush=True)
 

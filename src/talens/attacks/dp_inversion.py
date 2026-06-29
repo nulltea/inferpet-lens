@@ -42,9 +42,54 @@ def ridge_W(Xtr, Etr, alpha=1.0):
     return np.linalg.solve(A, (Xtr.T @ Etr).astype(np.float64)).astype(np.float32)
 
 
+def multikey_ridge_W(G0, H0, Pks, alpha=1.0):
+    """Multi-key-synthesis ridge (AloePri ISA-HiddenState blind, paper §F.1). Fits one inverter over
+    pooled synthetic obfuscated reps {Xc·Pk}_k WITHOUT materializing the K·n stack:
+
+        X^T X = Σ_k Pk^T G0 Pk,   X^T E = (Σ_k Pk)^T H0,   with G0 = Xc^T Xc, H0 = Xc^T E.
+
+    Algebraically identical to stacking and ridge_W (test_multikey_ridge_matches_stacking); K small
+    matmuls instead of a K·n-row solve. Returns the (d+2h)→d_emb map (float32). float64 internally."""
+    D1 = Pks[0].shape[1]
+    Gram = np.zeros((D1, D1), np.float64)
+    Psum = np.zeros_like(Pks[0], dtype=np.float64)
+    for Pk in Pks:
+        Pk64 = np.asarray(Pk, np.float64)
+        Gram += Pk64.T @ np.asarray(G0, np.float64) @ Pk64
+        Psum += Pk64
+    Gram += alpha * np.eye(D1)
+    return np.linalg.solve(Gram, Psum.T @ np.asarray(H0, np.float64)).astype(np.float32)
+
+
 def ridge_attack(Xtr, Etr, Xte, pool_emb, pool_ids, *, alpha=1.0, **_):
     """Linear (ridge) obs→embedding map, then nearest token. The strong single-position baseline."""
     return nearest_token(Xte @ ridge_W(Xtr, Etr, alpha), pool_emb, pool_ids)
+
+
+def cascade_attack(attack, X, y, harvested_types, table, pool, *, X_aug=None, y_aug=None, **kw):
+    """Two-stage τ-leak cascade. A harvest (e.g. TFMA) reveals the true labels for `harvested_types`
+    (a set/array of token ids); train ANY array-interface `attack` on those (deployment-basis rep,
+    token) pairs — optionally augmented with blind pairs (`X_aug`, `y_aug`, e.g. multi-key synthetic
+    reps) — and score recovery on the HELD-OUT (unharvested) types. Generic over the target
+    representation: `X` / `table` / `attack` decide whether it is embeddings, residual, or q/k/v
+    (residual ISA-HiddenState, IMA-EmbedRow on the static table, … all reuse this).
+
+    Returns {unharvested (generalization to never-harvested types), harvested (in-set sanity),
+    n_harv_types, n_held}. `unharvested` is the bootstrap signal: does knowing k token mappings let the
+    inverter read the rest? `**kw` is forwarded to `attack` (alpha / hidden / epochs / seed / …)."""
+    H = {int(t) for t in harvested_types}
+    inset = np.fromiter((int(t) in H for t in y), bool, len(y))
+    tr, te = np.where(inset)[0], np.where(~inset)[0]
+    if te.size == 0 or (tr.size == 0 and X_aug is None):
+        return {"unharvested": None, "harvested": None, "n_harv_types": len(H), "n_held": int(te.size)}
+    Xtr, ytr = X[tr], y[tr]
+    if X_aug is not None:
+        Xtr = np.concatenate([Xtr, X_aug], 0)
+        ytr = np.concatenate([ytr, np.asarray(y_aug)])
+    pred = lambda idx: attack(Xtr, table[ytr], X[idx], table[pool], pool, ytr=ytr, full_emb=table, **kw)
+    return {"unharvested": float((pred(te) == y[te]).mean()),
+            "harvested": (float((pred(tr) == y[tr]).mean()) if tr.size else None),
+            "n_harv_types": int(np.unique(y[tr]).size if tr.size else 0), "n_held": int(te.size)}
 
 
 def nn_attack(Xtr, Etr, Xte, pool_emb, pool_ids, **_):

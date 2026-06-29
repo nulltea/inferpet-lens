@@ -19,15 +19,15 @@ Cheap: cosine over N embeddings, no LLM / no training / no inversion. Pairs with
 leakage curve (Vec2Text recovery, I_G) for the full tradeoff.
 
 Run via scripts/run_in_rocm.sh (GTR encode needs the model); see vec2text-rocm recipe.
-    scripts/run_in_rocm.sh python3 scripts/eval/utility_retrieval_eval.py --n 256
+    scripts/run_in_rocm.sh python3 scripts/evals/utility_retrieval_eval.py --n 256
 """
 from __future__ import annotations
 
 import argparse, json, math, os, sys, time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "scripts" / "eval"))
+REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO / "scripts" / "evals" / "vec2text"))
 import numpy as np  # noqa: E402
 from vec2text_attack import Vec2TextAttack, dp_noise, gaussian_sigma  # noqa: E402
 

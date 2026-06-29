@@ -8,7 +8,7 @@ confidence: high
 date: "2026-06-26"
 hardware: "AMD Strix Halo iGPU (gfx1151), ROCm container, fp32 batched"
 duration: "~few min (8 forwards × 1800 prompts, Pythia-160M)"
-provenance: "refine-logs/pythia-depth/dp_utility.json; scripts/eval/dp_utility_sweep.py"
+provenance: "refine-logs/pythia-depth/dp_utility.json; scripts/evals/dp/dp_utility_sweep.py"
 added: 2026-06-26T16:44:30Z
 tags: ["dp", "utility", "perplexity-retention", "epsilon-sweep", "pythia-160m", "privacy-utility-tradeoff", "grid-calibration", "dp-forward", "scale-invariant"]
 ---
@@ -30,7 +30,7 @@ Pythia-160M, fp32 batched capture, 1800 prompts (`corpora/rep2text-stratified.tx
 next-token: one forward per ε (no generation). σ = C·z/ε with C the 99.9-pct embedding norm (0.818),
 z=4.845 (δ=1e-5) — same convention as the leakage sweep. Metrics per ε: perplexity, ground-truth
 top-1 accuracy, accuracy-retention = acc(ε)/acc(∞), and top-1 agreement vs the clean run.
-`scripts/eval/dp_utility_sweep.py`.
+`scripts/evals/dp/dp_utility_sweep.py`.
 
 ## Results
 Baseline ε=∞: **ppl 42.6, next-token acc 0.341.**

@@ -80,7 +80,7 @@ class clouds stay separated as we go deep / add noise" picture.
 | File | Change |
 |---|---|
 | `src/talens/probes/class_separability.py` | **new** — reusable logic: resolve class-set token ids, filter+relabel rows, Bhattacharyya converse (calls `channel_error_bounds`), MDL achievable, PCA coords. One `assert`-based `__main__`/`demo()` self-check. |
-| `scripts/evals/dp_leakage_sweep.py` | register `sep_bhat`, `sep_mdl` in `PROBES`; add one flag for the class-set name and a PCA-coords dump path. Orchestration only — no separability math inline. |
+| `scripts/evals/dp/dp_leakage_sweep.py` | register `sep_bhat`, `sep_mdl` in `PROBES`; add one flag for the class-set name and a PCA-coords dump path. Orchestration only — no separability math inline. |
 | `docs/html/resid-dp-attacks.html` | add FIG.05 scatter grid + read-caption; reuse existing Plotly include and `css/site.css` per `docs/html/STYLE.md`. |
 
 The probe functions match the existing registry signature `probe(X, E, y, K, …)` where `y` is the

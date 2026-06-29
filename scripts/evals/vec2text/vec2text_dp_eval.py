@@ -2,7 +2,7 @@
 """Vec2Text-vs-DP leakage evaluation on a pooled GTR sentence embedding.
 
 Charts the leakage-vs-privacy-budget curve for the faithful pretrained Vec2Text
-attack (``scripts/eval/vec2text_attack.Vec2TextAttack``) and tests whether the
+attack (``scripts/evals/vec2text_attack.Vec2TextAttack``) and tests whether the
 cheap matched information-theoretic probe predicts what the SOTA attack achieves.
 
 For each ε: embed N texts → DP-noise the released embedding (clip C + Gaussian
@@ -13,7 +13,7 @@ gives the base-model (0-step) baseline (the information-efficiency floor).
 
 Run inside the ROCm container, single GPU process:
 
-    scripts/run_in_rocm.sh python3 scripts/eval/vec2text_dp_eval.py \
+    scripts/run_in_rocm.sh python3 scripts/evals/vec2text_dp_eval.py \
         --n 128 --num-steps 20 --beam 1 --epsilons inf,1024,512,256,128 --base
 
 See ``refine-logs/dp-stronger-attacks/vec2text-pooled/EXPERIMENT_PLAN.md`` (C1–C3).
@@ -28,9 +28,9 @@ import sys
 import time
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "src"))           # talens measures
-sys.path.insert(0, str(REPO / "scripts" / "eval"))
+sys.path.insert(0, str(REPO / "scripts" / "evals" / "vec2text"))
 import numpy as np  # noqa: E402
 from vec2text_attack import Vec2TextAttack, dp_noise, gaussian_sigma  # noqa: E402
 from talens.probes.club import club_mi_upper_bound  # noqa: E402

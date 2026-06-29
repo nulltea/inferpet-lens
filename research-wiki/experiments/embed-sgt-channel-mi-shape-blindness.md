@@ -28,7 +28,7 @@ isolates whether the scalar `I_G` is a complete predictor or only a within-shape
 ## Setup
 
 - **Surface:** pooled GTR sentence embedding (`gtr-t5-base`, d=768, mean-pooled).
-- **Attack:** pretrained `gtr-base` Vec2Text iterative corrector (Morris 2023) — a FIXED decoder. `scripts/eval/vec2text_attack.py`.
+- **Attack:** pretrained `gtr-base` Vec2Text iterative corrector (Morris 2023) — a FIXED decoder. `scripts/evals/vec2text/vec2text_attack.py`.
 - **Defense:** SGT modelled as heteroscedastic Gaussian release `Y=e0+N`, `N~N(0,D)`, `D=diag(v)`. `scripts/defenses/sgt.py`.
 - **Probe (attack-independent, geometry-only):** generalized spectral channel-MI `I_G=½Σlog2(1+μ_i)`, `μ=eig(D^{-1/2}ΣD^{-1/2})`. `src/talens/measures/spectral_channel_mi.py::spectral_channel_mi_diag` (+ 13 passing tests).
 - **Sweep:** budgets `B∈{826.8,434.1,196.0,71.4}` bits × shapes {`iso`, `sgt_opt` (reverse-water-filling = distortion-minimizing SGT optimum), `tail_dump` (adversarial: noise on low-λ tail)}; all hit the same target `I_G=B` by bisection (auditor-verified matched to ≤2.3e-13 bits). Plaintext shared. N=96 held-out, max_tokens=32, num_steps=20, seed 20260624.

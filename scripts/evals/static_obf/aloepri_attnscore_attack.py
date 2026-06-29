@@ -23,8 +23,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from defenses.aloepri import reparam_pythia  # noqa: E402
 from talens.attacks.dp_inversion import nearest_token, ridge_W  # noqa: E402

@@ -1,0 +1,31 @@
+{
+  "audit_skill": "kill-argument",
+  "verdict": "WARN",
+  "reason_code": "partial_critical_or_repeated_major",
+  "summary": "vocab-disjoint claim survives (0 unresolved) but framing overreaches; realistic worst case is cross-surface",
+  "trace_path": ".aris/traces/kill-argument/2026-06-28_run01/",
+  "thread_id": "019f0e23-b878-7b50-a49d-29e80858a523",
+  "reviewer_model": "gpt-5.5",
+  "reviewer_reasoning": "xhigh",
+  "generated_at": "2026-06-28T00:00:00Z",
+  "details": {
+    "attack_thread_id": "019f0e1e-fb68-7bd3-baca-ac92e6903bfa",
+    "defense_thread_id": "019f0e23-b878-7b50-a49d-29e80858a523",
+    "target": "methodological claim: vocab-disjoint is the worst-case ISA-HiddenState evaluation for the realistic attacker on AloePri",
+    "not_a_latex_paper": true,
+    "decomposed_points": [
+      {"id": "P_1", "label": "residual blind ~unchanged across splits", "attack_claim": "vocab-disjoint is not a stronger worst case; blind multi-key recovery unchanged across splits", "verdict": "answered_by_current_text", "evidence": "aloepri_multikey_blind.json: keymat L0 blind 0.064 disjoint vs 0.060 rowsplit", "severity_if_unresolved": "major", "recommended_fix": "state the residual blind result is split-insensitive (~0.06 both ways)"},
+      {"id": "P_2", "label": "matched ceiling high => info preserved", "attack_claim": "AloePri has not destroyed residual token info; matched recovery stays high", "verdict": "partially_answered", "evidence": "matched L0 0.995 rowsplit / 0.914 disjoint; matched is out-of-model ceiling, blind is in-model", "severity_if_unresolved": "major", "recommended_fix": "scope 'defends' to the in-model blind attacker; call it access control not information destruction"},
+      {"id": "P_3", "label": "vocab-disjoint wrong realistic residual headline", "attack_claim": "vocab-disjoint deletes the frequent tokens a realistic attacker learns first; wrong headline split", "verdict": "partially_answered", "evidence": "private-rag aloepri-attacks.md: row-split is the realistic null; BUT pythia residual blind is ~0.06 under row-split too, so the low number is not caused by disjoint subtraction", "severity_if_unresolved": "critical", "recommended_fix": "report both splits; row-split as the realistic shared-vocab headline, vocab-disjoint as the generalization stress test"},
+      {"id": "P_4", "label": "tau-leak is real but wire-surface", "attack_claim": "attacker is not fully blind over tau; TFMA/SDA + specials leak high-frequency tokens that dominate prompt recovery", "verdict": "partially_answered", "evidence": "aloepri_tokenid_sweep.json surface=token_id_api, TFMA 0.52 / SDA 0.75 at eps1=inf; Pi is activation-inert (static-obf.html) so it does not bear on the RESIDUAL split", "severity_if_unresolved": "major", "recommended_fix": "compose surfaces: realistic worst case = tau-leak-weighted per-token recovery across wire + residual"},
+      {"id": "P_5", "label": "partial-tau does not break residual blind", "attack_claim": "a partial-tau memorizing attacker invalidates the residual result and recovers unharvested tokens", "verdict": "answered_by_current_text", "evidence": "aloepri-attacks.md: ISA observes State_d, never sees tau; <=20-313 pairs far below ridge bootstrap and do not span natural-language tokens", "severity_if_unresolved": "minor", "recommended_fix": "none; residual blind survives this"}
+    ],
+    "counts": {"answered_by_current_text": 2, "partially_answered": 3, "still_unresolved": 0},
+    "net_assessment": "Claim not killed (0 unresolved): residual conclusion sound and split-insensitive (~0.06 both splits). But the 'worst case for the realistic attacker' framing overreaches; realistic leverage is a partial-tau WIRE channel (TFMA/SDA) for a <=20-293 token subset, not a residual memorization channel. Neither split is universally worst case; correct measure is a cross-surface tau-leak-weighted composite.",
+    "top_action_items": [
+      "Report residual ISA-HiddenState as BOTH row-split and vocab-disjoint (row-split realistic headline, disjoint stress test); note they are ~equal for the blind attack.",
+      "Add a composite realistic-attacker metric: per-token recovery weighted by a tau-leak prior across wire (TFMA/SDA) + residual blind.",
+      "Add a partial-tau curve (0,20,293,313,1024 known pairs) measuring harvested-token recovery and generalization to unharvested tokens."
+    ]
+  }
+}
