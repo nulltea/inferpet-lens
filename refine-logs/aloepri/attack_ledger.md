@@ -22,7 +22,7 @@ ridge on deployment reps) and *oracle* (knows the key Q̂) are out-of-model and 
 | 2 | **IA — Gate-IA** | obf weights | keymat αₑ=0 / αₑ=1.0 | **1.000 / 0.000** | FAIL→PASS | weight_attacks.json |
 | 2 | **IA — Attn-IA** | obf weights | keymat | **0.000** | PASS | weight_attacks.json |
 | 3 | **ISA-HiddenState** (blind, multi-key K=64) | activations resid_post, **all 12 layers** | keymat / alg2@0 / alg2@1.0, **blind only** | single-key **0.000**; **multi-key ≤0.064** (peak L0, ~0 deeper) — every layer ≤ gate. Matched ceiling 0.91→0.46 (out of model). | PASS — key-gated | multikey_blind.json |
-| 4 | **IMA-EmbedRow-transformer** (τ-invariant, multi-key) | obf weights | in-model (own synthetic pseudo-τ/Q̂/P̂) | **paper ~0.0**; talens not run, private-rag driver not yet faithful (fails plain control) | QUEUED | private-rag aloepri-attacks.md §IMA-EmbedRow-transformer |
+| 4 | **IMA-EmbedRow-transformer** (τ-invariant, 2L/8H, paper §F.1) | obf weights | in-model (own synthetic pseudo-τ/Q̂/P̂), all αₑ | **0.000** (defended; plain control 0.998 PASSES — port is faithful, unlike private-rag's driver) | PASS — key-gated | ima_transformer.json (IMAInverter) |
 | 5 | **NN** (cosine-NN) | activations resid_post **@L6** | keymat (blind) | **0.000** | PASS | leakage_sweep.json |
 | 6 | **TFMA** (freq-matching) | wire token-id | M1 ε1=∞ / 12 / 8 | **0.52 / 0.18 / 0.03** | FAIL→PASS | tokenid_sweep.json |
 | 7 | **SDA** (bigram decipher) | wire token-id | M1 ε1=∞ / 12 / 8 | **0.75 / 0.42 / 0.00** | FAIL→PASS | tokenid_sweep.json |

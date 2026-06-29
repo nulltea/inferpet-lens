@@ -47,7 +47,9 @@ def _reparam_kwargs(spec: str):
     if spec.startswith("alg2"):
         return dict(config="alg2", alpha_e=float(spec.split("@", 1)[1]) if "@" in spec else 0.0, alpha_h=0.0)
     if spec.startswith("full_alg1"):
-        return dict(config="full_alg1", alpha_e=float(spec.split("@", 1)[1]) if "@" in spec else 1.0, alpha_h=0.0)
+        # α_h = paper default 0.2 (noises the OUTPUT HEAD only — irrelevant to the residual / embedding-table
+        # / attention-value surfaces these attacks read; set for faithfulness, does not change those results).
+        return dict(config="full_alg1", alpha_e=float(spec.split("@", 1)[1]) if "@" in spec else 1.0, alpha_h=0.2)
     raise ValueError(f"unknown config {spec!r}")
 
 
@@ -72,7 +74,8 @@ def prepare(args, tok, prompts, rng):
             ).weight.detach().float().cpu().numpy().astype(np.float32)
         vocab, d = W.shape
         rkw = _reparam_kwargs(cfg) or dict(config="keymat_only")
-        wp = obfuscate_embedding_table(W, alpha_e=rkw.get("alpha_e", 1.0), h=args.keymat_h,
+        # keymat = αₑ 0 (pure keymat); full_alg1@x = αₑ x. Default 0 so keymat_only is noiseless.
+        wp = obfuscate_embedding_table(W, alpha_e=rkw.get("alpha_e", 0.0), h=args.keymat_h,
                                        lam=args.keymat_lam, keymat=True, seed=args.keymat_seed)
         X_all = wp.obf[wp.perm].astype(np.float32)                   # X_all[t] = token t's obf row
         sel = rng.choice(vocab, min(args.n_eval, vocab), replace=False)

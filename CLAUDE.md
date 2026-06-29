@@ -54,6 +54,11 @@ Rule of thumb: if a function would be reused by a second script, it belongs in `
   one comparable scale; fix "1/100 of a bit" illegibility in the readout, not the stored value).
   Render beside it: token-id→perplexity+top-k; text→token-F1/ROUGE; permutation→recovery-rate/τ;
   embedding→token-F1/cosine; membership→AUC. Tables show both axes.
+- **Missing data in tables — always check and address.** Before presenting any results table, audit
+  every cell. A bare **`—` means data NOT collected** (a real gap: either fill it by running the cell,
+  or flag it explicitly as not-run). If a cell **cannot have a value by definition**, write **`—*`**
+  with a footnote **`* value missing because …`**. Never leave an unexplained blank — the reader must
+  always be able to tell "not run" from "undefined".
 
 ### The measurement loop — per (surface × attack × probe)
 

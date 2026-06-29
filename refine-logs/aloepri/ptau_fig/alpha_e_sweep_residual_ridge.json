@@ -1,0 +1,30 @@
+{
+  "surface": "residual",
+  "attack": "ridge",
+  "layer": 0,
+  "k": 293,
+  "no_aug": true,
+  "note": "\u03b1\u2091 sweep on the residual ridge partial-\u03c4 bootstrap (k=293, no-aug, L0). keymat=\u03b1\u20910. \u03b1\u2091=1.0 is the paper/VMA default; the bootstrap needs \u03b1\u2091\u22652. \u03b1_h is head-only (irrelevant here).",
+  "sweep": [
+    {
+      "alpha_e": 0.0,
+      "held_out_k293": 0.8818
+    },
+    {
+      "alpha_e": 1.0,
+      "held_out_k293": 0.6123
+    },
+    {
+      "alpha_e": 2.0,
+      "held_out_k293": 0.0166
+    },
+    {
+      "alpha_e": 4.0,
+      "held_out_k293": 0.0
+    },
+    {
+      "alpha_e": 8.0,
+      "held_out_k293": 0.0
+    }
+  ]
+}
