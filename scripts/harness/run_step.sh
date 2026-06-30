@@ -15,7 +15,7 @@
 #   absent   -> launch detached, then attach as above
 #
 # Usage in a phase:  export TALENS_SURFACE=<surface>
-#                    scripts/harness/run_step.sh kv-pilot -- scripts/run_in_rocm.sh python3 ...
+#                    scripts/harness/run_step.sh kv-pilot -- .venv/bin/python ...
 set -uo pipefail
 name="${1:?usage: run_step.sh <name> -- <cmd...>}"; shift
 [ "${1:-}" = "--" ] && shift

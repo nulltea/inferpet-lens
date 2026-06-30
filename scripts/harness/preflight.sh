@@ -26,15 +26,12 @@ fi
 # 2. ralphex outer loop present.
 command -v ralphex >/dev/null && note "ralphex: $(ralphex --version 2>/dev/null || echo present)" || bad "ralphex not on PATH"
 
-# 3. GPU container reachable (the campaign is GPU-bound; honor one-GPU-process-at-a-time).
-if [ -x scripts/run_in_rocm.sh ]; then
-  if scripts/run_in_rocm.sh python3 -c 'import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
-    note "rocm: torch.cuda.is_available() == True"
-  else
-    bad "ROCm container cannot see the GPU (torch.cuda.is_available() False)"
-  fi
+# 3. Host venv sees the GPU (the campaign is GPU-bound; honor one-GPU-process-at-a-time).
+#    GPU torch now runs directly in the host .venv (shared gfx1151 build; see CLAUDE.md).
+if .venv/bin/python -c 'import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)' >/dev/null 2>&1; then
+  note "rocm: .venv torch.cuda.is_available() == True"
 else
-  bad "scripts/run_in_rocm.sh missing/not executable"
+  bad ".venv torch cannot see the GPU (CPU-only torch? re-point the shared-torch .pth — see CLAUDE.md)"
 fi
 
 # 4. ARIS skills + shared-references reachable (verdict skills resolve via /name; cadence ref).

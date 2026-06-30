@@ -6,19 +6,22 @@ attack-**independent** IT measure predicts attack success. Map: `README.md` (pre
 `docs/plans/it-leakage-estimation-set.md` (thesis + attack×measure matrix),
 `docs/plans/component-topology.md` (attack/probe/defense schema).
 
-## GPU — wrap every heavy command
+## GPU — run heavy workflows in the host `.venv`
 
-The host `.venv` is **CPU-only torch**; use it for model-free `pytest` only. Anything touching
-real Qwen3 activations (capture, PVI/MDL/CLUB probes, inversion attacks, `talens.cli`,
-`calibrate_capture`) MUST run in the ROCm container — it silently falls back to CPU otherwise:
+The host `.venv` **runs on the GPU directly** — no container. Use it for **all** heavy workflows
+(capture, PVI/MDL/CLUB probes, inversion attacks, `talens.cli`, `calibrate_capture`) and for
+`pytest`:
 
 ```bash
-scripts/run_in_rocm.sh python3 -m talens.cli --corpus corpora/dev-24.txt --control all --out results/run.json
-# sanity: scripts/run_in_rocm.sh python3 -c 'import torch; print(torch.cuda.is_available())'
+.venv/bin/python -m talens.cli --corpus corpora/dev-24.txt --control all --out results/run.json
+# sanity: .venv/bin/python -c 'import torch; print(torch.cuda.is_available())'   # -> True
 ```
 
-One AMD Strix Halo iGPU (gfx1151). **One GPU process at a time**: kill stray containers first;
-wait on long runs, never poll-spin. Base image rationale: `Containerfile`.
+One AMD Strix Halo iGPU (gfx1151). **One GPU process at a time**: don't launch a second GPU run while
+one is live; wait on long runs, never poll-spin.
+
+GPU-torch setup, troubleshooting, and enabling another venv → **`~/docs/torch-gpu.md`** (installer:
+`~/scripts/install_rocm_torch.sh`). Don't delete the `rocm/pytorch` base image — it's the torch source.
 
 ## Scheme-agnostic core
 
@@ -111,8 +114,8 @@ Run the recipe for the work at hand:
 | Paper (later) | `/paper-plan` → `/paper-write` → `/paper-figure` → `/citation-audit` + `/paper-claim-audit` → `/kill-argument` (pre-submission hardening) → `/paper-compile` |
 
 **Notes.** A research claim is a **research-wiki node** (Claim row), never a patent claim.
-`/experiment-bridge` deploys via `/run-experiment` — keep it in **local** mode (it wraps
-`scripts/run_in_rocm.sh`); on the single iGPU run sweep points **serially** (`max_parallel=1`,
+`/experiment-bridge` deploys via `/run-experiment` — keep it in **local** mode (runs directly in the
+GPU-enabled host `.venv`); on the single iGPU run sweep points **serially** (`max_parallel=1`,
 no `/experiment-queue` fan-out). Off-domain skills (patent, remote-GPU, Feishu) were pruned from
 this project's install.
 
