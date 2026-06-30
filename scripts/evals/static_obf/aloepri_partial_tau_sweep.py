@@ -33,10 +33,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from defenses.aloepri import keymat_gen, obfuscate_embedding_table, reparam_pythia  # noqa: E402
 from evals.static_obf.aloepri_score_surface_sweep import _load as score_load, capture as score_capture  # noqa: E402
 from evals.dp.dp_leakage_sweep import _stack, capture as resid_capture  # noqa: E402
-from talens.attacks.dp_inversion import cascade_attack, ridge_attack, skip_decoder_attack  # noqa: E402
+from talens.attacks.dp_inversion import (  # noqa: E402
+    cascade_attack, ridge_attack, skip_decoder_attack, isa_grad_attack)
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
-ATTACKS = {"ridge": ridge_attack, "decoder": skip_decoder_attack}
+ATTACKS = {"ridge": ridge_attack, "decoder": skip_decoder_attack, "isa_grad": isa_grad_attack}
 
 
 def _reparam_kwargs(spec: str):
@@ -159,7 +160,8 @@ def main():
     prompts = [l.strip() for l in Path(args.corpus).read_text().splitlines() if l.strip()][: args.max_prompts]
     ks = [int(s) for s in args.ks.split(",") if s.strip()]
     rng = np.random.default_rng(args.seed)
-    attack_kw = dict(hidden=args.hidden, epochs=args.epochs, seed=args.seed) if args.attack == "decoder" else {}
+    attack_kw = (dict(hidden=args.hidden, epochs=args.epochs, seed=args.seed) if args.attack == "decoder"
+                 else dict(seed=args.seed) if args.attack == "isa_grad" else {})
     print(f"[partial-τ] attack={args.attack} surface={args.surface} config={args.config} ks={ks} "
           f"order={args.order} noise={args.label_noise} aug={'no' if args.no_aug else args.n_keys} dev={DEV}", flush=True)
 

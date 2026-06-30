@@ -11,6 +11,7 @@ import torch
 
 from talens.attacks.dp_inversion import (
     LinearSkipDecoder, ridge_W, skip_decoder_attack, nearest_token, logit_lens_attack,
+    isa_grad_attack,
 )
 
 
@@ -119,8 +120,32 @@ def test_logit_lens_robust_to_norm_heterogeneity():
     assert lens_acc >= ridge_acc - 0.1, f"lens {lens_acc:.3f} ≪ ridge {ridge_acc:.3f} — norm-decode regressed"
 
 
+def test_isa_grad_recovers_under_linear_obfuscation():
+    """§D.1 gradient-opt ISA must recover tokens on a CLEAN linear (widening) obfuscation X̃ = E·P̂.
+
+    This is the L0 harvest regime where the prose claims it 'collapses to ridge': the descent over
+    input-embedding space lands at the generative least-squares inverse, so on a noiseless linear obf
+    it should recover ~perfectly (and within noise of ridge). Guards the convergence of the Adam loop
+    — if the descent did not actually minimise the objective, recovery would crater. CPU-only, seconds."""
+    rng = np.random.default_rng(1)
+    V, d_emb, d_obf, n = 200, 32, 48, 1500              # d_obf > d_emb = AloePri keymat widening
+    E = rng.standard_normal((V, d_emb)).astype(np.float32)
+    P = rng.standard_normal((d_emb, d_obf)).astype(np.float32)   # the secret linear basis (full row rank)
+    toks = rng.integers(0, V, size=n).astype(np.int64)
+    X = (E[toks] @ P).astype(np.float32)                # clean linear obfuscation, no noise
+    cut = int(0.7 * V)
+    tr = np.where(toks < cut)[0]; te = np.where(toks >= cut)[0]
+    pool_ids = np.unique(toks[te])
+    isa_acc = float((isa_grad_attack(X[tr], E[toks[tr]], X[te], E[pool_ids], pool_ids,
+                                     steps=600, seed=0) == toks[te]).mean())
+    ridge_acc = float((nearest_token(X[te] @ ridge_W(X[tr], E[toks[tr]]), E[pool_ids], pool_ids) == toks[te]).mean())
+    assert isa_acc > 0.9, f"gradient-opt ISA failed to converge on clean linear obf ({isa_acc:.3f})"
+    assert isa_acc >= ridge_acc - 0.1, f"isa_grad {isa_acc:.3f} ≪ ridge {ridge_acc:.3f}"
+
+
 if __name__ == "__main__":
     test_gate_gradient_is_live_at_init()
+    test_isa_grad_recovers_under_linear_obfuscation()
     test_decoder_beats_ridge_on_nonlinear_truth()
     test_logit_lens_generalizes_to_unseen_tokens()
     test_logit_lens_robust_to_norm_heterogeneity()
