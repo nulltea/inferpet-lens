@@ -1,0 +1,76 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "corpus": "corpora/release-gate-512.txt",
+  "n_prompts": 160,
+  "layers": [
+    0
+  ],
+  "configs": [
+    "plaintext"
+  ],
+  "surfaces": [
+    "residual",
+    "kqv_out",
+    "kq"
+  ],
+  "seeds": [
+    0
+  ],
+  "split": "prompt-rowsplit (attacker prompts=train, victim prompts=test)",
+  "keymat": {
+    "h": 128,
+    "lam": 0.3,
+    "seed": 0
+  },
+  "note": "matched=train on deployment reps+true labels (ceiling); self_gen=train on PLAINTEXT-model reps+true labels, decode deployment reps (realistic keyless); floor=shuffled labels. Same pool for matched/self_gen per cell. self_inset=self_gen map on its own plaintext test reps (training-validity control). incompat=plaintext-basis map dim-incompatible with deployment (keymat/alg1 widen residual to d+2h).",
+  "records": [
+    {
+      "config": "plaintext",
+      "layer": 0,
+      "surface": "residual",
+      "seed": 0,
+      "dim_plain": 768,
+      "dim_dep": 768,
+      "incompat": false,
+      "matched": 0.9971830985915493,
+      "self_gen": 0.9971830985915493,
+      "self_inset": 0.9971830985915493,
+      "floor": 0.04014084507042254,
+      "gap": 0.0,
+      "n_test": 1420,
+      "pool": 2048
+    },
+    {
+      "config": "plaintext",
+      "layer": 0,
+      "surface": "kqv_out",
+      "seed": 0,
+      "dim_plain": 768,
+      "dim_dep": 768,
+      "incompat": false,
+      "matched": 0.5352112676056338,
+      "self_gen": 0.5352112676056338,
+      "self_inset": 0.5352112676056338,
+      "floor": 0.03380281690140845,
+      "gap": 0.0,
+      "n_test": 1420,
+      "pool": 2048
+    },
+    {
+      "config": "plaintext",
+      "layer": 0,
+      "surface": "kq",
+      "seed": 0,
+      "dim_plain": 192,
+      "dim_dep": 192,
+      "incompat": false,
+      "matched": 0.273943661971831,
+      "self_gen": 0.273943661971831,
+      "self_inset": 0.273943661971831,
+      "floor": 0.03028169014084507,
+      "gap": 0.0,
+      "n_test": 1420,
+      "pool": 2048
+    }
+  ]
+}
