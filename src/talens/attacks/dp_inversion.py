@@ -68,27 +68,58 @@ def ridge_attack(Xtr, Etr, Xte, pool_emb, pool_ids, *, alpha=1.0, **_):
 
 def orthogonal_procrustes_R(P, D):
     """Orthogonal R ∈ O(d) minimising ‖P·R − D‖_F — closed form R = U Vᵀ from svd(Pᵀ D).
-    So P·R ≈ D; map D back into the P basis with D·Rᵀ. float64 internally, returns float32 (d,d)."""
+    So P·R ≈ D; map D back into the P basis with D·Rᵀ. float64 internally, returns float32 (d,d).
+    This is the least-squares known-plaintext solution for an orthogonal cipher (needs ~d anchors)."""
     M = np.asarray(P, np.float64).T @ np.asarray(D, np.float64)
     U, _, Vt = np.linalg.svd(M, full_matrices=False)
     return (U @ Vt).astype(np.float32)
 
 
-def basis_align_attack(Xp_align, Xd_align, Xp_tr, ytr, Xd_te, pool_emb, pool_ids, *, table, alpha=1.0, **_):
-    """Harvest-aligned basis-recovery attack (claim:aloepri-kqvout-basis-alignment).
+def blockwise_procrustes_R(P, D, n_heads=12, hd=64):
+    """Per-head block variant of orthogonal_procrustes_R for R = head-permutation ∘ blkdiag(Û_vo)
+    (AloePri Alg2's value transform). Fit an O(hd) Procrustes per (plaintext head h, deployment head h'),
+    assign the head-permutation by min total residual (Hungarian if scipy, else greedy), assemble the
+    block-permuted-orthogonal R (P·R ≈ D). Needs only ~hd anchors (each anchor supplies all heads), vs
+    ~n_heads·hd for the global solve — the sample-efficient known-plaintext solve when R is block-structured."""
+    Pb = np.asarray(P, np.float64).reshape(-1, n_heads, hd)
+    Db = np.asarray(D, np.float64).reshape(-1, n_heads, hd)
+    res = np.zeros((n_heads, n_heads)); Q = {}
+    for h in range(n_heads):
+        for hp in range(n_heads):
+            U, _, Vt = np.linalg.svd(Pb[:, h].T @ Db[:, hp], full_matrices=False)
+            Q[(h, hp)] = U @ Vt
+            res[h, hp] = np.linalg.norm(Pb[:, h] @ Q[(h, hp)] - Db[:, hp])
+    try:
+        from scipy.optimize import linear_sum_assignment
+        rows, cols = linear_sum_assignment(res)
+    except Exception:                                        # greedy fallback (few heads)
+        rows, cols, used = list(range(n_heads)), [], set()
+        for h in range(n_heads):
+            hp = next(c for c in np.argsort(res[h]) if c not in used); used.add(hp); cols.append(hp)
+    R = np.zeros((n_heads * hd, n_heads * hd), np.float32)
+    for h, hp in zip(rows, cols):
+        R[h * hd:(h + 1) * hd, hp * hd:(hp + 1) * hd] = Q[(h, hp)].astype(np.float32)
+    return R
 
-    AloePri Alg2 rotates kqv_out by a SECRET but context-independent block-orthogonal map R
+
+def rotation_recovery_attack(Xp_align, Xd_align, Xp_tr, ytr, Xd_te, pool_emb, pool_ids, *,
+                             table, alpha=1.0, R_estimator=orthogonal_procrustes_R, **_):
+    """Known-plaintext rotation-recovery inversion (claim:aloepri-kqvout-basis-alignment). A KNOWN attack
+    (orthogonal-Procrustes known-plaintext recovery of a linear/orthogonal obfuscation — cf. cross-lingual
+    embedding alignment MUSE/VecMap, Hill-cipher KPA, and the orthogonal-obfuscation LLM-inference line
+    arXiv:2606.16461 / 2603.01499), instantiated on AloePri Alg2's per-head value rotation of kqv_out.
+
+    AloePri Alg2 rotates kqv_out by a SECRET but context-independent (block-)orthogonal map R
     (deployment = plaintext·R). A keyless self-generated inverter (§05) collapses under Alg2 because it
-    cannot reproduce R. This attack spends a TFMA harvest on R ONLY — not on the token map:
+    cannot reproduce R. This attack spends a harvest on recovering R ONLY — not on the token map:
 
-      1. estimate R̂ by orthogonal Procrustes from aligned (plaintext, deployment) pairs for the
-         harvested tokens (`Xp_align`, `Xd_align`);
-      2. un-rotate the held-out deployment reps into the plaintext basis (`Xd_te · R̂ᵀ`);
+      1. estimate R̂ from aligned (plaintext, deployment) anchor pairs (`Xp_align`, `Xd_align`) via
+         `R_estimator` (orthogonal_procrustes_R global, or blockwise_procrustes_R per-head);
+      2. un-rotate the deployment reps into the plaintext basis (`Xd_te · R̂ᵀ`);
       3. decode with a self-generated ridge fit on the attacker's own plaintext reps (`Xp_tr → emb[ytr]`).
 
-    Keyless: R̂ from the (threat-model-legitimate) harvest, token map from unlimited self-generation.
-    Stronger with K because more harvested pairs pin R̂ better (R orthogonal ⇒ few samples suffice)."""
-    R = orthogonal_procrustes_R(Xp_align, Xd_align)          # Xp·R ≈ Xd
+    Keyless: R̂ from the (threat-model-legitimate) anchors, token map from unlimited self-generation."""
+    R = R_estimator(Xp_align, Xd_align)                      # Xp·R ≈ Xd
     W = ridge_W(Xp_tr, table[ytr], alpha)                    # self-gen inverter, plaintext basis
     return nearest_token((Xd_te @ R.T) @ W, pool_emb, pool_ids)
 

@@ -11,7 +11,7 @@ import torch
 
 from talens.attacks.dp_inversion import (
     LinearSkipDecoder, ridge_W, skip_decoder_attack, nearest_token, logit_lens_attack,
-    isa_grad_attack, orthogonal_procrustes_R, basis_align_attack,
+    isa_grad_attack, orthogonal_procrustes_R, blockwise_procrustes_R, rotation_recovery_attack,
 )
 
 
@@ -144,7 +144,7 @@ def test_isa_grad_recovers_under_linear_obfuscation():
 
 
 def test_basis_align_recovers_under_secret_rotation():
-    """basis_align_attack must recover held-out tokens under a SECRET orthogonal rotation of the
+    """rotation_recovery_attack must recover held-out tokens under a SECRET orthogonal rotation of the
     surface (AloePri Alg2 model) where a naive self-gen ridge (no un-rotation) collapses. The harvest
     supplies only the aligned pairs that pin R̂; the token map comes from self-gen. Guards the core
     claim mechanism (claim:aloepri-kqvout-basis-alignment). CPU-only, deterministic, seconds."""
@@ -161,7 +161,7 @@ def test_basis_align_recovers_under_secret_rotation():
     align = rng.choice(n, size=400, replace=False)              # harvested aligned pairs
     R = orthogonal_procrustes_R(Xp[align], Xd[align])
     assert np.linalg.norm(R - Q) / np.linalg.norm(Q) < 0.05, "Procrustes did not recover the rotation"
-    ba = float((basis_align_attack(Xp[align], Xd[align], Xp[tr], toks[tr], Xd[te],
+    ba = float((rotation_recovery_attack(Xp[align], Xd[align], Xp[tr], toks[tr], Xd[te],
                                    E[pool], pool, table=E) == toks[te]).mean())
     # naive self-gen: same ridge, decode the ROTATED reps without un-rotation → wrong basis → floor
     W = ridge_W(Xp[tr], E[toks[tr]])

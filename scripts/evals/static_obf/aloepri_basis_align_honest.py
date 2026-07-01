@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from defenses.aloepri import reparam_pythia  # noqa: E402
 from evals.static_obf.aloepri_matched_vs_selfgen import capture  # noqa: E402
 from evals.static_obf.aloepri_score_surface_sweep import _load  # noqa: E402
-from talens.attacks.dp_inversion import ridge_W, nearest_token, orthogonal_procrustes_R  # noqa: E402
+from talens.attacks.dp_inversion import ridge_W, nearest_token, orthogonal_procrustes_R, blockwise_procrustes_R  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 CFG = {"plaintext": None, "keymat": dict(config="keymat_only"),
@@ -49,32 +49,6 @@ def leading_harvested_mask(y, pidx, harv, prompt_ok):
         mask[idx] = lead
     return np.where(mask)[0]
 
-
-def blockwise_procrustes_R(Xp, Xd, n_heads=12, hd=64):
-    """R = per-head O(hd) rotation composed with a head-permutation, estimated block-wise:
-    per (plaintext head h, deployment head h') fit O(hd) Procrustes + residual; assign the permutation by
-    min total residual (Hungarian if scipy, else greedy); assemble the block-permuted-orthogonal R (P·R≈D).
-    Needs only ~hd honest rows (each row supplies all heads' hd coords)."""
-    P = np.asarray(Xp, np.float64).reshape(-1, n_heads, hd)
-    D = np.asarray(Xd, np.float64).reshape(-1, n_heads, hd)
-    res = np.zeros((n_heads, n_heads)); Q = {}
-    for h in range(n_heads):
-        for hp in range(n_heads):
-            U, _, Vt = np.linalg.svd(P[:, h].T @ D[:, hp], full_matrices=False)
-            Q[(h, hp)] = U @ Vt
-            res[h, hp] = np.linalg.norm(P[:, h] @ Q[(h, hp)] - D[:, hp])
-    try:
-        from scipy.optimize import linear_sum_assignment
-        rows, cols = linear_sum_assignment(res)
-    except Exception:                                        # greedy fallback (12 heads)
-        rows, cols, used = list(range(n_heads)), [], set()
-        for h in range(n_heads):
-            order = np.argsort(res[h])
-            hp = next(c for c in order if c not in used); used.add(hp); cols.append(hp)
-    R = np.zeros((n_heads * hd, n_heads * hd), np.float32)
-    for h, hp in zip(rows, cols):
-        R[h * hd:(h + 1) * hd, hp * hd:(hp + 1) * hd] = Q[(h, hp)].astype(np.float32)
-    return R
 
 
 def main():
