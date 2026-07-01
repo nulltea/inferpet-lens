@@ -23,6 +23,13 @@ rotation*. **Surface: `kqv_out`** (the per-head attention value output / ISA-Att
 (cross-lingual embedding alignment MUSE/VecMap; Hill-cipher KPA; orthogonal-obfuscation LLM-inference line
 arXiv:2606.16461 / 2603.01499). See [[claim:aloepri-kqvout-basis-alignment]] for the prior-art verdict.
 
+**Standard name (use this phrasing in write-ups):** *a known-plaintext attack that recovers the secret
+rotation via the orthogonal Procrustes solution.* There is no single universal term — the math primitive
+is the **orthogonal Procrustes problem** (Schönemann 1966); the security framing is a **known-plaintext
+attack (KPA)** on a linear/orthogonal cipher (cf. breaking the Hill cipher); the embeddings framing is
+**(orthogonal) Procrustes alignment from a seed dictionary** (MUSE/VecMap). `rotation_recovery_attack` is a
+descriptive code name, not a standard term.
+
 ## Phase 0 — precompute (once, keyless)
 1. **Self-gen inverter.** Run the *public plaintext* model on the attacker's own prompts → plaintext
    `kqv_out` rows `Xp_tr` with known tokens `ytr`. Fit ridge `W = (Xpᵀ Xp + αI)⁻¹ Xpᵀ E[ytr]` (rep→embedding).
