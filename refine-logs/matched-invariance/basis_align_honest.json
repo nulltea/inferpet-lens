@@ -1,0 +1,319 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "layer": 0,
+  "ks": [
+    0,
+    50,
+    100,
+    300,
+    700
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "note": "HONEST alignment = leading fully-harvested-prefix victim positions only. global = O(768) Procrustes (needs n_align\u2265768); block = per-head O(64)+head-perm (needs ~64). opt = pilot's optimistic all-harvested-token count for reference.",
+  "records": [
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 50,
+      "n_align_opt": 378,
+      "n_align_honest": 51,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 100,
+      "n_align_opt": 455,
+      "n_align_honest": 55,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 300,
+      "n_align_opt": 612,
+      "n_align_honest": 60,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 700,
+      "n_align_opt": 810,
+      "n_align_honest": 102,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": 0.6791666666666667
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 50,
+      "n_align_opt": 503,
+      "n_align_honest": 58,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 100,
+      "n_align_opt": 573,
+      "n_align_honest": 64,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 300,
+      "n_align_opt": 718,
+      "n_align_honest": 86,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 700,
+      "n_align_opt": 910,
+      "n_align_honest": 137,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 50,
+      "n_align_opt": 441,
+      "n_align_honest": 21,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 100,
+      "n_align_opt": 515,
+      "n_align_honest": 22,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 300,
+      "n_align_opt": 680,
+      "n_align_honest": 36,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 700,
+      "n_align_opt": 888,
+      "n_align_honest": 57,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 50,
+      "n_align_opt": 378,
+      "n_align_honest": 51,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 100,
+      "n_align_opt": 455,
+      "n_align_honest": 55,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 300,
+      "n_align_opt": 612,
+      "n_align_honest": 60,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 700,
+      "n_align_opt": 810,
+      "n_align_honest": 102,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": 0.6791666666666667
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 50,
+      "n_align_opt": 503,
+      "n_align_honest": 58,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 100,
+      "n_align_opt": 573,
+      "n_align_honest": 64,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 300,
+      "n_align_opt": 718,
+      "n_align_honest": 86,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 700,
+      "n_align_opt": 910,
+      "n_align_honest": 137,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 50,
+      "n_align_opt": 441,
+      "n_align_honest": 21,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 100,
+      "n_align_opt": 515,
+      "n_align_honest": 22,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 300,
+      "n_align_opt": 680,
+      "n_align_honest": 36,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 700,
+      "n_align_opt": 888,
+      "n_align_honest": 57,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    }
+  ]
+}

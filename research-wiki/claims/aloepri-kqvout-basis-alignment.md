@@ -36,10 +36,39 @@ harvest yields). Under alg2@1.0 the rotation is still partially removed (0.003 �
 caps recovery** (rel-err stays ~0.82) — the noise, not the rotation, is the residual defense, exactly as
 the limits below predicted. Control clean (R = I ⇒ R̂ = I, K-independent, 0.646).
 
-**Takeaway.** Alg2's per-head value rotation provides ~no defense against a harvest-equipped keyless
-attacker on kqv_out — it is recovered exactly from a handful of labels. Only the αₑ noise defends. This
-overturns the FIG·01b naive-cascade reading (ISA-AttnValue ≈ 0) for the rotation, and matches the
-report-wide thesis that the single information-theoretic lever is noise, not the basis obfuscation.
+## Honest-alignment result (L0, alg2@0) — corrects the pilot's magnitude
+
+The pilot aligned on ALL harvested-token rows (optimistic: assumes the attacker can compute the plaintext
+rep at any harvested position). The faithful attacker forms a pair only at a position whose ENTIRE causal
+prefix is harvested. Redone honestly (`aloepri_basis_align_honest.py` → `basis_align_honest.json`, 3 seeds,
+alignment restricted to leading fully-harvested-prefix victim positions):
+
+| K | honest n_align (optimistic) | global O(768) Procrustes | per-head block Procrustes |
+|---|---|---|---|
+| 50 | 43 (441) | NA (< 768) | NA (< 64) |
+| 100 | 47 (514) | NA | **0.589** |
+| 300 | 61 (670) | NA | **0.589** |
+| 700 | 99 (869) | NA | **0.634** |
+
+**Corrected findings.** (1) Honest aligned pairs are **~10× scarcer** than the pilot's count (43–99 vs
+441–869) and never reach d=768 across ~80 victim prompts, so the **global O(768) Procrustes is infeasible
+honestly** — the pilot's "K=50 → exact" was an artifact of the optimistic overcount. (2) But `R` is
+block-structured (`perm · blkdiag(Û_vo)`), so a **per-head O(64) Procrustes + head-permutation assignment
+needs only ~64 aligned rows**; with ~64–99 honest pairs it recovers the rotation and reaches **0.589–0.634,
+≈ 97% of the 0.646 ceiling**. (3) So the attack **survives honestly** — Alg2's rotation is still defeated
+keyless — but the realistic recipe is: exploit the block structure (global is out), and gather ≥ 64
+fully-known-prefix victim positions (reached at K ≳ 100 here; more victim traffic lowers the K needed).
+Honest n_align grows with K only slowly, bottlenecked by how often victim prompts begin with long runs of
+harvested tokens.
+
+**Takeaway.** Alg2's per-head value rotation provides ~no *information-theoretic* defense against a
+harvest-equipped keyless attacker on kqv_out: with the block-structured estimator it is recovered from a
+few dozen fully-known-prefix labels, lifting recovery from the floor (~0.01) to ≈ 0.6 (near the invariant
+ceiling). Only the αₑ noise caps recovery (alg2@1.0 stays ≤ 0.22). This overturns the FIG·01b naive-cascade
+reading (ISA-AttnValue ≈ 0) for the rotation and matches the report-wide thesis: the single
+information-theoretic lever is noise, not the basis obfuscation. Queued: depth sweep (honest n_align
+shrinks with depth as prefixes lengthen), and promoting `blockwise_procrustes_R` into
+`talens.attacks.dp_inversion` if the attack graduates to a FIG·01b recovery-vs-K subplot.
 
 ## Setting
 
