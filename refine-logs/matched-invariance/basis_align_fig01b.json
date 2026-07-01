@@ -1,0 +1,287 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "layer": 0,
+  "ks": [
+    0,
+    293,
+    1024
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "note": "HONEST alignment = leading fully-harvested-prefix victim positions only. global = O(768) Procrustes (needs n_align\u2265768); block = per-head O(64)+head-perm (needs ~64). opt = pilot's optimistic all-harvested-token count for reference.",
+  "records": [
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 293,
+      "n_align_opt": 609,
+      "n_align_honest": 60,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 1024,
+      "n_align_opt": 928,
+      "n_align_honest": 161,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": 0.6791666666666667
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 293,
+      "n_align_opt": 717,
+      "n_align_honest": 86,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 1024,
+      "n_align_opt": 1026,
+      "n_align_honest": 214,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.5885558583106267
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 293,
+      "n_align_opt": 676,
+      "n_align_honest": 36,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 1024,
+      "n_align_opt": 997,
+      "n_align_honest": 89,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": 0.6713709677419355
+    },
+    {
+      "config": "alg1",
+      "seed": 0,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg1",
+      "seed": 0,
+      "k": 293,
+      "n_align_opt": 609,
+      "n_align_honest": 60,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg1",
+      "seed": 0,
+      "k": 1024,
+      "n_align_opt": 928,
+      "n_align_honest": 161,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": 0.21458333333333332
+    },
+    {
+      "config": "alg1",
+      "seed": 1,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg1",
+      "seed": 1,
+      "k": 293,
+      "n_align_opt": 717,
+      "n_align_honest": 86,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.16348773841961853
+    },
+    {
+      "config": "alg1",
+      "seed": 1,
+      "k": 1024,
+      "n_align_opt": 1026,
+      "n_align_honest": 214,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.2779291553133515
+    },
+    {
+      "config": "alg1",
+      "seed": 2,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg1",
+      "seed": 2,
+      "k": 293,
+      "n_align_opt": 676,
+      "n_align_honest": 36,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg1",
+      "seed": 2,
+      "k": 1024,
+      "n_align_opt": 997,
+      "n_align_honest": 89,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": 0.19153225806451613
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 293,
+      "n_align_opt": 609,
+      "n_align_honest": 60,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 1024,
+      "n_align_opt": 928,
+      "n_align_honest": 161,
+      "n_test": 480,
+      "ba_global": null,
+      "ba_block": 0.21458333333333332
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 293,
+      "n_align_opt": 717,
+      "n_align_honest": 86,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.16348773841961853
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 1024,
+      "n_align_opt": 1026,
+      "n_align_honest": 214,
+      "n_test": 367,
+      "ba_global": null,
+      "ba_block": 0.2779291553133515
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 0,
+      "n_align_opt": 0,
+      "n_align_honest": 0,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 293,
+      "n_align_opt": 676,
+      "n_align_honest": 36,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": null
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 1024,
+      "n_align_opt": 997,
+      "n_align_honest": 89,
+      "n_test": 496,
+      "ba_global": null,
+      "ba_block": 0.19153225806451613
+    }
+  ]
+}

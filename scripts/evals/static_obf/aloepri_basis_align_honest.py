@@ -33,7 +33,9 @@ from talens.attacks.dp_inversion import ridge_W, nearest_token, orthogonal_procr
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 CFG = {"plaintext": None, "keymat": dict(config="keymat_only"),
-       "alg2_0": dict(config="alg2", alpha_e=0.0, alpha_h=0.0)}
+       "alg1": dict(config="full_alg1", alpha_e=1.0, alpha_h=0.2),
+       "alg2_0": dict(config="alg2", alpha_e=0.0, alpha_h=0.0),
+       "alg2": dict(config="alg2", alpha_e=1.0, alpha_h=0.0)}
 
 
 def leading_harvested_mask(y, pidx, harv, prompt_ok):
@@ -65,6 +67,7 @@ def main():
     ap.add_argument("--keymat-h", type=int, default=128)
     ap.add_argument("--keymat-lam", type=float, default=0.3)
     ap.add_argument("--keymat-seed", type=int, default=0)
+    ap.add_argument("--configs", default="alg2_0,keymat")
     ap.add_argument("--out", default="refine-logs/matched-invariance/basis_align_honest.json")
     args = ap.parse_args()
 
@@ -74,10 +77,11 @@ def main():
         tok.pad_token = tok.eos_token
     prompts = [l.strip() for l in Path(args.corpus).read_text().splitlines() if l.strip()][: args.max_prompts]
     L, ks, seeds = args.layer, [int(s) for s in args.ks.split(",")], [int(s) for s in args.seeds.split(",")]
+    report_cfgs = [c.strip() for c in args.configs.split(",") if c.strip()]
     print(f"[honest] L{L} ks={ks} held_frac={args.held_frac} seeds={seeds} dev={DEV}", flush=True)
 
     caps, ids0, pidx0, table, vocab = {}, None, None, None, None
-    for cname in ("plaintext", "keymat", "alg2_0"):
+    for cname in (["plaintext"] + report_cfgs):
         m = _load(args.model)
         if table is None:
             table = m.get_input_embeddings().weight.detach().float().cpu().numpy().astype(np.float32)
@@ -98,7 +102,7 @@ def main():
     freq_order = types[np.argsort(counts)[::-1]]
 
     records = []
-    for cfg in ("alg2_0", "keymat"):
+    for cfg in report_cfgs:
         Xd = caps[cfg]
         for seed in seeds:
             rng = np.random.default_rng(seed)
@@ -134,7 +138,7 @@ def main():
         return float(np.mean(v)) if v else None
 
     print("\n[honest] alg2_0 — honest aligned rows and recovery vs K (mean over seeds):", flush=True)
-    for cfg in ("alg2_0", "keymat"):
+    for cfg in report_cfgs:
         print(f"  --- {cfg} ---", flush=True)
         for k in ks:
             no, nh = agg(cfg, k, "n_align_opt"), agg(cfg, k, "n_align_honest")

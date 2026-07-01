@@ -140,6 +140,29 @@ exactly the one thing it lacked under Alg2 (the rotation), obtained legitimately
 - **Honest alignment**: the faithful attacker aligns only on fully-known-prefix positions; a pilot that
   aligns on all harvested-token rows is an **optimistic ceiling** on `R̂` quality (flag in results).
 
+## Novelty / prior art — this is a KNOWN attack (verified 2026-07-01)
+
+The core technique — recover a secret orthogonal/linear obfuscation from a small set of known
+(plaintext, ciphertext) anchor pairs via the least-squares / orthogonal-Procrustes solution — is
+established on three independent grounds:
+- **Classical cryptanalysis**: a linear/orthogonal map is a linear cipher (Hill cipher); a known-plaintext
+  attack recovers it from ~d pairs by solving the linear system. Textbook.
+- **Cross-lingual embedding alignment**: orthogonal Procrustes from a seed dictionary is the canonical
+  method — Mikolov 2013; Xing 2015 (orthogonal constraint); MUSE [[paper:conneau2017_word_translation_without_parallel_data]];
+  VecMap/Artetxe (seed dictionaries as small as ~25 pairs).
+- **This exact domain**: the orthogonal-obfuscation LLM-inference line
+  ([[paper:yukhimchuk2026_privacy_from_symmetry]], and the covariant-obfuscation target
+  [[paper:aloepri2026_covariant_obfuscation]]) discusses that orthogonal conjugation forces the adversary
+  to recover the hidden rotation via alignment, and that anchor/known-plaintext pairs enable it (attack
+  discussion not confirmed from abstracts — flagged for a body read; the *technique* is certain regardless).
+
+**Verdict: not a new attack primitive.** Our incremental, evaluation-grade contribution is: (1) the concrete
+instantiation against AloePri Alg2's per-head value rotation on `kqv_out`; (2) the **per-head block
+Procrustes** exploiting `R = perm·blkdiag(Û_vo)` (needs ~64 anchors + head-perm recovery, not ~768);
+(3) sourcing anchors from a **TFMA harvest** + composing with a self-generated inverter; (4) the **honest
+fully-known-prefix** anchor-scarcity analysis. The result (Alg2 rotation ≈ 0 IT defense) is the finding,
+not the method. Do **not** file a novelty claim / new-primitive claim on this.
+
 ## Relationships
 
 - Extends [[cross-surface-matched-probe-tracks-recovery]] / the §05 matched-vs-selfgen finding
