@@ -35,9 +35,11 @@ scripts/harness/telegram.env
 scripts/harness/campaign.env
 .deps/
 
-# detached campaign run logs
-refine-logs/_campaign-logs/
-refine-logs/utility-tradeoff/.heartbeat
-
-# Large activation caches from dp_leakage_sweep --cache-dir (regenerable, ~GBs)
-refine-logs/**/cache
+# Working / artifact dirs — kept local, not versioned (research-wiki/ IS versioned)
+/idea-stage/
+/logs/
+/refine-logs/
+/papers/
+/review-stage/
+.pytest_cache/
+.ralphex/
