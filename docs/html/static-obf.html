@@ -113,15 +113,14 @@
         <thead><tr><th>§</th><th>attack</th><th>surface</th><th>in model?</th></tr></thead>
         <tbody>
           <tr><td>§04</td><td>ISA-HiddenState, multi-key blind</td><td>residual activations</td><td>yes</td></tr>
-          <tr><td>§05</td><td>ISA, attention value (kqv_out)</td><td>per-head value coords</td><td>readout</td></tr>
-          <tr><td>§06</td><td>ISA, attention score (kq)</td><td>pre-softmax Q·Kᵀ</td><td>readout</td></tr>
-          <tr><td>§07</td><td>NN, cosine nearest-neighbour</td><td>residual activations</td><td>yes</td></tr>
-          <tr><td>§08</td><td>VMA, vocabulary matching</td><td>obfuscated weights</td><td>yes</td></tr>
-          <tr><td>§09</td><td>IA, gate and attention invariants</td><td>obfuscated weights</td><td>yes</td></tr>
-          <tr><td>§10</td><td>ArrowMatch, cosine direction</td><td>obfuscated weights</td><td>yes</td></tr>
-          <tr><td>§11</td><td>IMA-EmbedRow-transformer</td><td>obfuscated weights</td><td>yes</td></tr>
-          <tr><td>§12</td><td>TFMA, frequency matching</td><td>token-id wire</td><td>yes</td></tr>
-          <tr><td>§13</td><td>SDA, bigram deciphering</td><td>token-id wire</td><td>yes</td></tr>
+          <tr><td>§05</td><td>ISA, attention surfaces (kq &amp; kqv_out) — matched vs self-gen</td><td>scores + per-head values</td><td>readout</td></tr>
+          <tr><td>§06</td><td>NN, cosine nearest-neighbour</td><td>residual activations</td><td>yes</td></tr>
+          <tr><td>§07</td><td>VMA, vocabulary matching</td><td>obfuscated weights</td><td>yes</td></tr>
+          <tr><td>§08</td><td>IA, gate and attention invariants</td><td>obfuscated weights</td><td>yes</td></tr>
+          <tr><td>§09</td><td>ArrowMatch, cosine direction</td><td>obfuscated weights</td><td>yes</td></tr>
+          <tr><td>§10</td><td>IMA-EmbedRow-transformer</td><td>obfuscated weights</td><td>yes</td></tr>
+          <tr><td>§11</td><td>TFMA, frequency matching</td><td>token-id wire</td><td>yes</td></tr>
+          <tr><td>§12</td><td>SDA, bigram deciphering</td><td>token-id wire</td><td>yes</td></tr>
         </tbody>
       </table>
     </div>
@@ -151,7 +150,7 @@
     <div class="prose"><p><strong>Finding.</strong> When PVI is held to attack-accessible training data it tracks the attack, not decouples from it. At no-defence the reader transfers and PVI is high and positive (L0 5.82 bits, declining to 4.05 at L11, the same shape as recovery 0.914 → 0.467). Under keymat and alg1 the reader is trained on the attacker's synthetic-key representations and cannot bridge to the secret deployment basis, so PVI is strongly negative (L0 −10.7 bits; the transferred reader scores worse than the class prior, i.e. zero accessible information) and recovery is near zero, under the gate everywhere. This corrects an earlier reading: the same probe computed in the matched regime (reader trained on deployment-basis labelled pairs) stayed flat at ~5.8 bits across all three levels and appeared to decouple from recovery. That flatness was a threat-model artifact, the probe was using data the keyless attack cannot obtain. The fix is not a different probe but a constraint on its fit pairs, the identical mechanism that keeps PVI in-model under differential privacy (there the public mechanism lets the attacker self-generate noised pairs, so the default fit is already accessible and PVI tracks recovery). AloePri's keymat is information-preserving, so a matched attacker with paired data still recovers (the information is not destroyed), but no in-model attacker, and now no in-model probe, can read it without the key. Single seed; a multi-seed replication and an explicit differential-privacy positive control are the queued firm-up.</p></div>
 
     <h4 style="font-family:'Fraunces',serif;font-size:17px;margin:28px 0 8px;">Two-stage τ-leak cascade — does a partial harvest bootstrap the inverter?</h4>
-    <p class="prose">The keyless attacker is not the only model. A frequency-analysis harvest on the token-id wire (TFMA) recovers the plain-to-obfuscated mapping τ for a subset of token TYPES; those become true labels that bootstrap a supervised inverter on any surface (the generic <code>cascade_attack</code>: train on the harvested types' pairs, score on the held-out types). The question is the bootstrap threshold: how many harvested types k let the attack generalize to the rest. One subplot per AloePri attack below (ridge and gradient-optimization inverters: rep → token embedding, nearest-token); within each, x = defence setting (αₑ) and the two bars are harvest size k; dotted line = release gate (0.15). <strong>Why ridge largely represents every inverter here.</strong> AloePri's defence is a <em>linear</em> secret basis; a k-harvest's role is to reveal that basis (k ≥ ~rank pairs least-squares-solve P̂), after which direct linear inversion is near-optimal, so a non-linear or iterative inverter adds little once a harvest is available. A GELU-MLP inverter equals ridge exactly under a harvest (table keymat 0.989/0.989), and the §F.1 transformer collapses to the ridge cell by the same argument; the paper's <em>IMA-EmbedRow-transformer</em> is therefore shown in its own no-harvest, τ-invariant form in §11 (not a k-harvest cell). The <strong>§D.1 gradient-optimization ISA</strong> — which optimizes a candidate input embedding by gradient descent to fit the observed residual, rather than solving the inverse in closed form — <em>is</em> ported here as its own subplot (<em>ISA-HiddenState · gradient</em>). Direct measurement refines the earlier reasoning: it does not strictly reduce to the ridge cell but <em>tracks it to within a few points, deviating in both directions</em> — at αₑ=0 it edges ridge (0.904 vs 0.882 at k=293), at αₑ=1 ridge edges it (0.555 vs 0.612), and at αₑ=2 they split by harvest size (gradient higher at k=293, ridge higher at k=1024). The privacy verdict is nevertheless identical to ridge's (both collapse under αₑ=2 at the realistic k=293, both still leak at k=1024), and the blind, no-harvest gradient-opt is the k=0 case.</p>
+    <p class="prose">The keyless attacker is not the only model. A frequency-analysis harvest on the token-id wire (TFMA) recovers the plain-to-obfuscated mapping τ for a subset of token TYPES; those become true labels that bootstrap a supervised inverter on any surface (the generic <code>cascade_attack</code>: train on the harvested types' pairs, score on the held-out types). The question is the bootstrap threshold: how many harvested types k let the attack generalize to the rest. One subplot per AloePri attack below (ridge and gradient-optimization inverters: rep → token embedding, nearest-token); within each, x = defence setting (αₑ) and the two bars are harvest size k; dotted line = release gate (0.15). <strong>Why ridge largely represents every inverter here.</strong> AloePri's defence is a <em>linear</em> secret basis; a k-harvest's role is to reveal that basis (k ≥ ~rank pairs least-squares-solve P̂), after which direct linear inversion is near-optimal, so a non-linear or iterative inverter adds little once a harvest is available. A GELU-MLP inverter equals ridge exactly under a harvest (table keymat 0.989/0.989), and the §F.1 transformer collapses to the ridge cell by the same argument; the paper's <em>IMA-EmbedRow-transformer</em> is therefore shown in its own no-harvest, τ-invariant form in §10 (not a k-harvest cell). The <strong>§D.1 gradient-optimization ISA</strong> — which optimizes a candidate input embedding by gradient descent to fit the observed residual, rather than solving the inverse in closed form — <em>is</em> ported here as its own subplot (<em>ISA-HiddenState · gradient</em>). Direct measurement refines the earlier reasoning: it does not strictly reduce to the ridge cell but <em>tracks it to within a few points, deviating in both directions</em> — at αₑ=0 it edges ridge (0.904 vs 0.882 at k=293), at αₑ=1 ridge edges it (0.555 vs 0.612), and at αₑ=2 they split by harvest size (gradient higher at k=293, ridge higher at k=1024). The privacy verdict is nevertheless identical to ridge's (both collapse under αₑ=2 at the realistic k=293, both still leak at k=1024), and the blind, no-harvest gradient-opt is the k=0 case.</p>
     <p class="prose" style="margin-bottom:4px;">x = defence setting with its embedding-noise αₑ in parentheses; bars = harvest size k; all subplots oracle τ, pure k-pair bootstrap, L0:</p>
     <ul class="prose" style="margin-top:0;font-size:13px;">
       <li><strong>keymat (0)</strong> — Algorithm-1 key matrices only, αₑ = 0: no noise, pure lossless re-parameterization.</li>
@@ -171,56 +170,22 @@
   <section id="kqv">
     <header class="section-head">
       <div class="section-num">§05</div>
-      <h2 class="section-title">ISA, attention value surface (kqv_out)</h2>
-      <div class="section-meta">the per-head value coordinates Algorithm 2 rotates</div>
+      <h2 class="section-title">ISA, attention surfaces (kq scores &amp; kqv_out values)</h2>
+      <div class="section-meta">matched ceiling vs the realistic self-generating attacker</div>
     </header>
-    <p class="prose">The internal-state attack reads the attention output (the per-head value-weighted sum, before the output projection) and inverts it to the token with a matched ridge, across all 12 layers. This is the surface Algorithm 2 targets with its value rotation Û_vo and inter-head permutation. Four configurations isolate the rotation from the noise: <code>alg2@0</code> is the orthogonal rotation alone, <code>alg2@1.0</code> adds αₑ noise.</p>
+    <p class="prose">The internal-state attack on the two attention surfaces — pre-softmax scores <code>kq</code> = Q·Kᵀ and the per-head value output <code>kqv_out</code> (before the output projection) — inverted to the token by a ridge at L0. The question is not how well a <em>matched</em> ridge does — it trains on the deployment's own representations with true labels, data a keyless attacker cannot obtain on a rotated surface, so it is a <strong>ceiling</strong> — but what a <strong>realistic self-generating attacker</strong> achieves: one that trains only on representations it produces itself by running the public plaintext model on its own prompts (no key, no token permutation), then decodes the leaked deployment tensors. That self-generated map is valid against the deployment <em>only if the obfuscation leaves the surface invariant</em>; Algorithm 2's value rotation Û_vo makes <code>kqv_out</code> non-invariant, while <code>keymat</code>/<code>alg1</code> leave the head axis untouched.</p>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 02 — kqv_out token recovery vs depth · four configurations · row-split</span><span class="r">source: refine-logs/aloepri/aloepri_score_surface.json · 160 prompts</span></div>
-      <div id="plot-kqvout" style="width:100%;height:420px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">plaintext, keymat, and Algorithm 2 without noise lie exactly on top of each other at every depth: the orthogonal value rotation is absorbed by the matched ridge, giving zero defense. Only αₑ = 1.0 separates downward. Recovery peaks at L0 (0.685) and declines with depth.</span></div>
+      <div class="plot-cap"><span class="l">FIG · 02 — matched (ceiling) vs realistic self-generated recovery · kqv_out and kq · L0 · 3 seeds</span><span class="r">source: refine-logs/matched-invariance/matched_vs_selfgen.json · pythia-160m · 160 prompts</span></div>
+      <div id="plot-attn-mvs" style="width:100%;height:380px;"></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">On <code>keymat</code> the head axis is untouched, so the self-generated map equals the matched ceiling exactly (kqv_out 0.55, kq 0.27) — a genuine keyless attack. Algorithm 2's secret value rotation makes the surface non-invariant: the self-generated map lands in the wrong basis and collapses to the shuffled-label floor (kqv_out 0.004, kq 0.022) while the matched ceiling stays high (0.48 / 0.28). αₑ noise (alg1) is intermediate — the basis is still invariant, only the secret noise realization degrades transfer (0.23 / 0.19, well above floor).</span></div>
     </div>
-    <table class="spec spec--wide">
-      <thead><tr><th>config</th><th class="num">L0 (row-split)</th><th class="num">L0 (disjoint)</th><th class="num">L6 (row-split)</th><th class="num">L11 (row-split)</th></tr></thead>
-      <tbody>
-        <tr><td>plaintext</td><td class="num">0.685</td><td class="num">0.462</td><td class="num">0.263</td><td class="num">0.267</td></tr>
-        <tr><td>keymat_only</td><td class="num">0.685</td><td class="num">0.462</td><td class="num">0.263</td><td class="num">0.267</td></tr>
-        <tr><td>alg2@0 (rotation only)</td><td class="num">0.685</td><td class="num">0.462</td><td class="num">0.263</td><td class="num">0.267</td></tr>
-        <tr><td>alg2@1.0 (rotation + noise)</td><td class="num accent">0.564</td><td class="num accent">0.179</td><td class="num accent">0.212</td><td class="num">0.257</td></tr>
-      </tbody>
-    </table>
-    <div class="prose"><p><strong>Finding.</strong> plaintext, keymat, and <code>alg2@0</code> produce identical recovery at every layer: Algorithm 2's value rotation is a fixed orthogonal map, and a matched ridge absorbs any fixed linear map exactly. The only configuration that reduces recovery is the one with αₑ noise (L0 falls from 0.685 to 0.564 row-split, 0.462 to 0.179 disjoint). Algorithm 2's role on this surface is access control (it hides the per-head basis from an attacker who cannot retrain); the information-theoretic reduction is the αₑ noise. This is the in-model demonstration the earlier post-softmax score reader could not provide.</p></div>
-  </section>
-
-  <!-- ═════ § 6 ISA score ═════ -->
-  <section id="kq">
-    <header class="section-head">
-      <div class="section-num">§06</div>
-      <h2 class="section-title">ISA, attention score surface (kq)</h2>
-      <div class="section-meta">pre-softmax Q·Kᵀ, preserved by construction</div>
-    </header>
-    <p class="prose">The same internal-state attack on the pre-softmax scores Q·Kᵀ (the last 16 causal keys per head). Algorithm 2 sets M_q = M_k so the scores are preserved up to a fixed head permutation and a rotary non-commutation; Algorithm 1 leaves them unchanged. This section is the complement of §04: it shows the score surface leaks far less than the value surface, and that Algorithm 2 does not defend it against a matched attacker either.</p>
-    <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 03 — kq token recovery vs depth · four configurations · row-split</span><span class="r">source: refine-logs/aloepri/aloepri_score_surface.json · 160 prompts</span></div>
-      <div id="plot-kq" style="width:100%;height:420px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Scores are weakly recoverable (L0 ≈ 0.28, far below the value surface's 0.685). The configurations again coincide except for the αₑ = 1.0 trace; the head permutation and rotary effect are absorbed by the matched inverter.</span></div>
-    </div>
-    <table class="spec spec--wide">
-      <thead><tr><th>config</th><th class="num">L0 (row-split)</th><th class="num">L0 (disjoint)</th><th class="num">L6 (row-split)</th></tr></thead>
-      <tbody>
-        <tr><td>plaintext</td><td class="num">0.278</td><td class="num">0.107</td><td class="num">0.193</td></tr>
-        <tr><td>keymat_only</td><td class="num">0.278</td><td class="num">0.107</td><td class="num">0.193</td></tr>
-        <tr><td>alg2@0</td><td class="num">0.278</td><td class="num">0.107</td><td class="num">0.195</td></tr>
-        <tr><td>alg2@1.0</td><td class="num">0.295</td><td class="num">0.069</td><td class="num">0.144</td></tr>
-      </tbody>
-    </table>
-    <div class="prose"><p><strong>Finding.</strong> The score surface carries much less token information than the value surface and floors near chance by mid-depth even on plaintext. The configurations coincide, confirming that Algorithm 2 preserves the scores by construction. An earlier reader on this surface (post-softmax, single layer, vocab-disjoint) reported a near-zero recovery that was a vacuous gate: the regime it measured is one where even plaintext is unrecoverable. The pre-softmax, all-layer reading here is the correct measurement.</p></div>
+    <div class="prose"><p><strong>Finding.</strong> The matched recovery on these surfaces (kqv_out 0.55 at L0, declining with depth to ~0.15 by L11; kq ~0.27, flooring near chance by mid-depth) is a <em>ceiling</em>, not a keyless attack: on any surface Algorithm 2 rotates, a matched ridge presupposes deployment-basis paired data (the key), and it absorbs the fixed orthogonal rotation exactly. The realistic self-generating attacker equals that ceiling <strong>only where the obfuscation leaves the surface invariant</strong>. <code>keymat</code> and <code>alg1</code> do not touch the head axis, so the attacker self-generates a valid map and recovers directly (kqv_out 0.547, kq 0.269 at keymat — self-gen = matched exactly). Algorithm 2's secret per-head rotation Û_vo breaks invariance: the self-generated recovery collapses to the shuffled-label floor for both surfaces (kqv_out 0.004, kq 0.022) while the matched ceiling holds (0.478 / 0.283) — so <strong>Algorithm 2 does defend the realistic attacker</strong>, even though a matched (key-holding) attacker sees no drop. This is the score/value complement of §04: there the residual is rotated and widened by P̂ under every configuration, so the self-generated map is not even dimensionally applicable (768 → 1024) and matched recovery is a ceiling under keymat/alg1/alg2 alike. αₑ noise is a third regime — the basis stays invariant but the secret noise realization degrades (not destroys) self-generated transfer (kqv_out 0.231, kq 0.193 at alg1, well above floor); a noise-aware attacker that samples its own αₑ should close most of that gap. Single capture, 3 seeds; the noise-aware self-gen and a vocab-disjoint replication are the queued firm-ups.</p></div>
   </section>
 
   <!-- ═════ § 7 NN ═════ -->
   <section id="nn">
     <header class="section-head">
-      <div class="section-num">§07</div>
+      <div class="section-num">§06</div>
       <h2 class="section-title">NN, cosine nearest-neighbour</h2>
       <div class="section-meta">training-free embedding match</div>
     </header>
@@ -239,7 +204,7 @@
   <!-- ═════ § 8 VMA ═════ -->
   <section id="vma">
     <header class="section-head">
-      <div class="section-num">§08</div>
+      <div class="section-num">§07</div>
       <h2 class="section-title">VMA, vocabulary matching</h2>
       <div class="section-meta">sorted-quantile signature on the weight rows</div>
     </header>
@@ -264,7 +229,7 @@
   <!-- ═════ § 9 IA ═════ -->
   <section id="ia">
     <header class="section-head">
-      <div class="section-num">§09</div>
+      <div class="section-num">§08</div>
       <h2 class="section-title">IA, gate and attention invariants</h2>
       <div class="section-meta">Gate-IA and Attn-IA on the obfuscated weights</div>
     </header>
@@ -282,7 +247,7 @@
   <!-- ═════ § 10 ArrowMatch ═════ -->
   <section id="arrowmatch">
     <header class="section-head">
-      <div class="section-num">§10</div>
+      <div class="section-num">§09</div>
       <h2 class="section-title">ArrowMatch, cosine direction</h2>
       <div class="section-meta">Game of Arrows, USENIX Security 2025</div>
     </header>
@@ -305,7 +270,7 @@
   <!-- ═════ § 11 IMA-transformer ═════ -->
   <section id="ima">
     <header class="section-head">
-      <div class="section-num">§11</div>
+      <div class="section-num">§10</div>
       <h2 class="section-title">IMA-EmbedRow-transformer</h2>
       <div class="section-meta">the in-model trained inverter · measured</div>
     </header>
@@ -324,7 +289,7 @@
   <!-- ═════ § 12 TFMA ═════ -->
   <section id="tfma">
     <header class="section-head">
-      <div class="section-num">§12</div>
+      <div class="section-num">§11</div>
       <h2 class="section-title">TFMA, frequency matching</h2>
       <div class="section-meta">the token-id wire, ε₁ sweep</div>
     </header>
@@ -349,7 +314,7 @@
   <!-- ═════ § 13 SDA ═════ -->
   <section id="sda">
     <header class="section-head">
-      <div class="section-num">§13</div>
+      <div class="section-num">§12</div>
       <h2 class="section-title">SDA, bigram deciphering</h2>
       <div class="section-meta">the stronger wire attack</div>
     </header>
@@ -369,7 +334,7 @@
   <!-- ═════ § 14 LEDGER ═════ -->
   <section id="ledger">
     <header class="section-head">
-      <div class="section-num">§14</div>
+      <div class="section-num">§13</div>
       <h2 class="section-title">Attack ledger</h2>
       <div class="section-meta">the suite at a glance</div>
     </header>
@@ -377,8 +342,8 @@
     <table class="spec spec--wide">
       <thead><tr><th>attack</th><th>surface</th><th class="num">in-model recovery</th><th>verdict</th></tr></thead>
       <tbody>
-        <tr><td>ISA, value (matched ceiling)</td><td>kqv_out</td><td class="num">0.685 (L0)</td><td>readout: only αₑ defends</td></tr>
-        <tr><td>ISA, score (matched ceiling)</td><td>kq</td><td class="num">0.278 (L0)</td><td>readout: weak surface</td></tr>
+        <tr><td>ISA, value (matched ceiling)</td><td>kqv_out</td><td class="num">0.55 (L0)</td><td>ceiling; realistic self-gen collapses under Alg2 (§05)</td></tr>
+        <tr><td>ISA, score (matched ceiling)</td><td>kq</td><td class="num">0.27 (L0)</td><td>ceiling; realistic self-gen collapses under Alg2 (§05)</td></tr>
         <tr><td>ISA-HiddenState blind (multi-key)</td><td>residual</td><td class="num">≤ 0.064</td><td>PASS, key-gated</td></tr>
         <tr><td>NN, cosine</td><td>residual</td><td class="num">0.000</td><td>PASS, structure</td></tr>
         <tr><td>VMA</td><td>weights</td><td class="num">0.000</td><td>PASS, structure</td></tr>
@@ -395,7 +360,7 @@
   <!-- ═════ § 15 CONCLUSIONS ═════ -->
   <section id="conclusions">
     <header class="section-head">
-      <div class="section-num">§15</div>
+      <div class="section-num">§14</div>
       <h2 class="section-title">Conclusions</h2>
       <div class="section-meta">what AloePri protects, and how</div>
     </header>
@@ -412,10 +377,10 @@
       <h5>Code</h5>
       <ul>
         <li><code>scripts/evals/static_obf/aloepri_multikey_blind.py</code> · §04</li>
-        <li><code>scripts/evals/static_obf/aloepri_score_surface_sweep.py</code> · §05, §06</li>
-        <li><code>scripts/evals/static_obf/aloepri_weight_attacks.py</code> · §08, §09</li>
-        <li><code>scripts/evals/static_obf/aloepri_arrowmatch.py</code> · §10</li>
-        <li><code>scripts/evals/static_obf/aloepri_tokenid_sweep.py</code> · §12, §13</li>
+        <li><code>scripts/evals/static_obf/aloepri_score_surface_sweep.py</code> · §05</li>
+        <li><code>scripts/evals/static_obf/aloepri_weight_attacks.py</code> · §07, §08</li>
+        <li><code>scripts/evals/static_obf/aloepri_arrowmatch.py</code> · §09</li>
+        <li><code>scripts/evals/static_obf/aloepri_tokenid_sweep.py</code> · §11, §12</li>
         <li><code>scripts/defenses/aloepri.py</code> · the obfuscation</li>
       </ul>
     </div>
@@ -452,35 +417,33 @@
   var col = {plaintext:"#b55831", keymat_only:"#c98a3e", "alg2@0":"#2f7d8a", "alg2@1.0":"#6a4c93"};
   var nm = {plaintext:"plaintext", keymat_only:"keymat only", "alg2@0":"alg2 (rotation only)", "alg2@1.0":"alg2 + αₑ noise"};
 
-  // FIG.01/02 — score-surface recovery vs depth, row-split.
-  var KQVOUT = {
-    plaintext:   [0.685,0.570,0.434,0.521,0.324,0.291,0.263,0.250,0.272,0.186,0.163,0.267],
-    keymat_only: [0.685,0.570,0.434,0.521,0.324,0.291,0.263,0.250,0.272,0.186,0.162,0.267],
-    "alg2@0":    [0.685,0.570,0.434,0.521,0.324,0.291,0.263,0.250,0.272,0.186,0.162,0.267],
-    "alg2@1.0":  [0.564,0.420,0.363,0.421,0.311,0.282,0.212,0.225,0.233,0.175,0.136,0.257]
+  // FIG.02 — matched (ceiling) vs realistic self-generated, kqv_out & kq, L0 (matched_vs_selfgen.json).
+  var MVS = {
+    kqv_out: {matched:[0.547,0.547,0.478,0.478], self_gen:[0.547,0.547,0.231,0.004], floor:[0.022,0.022,0.015,0.015]},
+    kq:      {matched:[0.269,0.269,0.283,0.283], self_gen:[0.269,0.269,0.193,0.022], floor:[0.028,0.028,0.030,0.030]}
   };
-  var KQ = {
-    plaintext:   [0.278,0.265,0.258,0.233,0.223,0.215,0.193,0.192,0.179,0.183,0.112,0.106],
-    keymat_only: [0.278,0.265,0.258,0.233,0.223,0.213,0.193,0.192,0.178,0.183,0.130,0.025],
-    "alg2@0":    [0.278,0.265,0.258,0.233,0.223,0.213,0.195,0.191,0.179,0.183,0.151,0.169],
-    "alg2@1.0":  [0.295,0.218,0.219,0.229,0.191,0.172,0.144,0.140,0.121,0.138,0.105,0.107]
-  };
-  function depthPlot(div, data, ymax) {
-    var order = ["plaintext","keymat_only","alg2@0","alg2@1.0"];
-    var tr = order.map(function (k) {
-      return {x:DL, y:data[k], name:nm[k], mode:"lines+markers",
-        line:{color:col[k], width:2}, marker:{color:col[k], size:7, symbol:(k==="alg2@1.0"?"diamond":"circle")},
-        hovertemplate:nm[k]+"<br>L%{x}<br>recovery=%{y:.3f}<extra></extra>"};
+  var MVSX = ["plaintext","keymat","alg1 (αₑ1)","alg2 (αₑ1)"];
+  var mvsCol = {matched:"#6a4c93", self_gen:"#b55831", floor:"#bbbbbb"};
+  var mvsNm = {matched:"matched (ceiling — needs key)", self_gen:"self-generated (realistic, keyless)", floor:"shuffled-label floor"};
+  var mTr = [], mAnn = [];
+  [["kqv_out",""],["kq","2"]].forEach(function (pair, i) {
+    var surf = pair[0], ax = pair[1], d = MVS[surf];
+    ["matched","self_gen","floor"].forEach(function (kk) {
+      mTr.push({type:"bar", x:MVSX, y:d[kk], xaxis:"x"+ax, yaxis:"y"+ax, name:mvsNm[kk],
+        legendgroup:kk, showlegend:(i===0), marker:{color:mvsCol[kk]},
+        hovertemplate:surf+"<br>%{x} · "+mvsNm[kk]+"<br>recovery=%{y:.3f}<extra></extra>"});
     });
-    var lay = {height:420, margin:{t:14,r:16,b:46,l:54}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
-      xaxis:{title:"layer (observation depth)", gridcolor:GRID, tickvals:DL, zeroline:false},
-      yaxis:{title:"token recovery (top-1, row-split)", gridcolor:GRID, range:[0,ymax], zeroline:false},
-      shapes:[gateLine], annotations:[gateAnn],
-      legend:{orientation:"h", y:1.12, x:0.5, xanchor:"center", font:{size:10}}};
-    Plotly.newPlot(div, tr, lay, {displayModeBar:false, responsive:true});
-  }
-  depthPlot("plot-kqvout", KQVOUT, 0.75);
-  depthPlot("plot-kq", KQ, 0.4);
+    mAnn.push({text:"<b>"+surf+"</b>", xref:"x"+ax+" domain", yref:"y"+ax+" domain",
+      x:0, y:1.06, xanchor:"left", showarrow:false, font:{size:11, color:INK}});
+  });
+  var mLay = {grid:{rows:1, columns:2, pattern:"independent", xgap:0.14}, barmode:"group", height:380,
+    margin:{t:52, r:14, b:64, l:48}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    legend:{orientation:"h", y:1.22, x:0.5, xanchor:"center", font:{size:10}}, annotations:mAnn};
+  ["","2"].forEach(function (s) {
+    mLay["yaxis"+s] = {gridcolor:GRID, range:[0,0.65], zeroline:false, title:(s===""?"token recovery (top-1, L0)":"")};
+    mLay["xaxis"+s] = {gridcolor:GRID, type:"category"};
+  });
+  Plotly.newPlot("plot-attn-mvs", mTr, mLay, {displayModeBar:false, responsive:true});
 
   // FIG.01 — ISA-HiddenState: in-threat-model PVI probe + multi-key blind recovery across defence
   // levels, grouped by layer. refine-logs/aloepri/aloepri_isa_hidden_levels.json (K=64, 160 prompts).
