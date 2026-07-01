@@ -33,5 +33,5 @@ test = ["pytest>=7"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["src/talens/tests"]
 addopts = "-ra"
