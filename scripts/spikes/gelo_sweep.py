@@ -30,7 +30,7 @@ import numpy as np
 sys.path.insert(0, "scripts/defenses")
 from gelo import GELO, make_mixing  # noqa: E402
 
-from talens.attacks.kv.bss import (  # noqa: E402
+from talens.attacks.attn_qkv.bss import (  # noqa: E402
     _build_cumulants,
     _joint_diag,
     _p95_cosine_with_hungarian,

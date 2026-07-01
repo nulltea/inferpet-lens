@@ -39,7 +39,7 @@ Reusable components live in fixed homes; the runnable scripts only *call* them.
 
 | Kind | Home | Notes |
 |---|---|---|
-| **attacks** | `src/talens/attacks/` | **Per-surface subpackages, one attack per file**; flat re-export API — `from talens.attacks import <name>`. `residual/` (ridge, skip_decoder, isa_grad, logit_lens, hidden_state, cover_break, inversion), `attn_value/` (rotation_recovery — kqv_out), `attn_score/`, `embed_table/` (ima_transformer, nn), `wire/` (token_frequency), `weights/` (vocab_match), `kv/` (bss). Shared primitives + the surface-agnostic `cascade_attack` in `_common.py`. |
+| **attacks** | `src/talens/attacks/` | **Per-surface subpackages, one attack per file**; flat re-export API — `from talens.attacks import <name>`. `residual/` (ridge, skip_decoder, isa_grad, logit_lens, hidden_state, cover_break, inversion), `attn_qkv/` (rotation_recovery [kqv_out], attn_score [kq], bss), `embed_table/` (ima_transformer, nn), `vocab/` (vocab_match [VMA], token_frequency [TFMA/SDA]). Shared primitives + the surface-agnostic `cascade_attack` in `_common.py`. |
 | **probes** | `src/talens/probes/` | the leakage measures (CLUB, V_cap, spectral channel-MI, MDL/SDL, …). **Renamed from `measures/`** — import `talens.probes.*`. |
 | **defenses** | `scripts/defenses/` | external `Transform`/mechanism modules (LocalDP, PriPert, GELO, KV-Cloak, Shredder, AloePri, SGT). Never in the core. |
 | **runnable evals** | `scripts/evals/` | config-driven sweeps that ONLY import + orchestrate attacks/probes/defenses + capture. |

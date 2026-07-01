@@ -3,12 +3,11 @@ public API: ``from talens.attacks import <name>``. Surface subpackages hold the 
 
 * ``residual/``    — ISA-HiddenState (ridge, skip_decoder, isa_grad, logit_lens, hidden_state,
                      cover_break, inversion)
-* ``attn_value/``  — ISA-AttnValue / kqv_out (rotation_recovery)
-* ``attn_score/``  — ISA-AttnScore / kq (attn_score)
+* ``attn_qkv/``    — attention q/k/v surfaces: rotation_recovery (kqv_out value), attn_score (kq
+                     scores), bss (k/v blind source separation)
 * ``embed_table/`` — IMA-EmbedRow (ima_transformer, nn)
-* ``wire/``        — token-id wire (token_frequency: TFMA/SDA)
-* ``weights/``     — VMA (vocab_match)
-* ``kv/``          — attention k/v BSS (bss)
+* ``vocab/``       — vocabulary-mapping attacks: vocab_match (VMA, weight surface), token_frequency
+                     (TFMA/SDA, token-id wire)
 
 Shared primitives + the surface-agnostic cascade orchestrator live in ``_common``.
 """
@@ -22,14 +21,14 @@ from .residual.isa_grad import isa_grad_attack
 from .residual.logit_lens import LensHead, logit_lens_attack
 from .residual.inversion import INVERTERS, ridge_inversion, nn_inversion, learned_inversion
 from .residual import hidden_state, cover_break
-from .attn_value.rotation_recovery import rotation_recovery_attack
-from .attn_score import attn_score
+from .attn_qkv.rotation_recovery import rotation_recovery_attack
+from .attn_qkv import attn_score
 from .embed_table.ima_transformer import IMAInverter, ima_transformer_attack
 from .embed_table.nn import nn_attack
-from .wire.token_frequency import tfma_recover, sda_recover
-from .wire import token_frequency
-from .weights import vocab_match
-from .kv import bss
+from .vocab.token_frequency import tfma_recover, sda_recover
+from .vocab import token_frequency
+from .vocab import vocab_match
+from .attn_qkv import bss
 
 __all__ = [
     "nearest_token", "ridge_W", "multikey_ridge_W", "cascade_attack",
