@@ -73,7 +73,7 @@
       AloePri obfuscates a deployed model once, offline. A secret invertible key pair (P̂, Q̂) with P̂Q̂ = I rewrites every residual-touching weight, so the released residual is x' = x·P̂ (widened from d to d+2h) while the model output is preserved. Three further secrets compose with it: the token permutation Π, the Algorithm-2 intra-head rotations, and the embedding noise αₑ. Each section below runs one attack against this artifact and reads its token recovery.
     </p>
     <div class="prose">
-      <p><strong>The gate-bearing threat model.</strong> AloePri's adversary is the honest-but-curious server under Kerckhoffs's principle: it has the public plaintext model and the obfuscation algorithm, observes obfuscated tensors as a byproduct of inference, but holds no deployment key (the P̂/Q̂ seed), no token permutation τ, and no (obfuscated, plaintext) paired data from the live basis. An attack counts toward the release gate (TTRSR ≤ 0.15) only if it respects this. Two convenience baselines do not, and are reported only as ceilings: <em>matched</em> (a ridge inverter retrained on the deployment's own obfuscated representations with true labels, which presupposes live-basis paired data) and <em>oracle</em> (an inverter applied after multiplying by the true key Q̂, which presupposes the key).</p>
+      <p><strong>The gate-bearing threat model.</strong> AloePri's adversary is the honest-but-curious server under Kerckhoffs's principle: it has the public plaintext model and the obfuscation algorithm, observes obfuscated tensors as a byproduct of inference, but holds no deployment key (the P̂/Q̂ seed), no token permutation τ, and no (obfuscated, plaintext) paired data from the live basis. An attack counts toward the release gate (TTRSR ≤ 0.15) only if it respects this. Two convenience baselines do not and are <strong>excluded from the reported results</strong>: <em>matched</em> (a ridge inverter retrained on the deployment's own obfuscated representations with true labels, which presupposes live-basis paired data) and <em>oracle</em> (an inverter applied after multiplying by the true key Q̂, which presupposes the key). Only threat-model-respecting keyless attacks (multi-key blind, self-generated) are reported.</p>
       <p><strong>Why a fixed re-parameterization is not information hiding.</strong> The key pair is a lossless change of basis: P̂Q̂ = I, so the mutual information between the obfuscated representation and the token is identical to plaintext. A linear inverter fit on the obfuscated basis recovers exactly what it would on plaintext. Protection therefore comes from withholding the basis (access control), not from destroying information. The single mechanism that reduces information is additive noise: αₑ on the embeddings and the M1 randomized-response budget ε₁ on the token wire.</p>
     </div>
   </section>
@@ -113,7 +113,7 @@
         <thead><tr><th>§</th><th>attack</th><th>surface</th><th>in model?</th></tr></thead>
         <tbody>
           <tr><td>§04</td><td>ISA-HiddenState, multi-key blind</td><td>residual activations</td><td>yes</td></tr>
-          <tr><td>§05</td><td>ISA, attention surfaces (kq &amp; kqv_out) — matched vs self-gen</td><td>scores + per-head values</td><td>readout</td></tr>
+          <tr><td>§05</td><td>ISA, attention surfaces (kq &amp; kqv_out) — realistic self-gen</td><td>scores + per-head values</td><td>readout</td></tr>
           <tr><td>§06</td><td>NN, cosine nearest-neighbour</td><td>residual activations</td><td>yes</td></tr>
           <tr><td>§07</td><td>VMA, vocabulary matching</td><td>obfuscated weights</td><td>yes</td></tr>
           <tr><td>§08</td><td>IA, gate and attention invariants</td><td>obfuscated weights</td><td>yes</td></tr>
@@ -171,15 +171,15 @@
     <header class="section-head">
       <div class="section-num">§05</div>
       <h2 class="section-title">ISA, attention surfaces (kq scores &amp; kqv_out values)</h2>
-      <div class="section-meta">matched ceiling vs the realistic self-generating attacker</div>
+      <div class="section-meta">realistic keyless (self-generated) recovery by defence and depth</div>
     </header>
-    <p class="prose">The internal-state attack on the two attention surfaces — pre-softmax scores <code>kq</code> = Q·Kᵀ and the per-head value output <code>kqv_out</code> (before the output projection) — inverted to the token by a ridge at L0. The question is not how well a <em>matched</em> ridge does — it trains on the deployment's own representations with true labels, data a keyless attacker cannot obtain on a rotated surface, so it is a <strong>ceiling</strong> — but what a <strong>realistic self-generating attacker</strong> achieves: one that trains only on representations it produces itself by running the public plaintext model on its own prompts (no key, no token permutation), then decodes the leaked deployment tensors. That self-generated map is valid against the deployment <em>only if the obfuscation leaves the surface invariant</em>; Algorithm 2's value rotation Û_vo makes <code>kqv_out</code> non-invariant, while <code>keymat</code>/<code>alg1</code> leave the head axis untouched.</p>
+    <p class="prose">The internal-state attack on the two attention surfaces — pre-softmax scores <code>kq</code> = Q·Kᵀ and the per-head value output <code>kqv_out</code> (before the output projection) — inverted to the token by a ridge. We report only the <strong>realistic keyless attacker</strong>: it trains solely on representations it produces itself by running the public plaintext model on its own prompts (no key, no token permutation, no deployment-basis labels), then decodes the leaked deployment tensors. That self-generated map is valid against the deployment <em>only where the obfuscation leaves the surface invariant</em> — <code>keymat</code>/<code>alg1</code> leave the head axis untouched, so the attacker recovers directly; Algorithm 2's secret per-head value rotation Û_vo makes the surface non-invariant, so the self-generated map lands in the wrong basis. (Key-holding "matched" and "oracle" readings presuppose the deployment key and are out of the threat model — not reported.)</p>
     <div class="plot-frame">
-      <div class="plot-cap"><span class="l">FIG · 02 — matched (ceiling) vs realistic self-generated recovery · kqv_out and kq · L0 · 3 seeds</span><span class="r">source: refine-logs/matched-invariance/matched_vs_selfgen.json · pythia-160m · 160 prompts</span></div>
+      <div class="plot-cap"><span class="l">FIG · 02 — realistic self-generated (keyless) recovery · x = defence, bars = layer · kqv_out and kq · 3 seeds</span><span class="r">source: refine-logs/matched-invariance/matched_vs_selfgen_depth.json · pythia-160m · 160 prompts</span></div>
       <div id="plot-attn-mvs" style="width:100%;height:380px;"></div>
-      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">On <code>keymat</code> the head axis is untouched, so the self-generated map equals the matched ceiling exactly (kqv_out 0.55, kq 0.27) — a genuine keyless attack. Algorithm 2's secret value rotation makes the surface non-invariant: the self-generated map lands in the wrong basis and collapses to the shuffled-label floor (kqv_out 0.004, kq 0.022) while the matched ceiling stays high (0.48 / 0.28). αₑ noise (alg1) is intermediate — the basis is still invariant, only the secret noise realization degrades transfer (0.23 / 0.19, well above floor).</span></div>
+      <div class="plot-cap" style="margin:8px 0 0;"><span class="l">Read</span><span class="r" style="text-transform:none;letter-spacing:0;font-size:11px;">Bars are layers (L0–L11) within each defence. On <code>plaintext</code> the keyless attacker recovers, peaking at L0 (kqv_out 0.55, kq 0.27) and declining with depth. <code>alg1</code>'s αₑ noise roughly halves it (kqv_out L0 0.23, kq 0.19). <code>alg2</code>'s secret value rotation collapses it to the shuffled-label floor (~0.02) at every layer for both surfaces — the realistic attacker cannot self-generate the rotated basis. (keymat omitted: identical to plaintext here, since it leaves the head axis untouched. Floor ≈ 0.02, not drawn.)</span></div>
     </div>
-    <div class="prose"><p><strong>Finding.</strong> The matched recovery on these surfaces (kqv_out 0.55 at L0, declining with depth to ~0.15 by L11; kq ~0.27, flooring near chance by mid-depth) is a <em>ceiling</em>, not a keyless attack: on any surface Algorithm 2 rotates, a matched ridge presupposes deployment-basis paired data (the key), and it absorbs the fixed orthogonal rotation exactly. The realistic self-generating attacker equals that ceiling <strong>only where the obfuscation leaves the surface invariant</strong>. <code>keymat</code> and <code>alg1</code> do not touch the head axis, so the attacker self-generates a valid map and recovers directly (kqv_out 0.547, kq 0.269 at keymat — self-gen = matched exactly). Algorithm 2's secret per-head rotation Û_vo breaks invariance: the self-generated recovery collapses to the shuffled-label floor for both surfaces (kqv_out 0.004, kq 0.022) while the matched ceiling holds (0.478 / 0.283) — so <strong>Algorithm 2 does defend the realistic attacker</strong>, even though a matched (key-holding) attacker sees no drop. This is the score/value complement of §04: there the residual is rotated and widened by P̂ under every configuration, so the self-generated map is not even dimensionally applicable (768 → 1024) and matched recovery is a ceiling under keymat/alg1/alg2 alike. αₑ noise is a third regime — the basis stays invariant but the secret noise realization degrades (not destroys) self-generated transfer (kqv_out 0.231, kq 0.193 at alg1, well above floor); a noise-aware attacker that samples its own αₑ should close most of that gap. Single capture, 3 seeds; the noise-aware self-gen and a vocab-disjoint replication are the queued firm-ups.</p></div>
+    <div class="prose"><p><strong>Finding.</strong> The realistic keyless attacker reads the attention surfaces only where the obfuscation leaves them invariant. On <code>plaintext</code>/<code>keymat</code> the head axis is untouched, so the self-generated map transfers and recovers directly (kqv_out 0.55 at L0, declining with depth to ~0.13–0.20; kq 0.27 at L0, flooring by depth). Algorithm 2's secret per-head value rotation Û_vo breaks invariance: the self-generated recovery collapses to the shuffled-label floor (~0.02) at every layer on both surfaces (kqv_out 0.004, kq 0.022 at L0) — the attacker cannot reproduce the rotated basis without the key, so <strong>Algorithm 2 does defend the realistic attacker</strong> on these surfaces. This is the score/value complement of §04, where the residual is rotated and widened by P̂ under every configuration (768 → 1024), so the self-generated map is not even dimensionally applicable and the keyless residual attack is the multi-key blind, under the gate. αₑ noise is a third, intermediate regime: the basis stays invariant but the secret noise realization degrades (not destroys) transfer — <code>alg1</code> roughly halves the keyless recovery (kqv_out 0.231, kq 0.193 at L0, still well above floor); a noise-aware attacker that samples its own αₑ (a public mechanism) should close most of that gap. 3 seeds; the noise-aware self-gen and a vocab-disjoint replication are the queued firm-ups.</p></div>
   </section>
 
   <!-- ═════ § 7 NN ═════ -->
@@ -274,16 +274,16 @@
       <h2 class="section-title">IMA-EmbedRow-transformer</h2>
       <div class="section-meta">the in-model trained inverter · measured</div>
     </header>
-    <p class="prose">The paper's canonical IMA (§F.1) is a 2-layer, 8-head transformer inverter trained on the attacker's own synthetic obfuscated pairs: under Kerckhoffs the attacker picks its own pseudo-τ, Q̂, P̂ and runs the obfuscator on the public embedding table, so the inverter must learn a τ-invariant inverse without any deployment leak. We port that architecture (`talens.attacks.dp_inversion.IMAInverter`) and train it on K = 4 synthetic own-key obfuscations of the table, then decode the deployment table's held-out rows. A matched plain control (train and test on the same deployment key, row-split) verifies the inverter actually inverts.</p>
+    <p class="prose">The paper's canonical IMA (§F.1) is a 2-layer, 8-head transformer inverter trained on the attacker's own synthetic obfuscated pairs: under Kerckhoffs the attacker picks its own pseudo-τ, Q̂, P̂ and runs the obfuscator on the public embedding table, so the inverter must learn a τ-invariant inverse without any deployment leak. We port that architecture (`talens.attacks.dp_inversion.IMAInverter`) and train it on K = 4 synthetic own-key obfuscations of the table, then decode the deployment table's held-out rows. An identity-key control (train and test on the same key, row-split — a validity check, not a claimed attack) verifies the inverter actually inverts.</p>
     <table class="spec spec--wide">
-      <thead><tr><th>defence</th><th class="num">αₑ</th><th class="num">plain control (matched)</th><th class="num">τ-invariant (in-model)</th></tr></thead>
+      <thead><tr><th>defence</th><th class="num">αₑ</th><th class="num">identity-key control</th><th class="num">τ-invariant (in-model)</th></tr></thead>
       <tbody>
         <tr><td>keymat</td><td class="num">0</td><td class="num warn">0.998</td><td class="num accent">0.000</td></tr>
         <tr><td>alg1</td><td class="num">1.0</td><td class="num warn">0.915</td><td class="num accent">0.000</td></tr>
         <tr><td>alg1</td><td class="num">2.0</td><td class="num">0.121</td><td class="num accent">0.000</td></tr>
       </tbody>
     </table>
-    <div class="prose"><p><strong>Finding.</strong> The in-model τ-invariant transformer recovers ≈ 0 at every defence level, including keymat with no noise — so <strong>AloePri defends against the canonical IMA, and the defense is the keymat (basis hiding), not the αₑ noise</strong>: no single inverter inverts the random per-key change of basis it never saw. The plain control confirms this is a real defense, not a broken attack: the same inverter recovers 0.998 when trained and tested on one key (and αₑ noise degrades even that matched case, 0.998 → 0.915 → 0.121, the same αₑ lever seen elsewhere). This reproduces the paper's reported IMA ≈ 0 % on a faithful port that passes the identity-key control (the companion deployment study's driver did not). The inverter is data-hungry at d = 768: the control needs ample training rows (≈12k tokens, 40 epochs); small sets underfit to ≈ 0 and are not interpretable.</p></div>
+    <div class="prose"><p><strong>Finding.</strong> The in-model τ-invariant transformer recovers ≈ 0 at every defence level, including keymat with no noise — so <strong>AloePri defends against the canonical IMA, and the defense is the keymat (basis hiding), not the αₑ noise</strong>: no single inverter inverts the random per-key change of basis it never saw. The identity-key control confirms this is a real defense, not a broken attack: the same inverter recovers 0.998 when trained and tested on one key (and αₑ noise degrades even that identity-key case, 0.998 → 0.915 → 0.121, the same αₑ lever seen elsewhere). This reproduces the paper's reported IMA ≈ 0 % on a faithful port that passes the identity-key control (the companion deployment study's driver did not). The inverter is data-hungry at d = 768: the control needs ample training rows (≈12k tokens, 40 epochs); small sets underfit to ≈ 0 and are not interpretable.</p></div>
   </section>
 
   <!-- ═════ § 12 TFMA ═════ -->
@@ -342,8 +342,8 @@
     <table class="spec spec--wide">
       <thead><tr><th>attack</th><th>surface</th><th class="num">in-model recovery</th><th>verdict</th></tr></thead>
       <tbody>
-        <tr><td>ISA, value (matched ceiling)</td><td>kqv_out</td><td class="num">0.55 (L0)</td><td>ceiling; realistic self-gen collapses under Alg2 (§05)</td></tr>
-        <tr><td>ISA, score (matched ceiling)</td><td>kq</td><td class="num">0.27 (L0)</td><td>ceiling; realistic self-gen collapses under Alg2 (§05)</td></tr>
+        <tr><td>ISA, value (realistic self-gen)</td><td>kqv_out</td><td class="num">0.55 → 0.004</td><td>L0 keyless; Alg2 rotation defends (→floor), alg1 0.23 (§05)</td></tr>
+        <tr><td>ISA, score (realistic self-gen)</td><td>kq</td><td class="num">0.27 → 0.022</td><td>L0 keyless; Alg2 rotation defends (→floor), alg1 0.19 (§05)</td></tr>
         <tr><td>ISA-HiddenState blind (multi-key)</td><td>residual</td><td class="num">≤ 0.064</td><td>PASS, key-gated</td></tr>
         <tr><td>NN, cosine</td><td>residual</td><td class="num">0.000</td><td>PASS, structure</td></tr>
         <tr><td>VMA</td><td>weights</td><td class="num">0.000</td><td>PASS, structure</td></tr>
@@ -365,9 +365,9 @@
       <div class="section-meta">what AloePri protects, and how</div>
     </header>
     <div class="prose">
-      <p><strong>Key-gated access control, not information hiding.</strong> AloePri's key material is a lossless re-parameterization, so it preserves mutual information and is absorbed by any attacker who can retrain on the obfuscated basis. The residual and value surfaces show this directly: the matched inverter recovers the token nearly fully while the in-model multi-key blind stays under the gate, and Algorithm 2's value rotation gives identical recovery to plaintext under a matched attacker (plaintext, keymat, and Algorithm 2 without noise coincide at every depth on both kq and kqv_out).</p>
-      <p><strong>The single information-theoretic lever is noise.</strong> The only mechanism that reduces recovery is additive noise: αₑ on the residual and value surfaces (value recovery at L0 falls from 0.685 to 0.564 row-split, 0.462 to 0.179 disjoint) and the M1 ε₁ budget on the wire (TFMA 0.52 to 0.03, SDA 0.75 to 0.00). Everything else is access control: defeated by the keymat structure (VMA, Attn-IA, ArrowMatch, NN), defeated only by the noise (Gate-IA), or not defended against a key or paired-data attacker (matched ridge, oracle).</p>
-      <p><strong>Scope and caveats.</strong> Single seed, Pythia-160M, 160 prompts. The matched score and value readings are linear-probe leakage measurements, not deployable attacks (they presuppose paired data). The in-model IMA-EmbedRow-transformer is now measured (τ-invariant recovery ≈ 0 at every αₑ; plain control 0.998), reproducing paper IMA ≈ 0% on a port that passes the identity-key control. The weight and wire attacks reproduce the companion Qwen3-4B deployment study at the analogous configuration.</p>
+      <p><strong>Key-gated access control, not information hiding.</strong> AloePri's key material is a lossless re-parameterization: the token information is preserved, gated behind the secret basis rather than destroyed. What a realistic keyless attacker can read depends only on whether the obfuscation rotates the surface it observes. On the residual (§04) and the attention value/score surfaces (§05), the in-model self-generating attacker recovers the token where the surface is left invariant (keymat/alg1 do not touch the head axis — self-generated kqv_out/kq recovery at L0 is 0.55/0.27) and is defended where a secret rotation intervenes: Algorithm 2's per-head value rotation collapses the realistic kqv_out/kq attack to the shuffled-label floor, and the residual's P̂ change of basis blocks self-generation outright (the multi-key blind stays under the gate). Access is gated by the key, not the information destroyed.</p>
+      <p><strong>The single information-theoretic lever is noise.</strong> The only mechanism that reduces recovery is additive noise: αₑ on the residual and value surfaces (value recovery at L0 falls from 0.685 to 0.564 row-split, 0.462 to 0.179 disjoint) and the M1 ε₁ budget on the wire (TFMA 0.52 to 0.03, SDA 0.75 to 0.00). Everything else is access control: defeated by the keymat structure (VMA, Attn-IA, ArrowMatch, NN) or defeated only by the noise (Gate-IA). Key-holding / paired-data attacks are out of the threat model and not reported.</p>
+      <p><strong>Scope and caveats.</strong> Pythia-160M, 160 prompts; §05 self-gen is 3-seed, the rest single-seed. Only threat-model-respecting keyless attacks are reported; key-holding / paired-data readings (matched, oracle) are out of scope. The in-model IMA-EmbedRow-transformer is now measured (τ-invariant recovery ≈ 0 at every αₑ; plain control 0.998), reproducing paper IMA ≈ 0% on a port that passes the identity-key control. The weight and wire attacks reproduce the companion Qwen3-4B deployment study at the analogous configuration.</p>
     </div>
   </section>
 
@@ -417,32 +417,32 @@
   var col = {plaintext:"#b55831", keymat_only:"#c98a3e", "alg2@0":"#2f7d8a", "alg2@1.0":"#6a4c93"};
   var nm = {plaintext:"plaintext", keymat_only:"keymat only", "alg2@0":"alg2 (rotation only)", "alg2@1.0":"alg2 + αₑ noise"};
 
-  // FIG.02 — matched (ceiling) vs realistic self-generated, kqv_out & kq, L0 (matched_vs_selfgen.json).
-  var MVS = {
-    kqv_out: {matched:[0.547,0.547,0.478,0.478], self_gen:[0.547,0.547,0.231,0.004], floor:[0.022,0.022,0.015,0.015]},
-    kq:      {matched:[0.269,0.269,0.283,0.283], self_gen:[0.269,0.269,0.193,0.022], floor:[0.028,0.028,0.030,0.030]}
+  // FIG.02 — realistic self-generated (keyless) recovery by defence × layer · kqv_out & kq · 3 seeds
+  // (matched_vs_selfgen_depth.json). Bars within each defence cluster = layers; matched/floor not shown.
+  var MVSX = ["plaintext","alg1 (αₑ1)","alg2 (αₑ1)"];   // keymat omitted (== plaintext on these surfaces)
+  var MVSL = [0,3,6,9,11];
+  var MVS = {   // surface -> layer -> [plaintext, alg1, alg2]
+    kqv_out: {0:[0.547,0.231,0.004], 3:[0.411,0.123,0.009], 6:[0.185,0.064,0.007], 9:[0.127,0.068,0.013], 11:[0.196,0.063,0.009]},
+    kq:      {0:[0.269,0.193,0.022], 3:[0.220,0.173,0.022], 6:[0.190,0.115,0.025], 9:[0.178,0.120,0.008], 11:[0.084,0.051,0.024]}
   };
-  var MVSX = ["plaintext","keymat","alg1 (αₑ1)","alg2 (αₑ1)"];
-  var mvsCol = {matched:"#6a4c93", self_gen:"#b55831", floor:"#bbbbbb"};
-  var mvsNm = {matched:"matched (ceiling — needs key)", self_gen:"self-generated (realistic, keyless)", floor:"shuffled-label floor"};
+  var mvsLcol = {0:"#2e1a47", 3:"#5a3d82", 6:"#8768ad", 9:"#b298d0", 11:"#d8cae8"};   // sequential by depth (dark=shallow)
   var mTr = [], mAnn = [];
   [["kqv_out",""],["kq","2"]].forEach(function (pair, i) {
-    var surf = pair[0], ax = pair[1], d = MVS[surf];
-    ["matched","self_gen","floor"].forEach(function (kk) {
-      mTr.push({type:"bar", x:MVSX, y:d[kk], xaxis:"x"+ax, yaxis:"y"+ax, name:mvsNm[kk],
-        legendgroup:kk, showlegend:(i===0), marker:{color:mvsCol[kk]},
-        hovertemplate:surf+"<br>%{x} · "+mvsNm[kk]+"<br>recovery=%{y:.3f}<extra></extra>"});
+    var surf = pair[0], ax = pair[1];
+    MVSL.forEach(function (L) {
+      mTr.push({type:"bar", x:MVSX, y:MVS[surf][L], xaxis:"x"+ax, yaxis:"y"+ax, name:"L"+L,
+        legendgroup:"L"+L, showlegend:(i===0), marker:{color:mvsLcol[L]},
+        hovertemplate:surf+"<br>%{x} · L"+L+"<br>self-gen recovery=%{y:.3f}<extra></extra>"});
     });
     mAnn.push({text:"<b>"+surf+"</b>", xref:"x"+ax+" domain", yref:"y"+ax+" domain",
       x:0, y:1.06, xanchor:"left", showarrow:false, font:{size:11, color:INK}});
   });
   var mLay = {grid:{rows:1, columns:2, pattern:"independent", xgap:0.14}, barmode:"group", height:380,
-    margin:{t:52, r:14, b:64, l:48}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
-    legend:{orientation:"h", y:1.22, x:0.5, xanchor:"center", font:{size:10}}, annotations:mAnn};
-  ["","2"].forEach(function (s) {
-    mLay["yaxis"+s] = {gridcolor:GRID, range:[0,0.65], zeroline:false, title:(s===""?"token recovery (top-1, L0)":"")};
-    mLay["xaxis"+s] = {gridcolor:GRID, type:"category"};
-  });
+    margin:{t:52, r:14, b:52, l:48}, font:font, paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    legend:{orientation:"h", y:1.2, x:0.5, xanchor:"center", font:{size:10}}, annotations:mAnn};
+  mLay["yaxis"]  = {gridcolor:GRID, range:[0,0.6], zeroline:false, title:"self-gen recovery (top-1)"};
+  mLay["yaxis2"] = {gridcolor:GRID, range:[0,0.3], zeroline:false};
+  ["","2"].forEach(function (s) { mLay["xaxis"+s] = {gridcolor:GRID, type:"category"}; });
   Plotly.newPlot("plot-attn-mvs", mTr, mLay, {displayModeBar:false, responsive:true});
 
   // FIG.01 — ISA-HiddenState: in-threat-model PVI probe + multi-key blind recovery across defence
