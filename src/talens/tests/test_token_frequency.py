@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 
 from defenses.aloepri import m1_randomized_response
-from talens.attacks.token_frequency import sda_recover, tfma_recover
+from talens.attacks import sda_recover, tfma_recover
 
 
 def _markov_stream(vocab: int, n: int, seed: int = 0) -> np.ndarray:

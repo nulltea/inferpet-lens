@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from defenses.aloepri import reparam_pythia  # noqa: E402
 from evals.static_obf.aloepri_matched_vs_selfgen import capture  # noqa: E402
 from evals.static_obf.aloepri_score_surface_sweep import _load  # noqa: E402
-from talens.attacks.dp_inversion import ridge_W, nearest_token, orthogonal_procrustes_R, blockwise_procrustes_R  # noqa: E402
+from talens.attacks import ridge_W, nearest_token, orthogonal_procrustes_R, blockwise_procrustes_R  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 CFG = {"plaintext": None, "keymat": dict(config="keymat_only"),

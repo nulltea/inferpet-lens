@@ -38,7 +38,7 @@ from scipy import stats
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # scripts/ for defenses
 from defenses.aloepri import obfuscate_embedding_table  # noqa: E402
 
-from talens.attacks._inversion import ridge_inversion  # noqa: E402
+from talens.attacks import ridge_inversion  # noqa: E402
 from talens.probes.club import club_mi_upper_bound  # noqa: E402
 from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 from talens.probes.vinfo import v_information_retrieval  # noqa: E402

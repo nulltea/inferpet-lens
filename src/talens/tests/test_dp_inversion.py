@@ -9,7 +9,7 @@ CPU-only, deterministic, seconds.
 import numpy as np
 import torch
 
-from talens.attacks.dp_inversion import (
+from talens.attacks import (
     LinearSkipDecoder, ridge_W, skip_decoder_attack, nearest_token, logit_lens_attack,
     isa_grad_attack, orthogonal_procrustes_R, blockwise_procrustes_R, rotation_recovery_attack,
 )

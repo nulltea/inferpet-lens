@@ -19,10 +19,10 @@ from __future__ import annotations
 
 import torch
 
-from ..capture.types import CaptureSet
-from ..metrics import AttackResult
-from ..transforms import Transform
-from . import hidden_state
+from ...capture.types import CaptureSet
+from ...metrics import AttackResult
+from ...transforms import Transform
+from ..residual import hidden_state
 
 
 def run(

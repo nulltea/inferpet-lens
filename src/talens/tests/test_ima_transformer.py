@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from talens.attacks.dp_inversion import ima_transformer_attack
+from talens.attacks import ima_transformer_attack
 
 
 def test_ima_transformer_inverts_single_key():

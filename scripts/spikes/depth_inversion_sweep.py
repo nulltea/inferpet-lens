@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from talens.attacks._inversion import learned_inversion, nn_inversion, ridge_inversion
+from talens.attacks import learned_inversion, nn_inversion, ridge_inversion
 from talens.capture.capture import load_or_capture
 from talens.probes import club_mi_upper_bound, v_information_capacity
 

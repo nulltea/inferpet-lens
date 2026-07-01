@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from talens.attacks._inversion import ridge_inversion
+from talens.attacks import ridge_inversion
 from talens.probes.vinfo import v_information, v_information_retrieval  # retrieval family:
 # the class-probe v_information overfits on high-d operands (shuffle floor ≈ −48b,
 # non-monotonic in noise — see docs/dev/sae-attack.md diagnosis); the bounded

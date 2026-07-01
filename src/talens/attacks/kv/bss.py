@@ -31,8 +31,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..capture.types import CaptureSet
-from ..transforms import Identity, Transform
+from ...capture.types import CaptureSet
+from ...transforms import Identity, Transform
 
 # ---------------------------------------------------------------------------
 # Joint-diagonalisation primitive (numba-JIT if available, numpy fallback).

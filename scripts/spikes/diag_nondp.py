@@ -27,7 +27,7 @@ import numpy as np
 import torch
 from scipy import stats
 
-from talens.attacks._inversion import ridge_inversion
+from talens.attacks import ridge_inversion
 from talens.capture.cache import load_capture, load_embed
 from talens.probes.club import club_mi_upper_bound
 from talens.probes.vinfo import v_information_retrieval

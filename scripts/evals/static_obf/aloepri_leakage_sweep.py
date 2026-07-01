@@ -49,7 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # scripts/ for def
 from defenses.aloepri import keymat_gen, reparam_pythia  # noqa: E402
 from evals.dp.dp_leakage_sweep import (ATTACKS as _ATTACKS, _spearman, _stack, capture,  # noqa: E402
                                     probe_club, probe_mdl, probe_vcap)
-from talens.attacks.dp_inversion import nn_attack  # noqa: E402
+from talens.attacks import nn_attack  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 ATTACKS = {**_ATTACKS, "nn": nn_attack}            # + NN (training-free cosine-NN, paper §F.1)

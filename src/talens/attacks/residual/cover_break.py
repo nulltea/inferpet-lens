@@ -24,9 +24,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..capture.types import CaptureSet
-from ..metrics import AttackResult, classify_risk_level
-from ..transforms import Identity, Transform
+from ...capture.types import CaptureSet
+from ...metrics import AttackResult, classify_risk_level
+from ...transforms import Identity, Transform
 
 DEFAULT_ANCHOR_COUNTS: tuple[int, ...] = (1, 4, 16)
 

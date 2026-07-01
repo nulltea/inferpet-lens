@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.attacks.dp_inversion import cascade_attack, ridge_attack
+from talens.attacks import cascade_attack, ridge_attack
 
 
 def test_cascade_bootstrap_threshold():

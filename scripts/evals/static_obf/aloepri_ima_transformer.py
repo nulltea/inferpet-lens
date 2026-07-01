@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from defenses.aloepri import obfuscate_embedding_table  # noqa: E402
-from talens.attacks.dp_inversion import ima_transformer_attack  # noqa: E402
+from talens.attacks import ima_transformer_attack  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 

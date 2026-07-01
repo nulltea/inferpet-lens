@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.attacks.dp_inversion import multikey_ridge_W, ridge_W
+from talens.attacks import multikey_ridge_W, ridge_W
 
 
 def test_multikey_ridge_matches_stacking():

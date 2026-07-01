@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from defenses.aloepri import keymat_gen, obf_read_weight  # noqa: E402
-from talens.attacks.dp_inversion import nearest_token, ridge_W  # noqa: E402
+from talens.attacks import nearest_token, ridge_W  # noqa: E402
 from talens.weights import vma  # noqa: E402
 from talens.weights.invariant_attack import attn_ia_scalar, gate_ia_scalar, recover_by_invariant  # noqa: E402
 from talens.weights.types import WeightPair  # noqa: E402

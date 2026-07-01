@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from talens.attacks._inversion import (
+from talens.attacks import (
     INVERTERS,
     learned_inversion,
     nn_inversion,

@@ -36,9 +36,9 @@ from typing import Callable
 
 import numpy as np
 
-from ..capture.types import CaptureSet
-from ..metrics import AttackResult, classify_risk_level, topk_recovery, ttrsr
-from ..transforms import Identity, Transform
+from ...capture.types import CaptureSet
+from ...metrics import AttackResult, classify_risk_level, topk_recovery, ttrsr
+from ...transforms import Identity, Transform
 
 # (B, L) int64 token-ids -> (B, d) float32 hidden at each sequence's last
 # position, at the target (kind, layer), in the observed targets' space.

@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from defenses.aloepri import reparam_pythia  # noqa: E402
-from talens.attacks.dp_inversion import nearest_token, ridge_W  # noqa: E402
+from talens.attacks import nearest_token, ridge_W  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 

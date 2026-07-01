@@ -28,7 +28,7 @@ from pathlib import Path
 
 import torch
 
-from talens.attacks.hidden_state import run as attack_run
+from talens.attacks.residual.hidden_state import run as attack_run
 from talens.capture.capture import load_or_capture
 from talens.transforms import Identity
 

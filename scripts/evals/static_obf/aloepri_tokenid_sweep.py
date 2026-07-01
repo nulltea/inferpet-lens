@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # scripts/ for defenses.*
 
 from defenses.aloepri import m1_randomized_response  # noqa: E402
-from talens.attacks.token_frequency import sda_recover, tfma_recover  # noqa: E402
+from talens.attacks import sda_recover, tfma_recover  # noqa: E402
 
 
 def _tokenize(corpus, tok, max_prompts):

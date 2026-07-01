@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from talens.attacks.dp_inversion import nn_attack
+from talens.attacks import nn_attack
 
 
 def test_nn_recovers_when_obs_is_in_embedding_space():

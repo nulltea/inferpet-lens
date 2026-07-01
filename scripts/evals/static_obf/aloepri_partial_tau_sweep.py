@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from defenses.aloepri import keymat_gen, obfuscate_embedding_table, reparam_pythia  # noqa: E402
 from evals.static_obf.aloepri_score_surface_sweep import _load as score_load, capture as score_capture  # noqa: E402
 from evals.dp.dp_leakage_sweep import _stack, capture as resid_capture  # noqa: E402
-from talens.attacks.dp_inversion import (  # noqa: E402
+from talens.attacks import (  # noqa: E402
     cascade_attack, ridge_attack, skip_decoder_attack, isa_grad_attack)
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"

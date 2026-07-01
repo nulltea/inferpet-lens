@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from defenses.aloepri import keymat_gen, reparam_pythia  # noqa: E402
 from evals.dp.dp_leakage_sweep import _stack, capture, probe_vcap  # noqa: E402
-from talens.attacks.dp_inversion import multikey_ridge_W, nearest_token, ridge_W  # noqa: E402
+from talens.attacks import multikey_ridge_W, nearest_token, ridge_W  # noqa: E402
 
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 

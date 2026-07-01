@@ -12,10 +12,10 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..capture.types import CaptureSet
-from ..metrics import AttackResult, classify_risk_level
-from ..transforms import Identity, Transform
-from ._inversion import INVERTERS, ridge_inversion
+from ...capture.types import CaptureSet
+from ...metrics import AttackResult, classify_risk_level
+from ...transforms import Identity, Transform
+from .inversion import INVERTERS, ridge_inversion
 
 
 def run(

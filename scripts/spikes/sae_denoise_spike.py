@@ -36,7 +36,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from talens.attacks._inversion import ridge_inversion
+from talens.attacks import ridge_inversion
 
 
 def load_sae(release: str, layer: int, width: str, device: str):

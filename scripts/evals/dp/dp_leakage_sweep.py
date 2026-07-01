@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # scripts/ for def
 from talens.probes.club import club_mi_upper_bound  # noqa: E402
 from talens.probes.vinfo_capacity import v_information_capacity  # noqa: E402
 from talens.report import perplexity_from_bits  # noqa: E402
-from talens.attacks.dp_inversion import ridge_attack, skip_decoder_attack, logit_lens_attack  # noqa: E402
+from talens.attacks import ridge_attack, skip_decoder_attack, logit_lens_attack  # noqa: E402
 from defenses.local_dp import LocalDP  # noqa: E402
 import functools  # noqa: E402
 

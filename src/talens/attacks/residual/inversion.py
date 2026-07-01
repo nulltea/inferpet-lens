@@ -29,8 +29,8 @@ from typing import Any
 import numpy as np
 import torch
 
-from ..ridge import evaluate_inversion, fit_ridge, predict_ridge
-from ..splits import train_val_test_split, vocab_disjoint_train_val_test_split
+from ...ridge import evaluate_inversion, fit_ridge, predict_ridge
+from ...splits import train_val_test_split, vocab_disjoint_train_val_test_split
 
 
 def _split_pool(
