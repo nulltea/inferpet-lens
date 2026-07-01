@@ -11,7 +11,7 @@ import torch
 
 from talens.attacks.dp_inversion import (
     LinearSkipDecoder, ridge_W, skip_decoder_attack, nearest_token, logit_lens_attack,
-    isa_grad_attack,
+    isa_grad_attack, orthogonal_procrustes_R, basis_align_attack,
 )
 
 
@@ -143,9 +143,37 @@ def test_isa_grad_recovers_under_linear_obfuscation():
     assert isa_acc >= ridge_acc - 0.1, f"isa_grad {isa_acc:.3f} ≪ ridge {ridge_acc:.3f}"
 
 
+def test_basis_align_recovers_under_secret_rotation():
+    """basis_align_attack must recover held-out tokens under a SECRET orthogonal rotation of the
+    surface (AloePri Alg2 model) where a naive self-gen ridge (no un-rotation) collapses. The harvest
+    supplies only the aligned pairs that pin R̂; the token map comes from self-gen. Guards the core
+    claim mechanism (claim:aloepri-kqvout-basis-alignment). CPU-only, deterministic, seconds."""
+    rng = np.random.default_rng(3)
+    V, d, n = 300, 48, 1600
+    E = rng.standard_normal((V, d)).astype(np.float32)
+    toks = rng.integers(0, V, size=n).astype(np.int64)
+    # plaintext surface: (near-)per-token-invertible so a self-gen ridge works in the plain basis
+    Xp = (E[toks] + 0.05 * rng.standard_normal((n, d))).astype(np.float32)
+    Q, _ = np.linalg.qr(rng.standard_normal((d, d)))            # secret orthogonal rotation R
+    Xd = (Xp @ Q).astype(np.float32)                            # deployment = plaintext · R
+    tr = np.arange(0, n // 2); te = np.arange(n // 2, n)        # self-gen train / victim test rows
+    pool = np.unique(toks)
+    align = rng.choice(n, size=400, replace=False)              # harvested aligned pairs
+    R = orthogonal_procrustes_R(Xp[align], Xd[align])
+    assert np.linalg.norm(R - Q) / np.linalg.norm(Q) < 0.05, "Procrustes did not recover the rotation"
+    ba = float((basis_align_attack(Xp[align], Xd[align], Xp[tr], toks[tr], Xd[te],
+                                   E[pool], pool, table=E) == toks[te]).mean())
+    # naive self-gen: same ridge, decode the ROTATED reps without un-rotation → wrong basis → floor
+    W = ridge_W(Xp[tr], E[toks[tr]])
+    naive = float((nearest_token(Xd[te] @ W, E[pool], pool) == toks[te]).mean())
+    assert ba > 0.8, f"basis_align failed to recover under secret rotation ({ba:.3f})"
+    assert ba > naive + 0.3, f"basis_align ({ba:.3f}) not clearly above naive self-gen ({naive:.3f})"
+
+
 if __name__ == "__main__":
     test_gate_gradient_is_live_at_init()
     test_isa_grad_recovers_under_linear_obfuscation()
+    test_basis_align_recovers_under_secret_rotation()
     test_decoder_beats_ridge_on_nonlinear_truth()
     test_logit_lens_generalizes_to_unseen_tokens()
     test_logit_lens_robust_to_norm_heterogeneity()

@@ -1,0 +1,470 @@
+{
+  "model": "EleutherAI/pythia-160m",
+  "layer": 0,
+  "ks": [
+    0,
+    50,
+    100,
+    300,
+    700
+  ],
+  "held_frac": 0.3,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "note": "L0 pilot, harvest-aligned basis recovery on kqv_out. basis_align = decode (Xd\u00b7R\u0302\u1d40) with a self-gen ridge; R\u0302 = orthogonal Procrustes on harvested-token aligned pairs (OPTIMISTIC: all harvested-token rows, not just fully-known-prefix). naive = decode Xd without un-rotation (\u00a705 floor). Fixed held-out test types across K. keymat = control (R\u2248I).",
+  "records": [
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 480,
+      "basis_align": 0.0,
+      "naive": 0.0,
+      "R_rel_err": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 50,
+      "n_align": 785,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.0,
+      "R_rel_err": 5.607001185126137e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 100,
+      "n_align": 953,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.0,
+      "R_rel_err": 4.236881522956537e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 300,
+      "n_align": 1259,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.0,
+      "R_rel_err": 3.6624337553803343e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 0,
+      "k": 700,
+      "n_align": 1659,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.0,
+      "R_rel_err": 3.3893502404680476e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 367,
+      "basis_align": 0.013623978201634877,
+      "naive": 0.013623978201634877,
+      "R_rel_err": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 50,
+      "n_align": 1021,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.013623978201634877,
+      "R_rel_err": 4.475223704503151e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 100,
+      "n_align": 1171,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.013623978201634877,
+      "R_rel_err": 4.087927663931623e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 300,
+      "n_align": 1475,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.013623978201634877,
+      "R_rel_err": 3.681122734633391e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 1,
+      "k": 700,
+      "n_align": 1875,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.013623978201634877,
+      "R_rel_err": 3.4509091619838728e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 496,
+      "basis_align": 0.016129032258064516,
+      "naive": 0.016129032258064516,
+      "R_rel_err": null
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 50,
+      "n_align": 806,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.016129032258064516,
+      "R_rel_err": 5.165842139831511e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 100,
+      "n_align": 955,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.016129032258064516,
+      "R_rel_err": 4.176468792138621e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 300,
+      "n_align": 1262,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.016129032258064516,
+      "R_rel_err": 3.6190485843690112e-06
+    },
+    {
+      "config": "alg2_0",
+      "seed": 2,
+      "k": 700,
+      "n_align": 1662,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.016129032258064516,
+      "R_rel_err": 3.346087396494113e-06
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 480,
+      "basis_align": 0.004166666666666667,
+      "naive": 0.004166666666666667,
+      "R_rel_err": null
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 50,
+      "n_align": 785,
+      "n_test": 480,
+      "basis_align": 0.18958333333333333,
+      "naive": 0.004166666666666667,
+      "R_rel_err": 0.8823654651641846
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 100,
+      "n_align": 953,
+      "n_test": 480,
+      "basis_align": 0.16666666666666666,
+      "naive": 0.004166666666666667,
+      "R_rel_err": 0.8634513020515442
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 300,
+      "n_align": 1259,
+      "n_test": 480,
+      "basis_align": 0.15833333333333333,
+      "naive": 0.004166666666666667,
+      "R_rel_err": 0.8397319316864014
+    },
+    {
+      "config": "alg2",
+      "seed": 0,
+      "k": 700,
+      "n_align": 1659,
+      "n_test": 480,
+      "basis_align": 0.18541666666666667,
+      "naive": 0.004166666666666667,
+      "R_rel_err": 0.82416170835495
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 367,
+      "basis_align": 0.0,
+      "naive": 0.0,
+      "R_rel_err": null
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 50,
+      "n_align": 1021,
+      "n_test": 367,
+      "basis_align": 0.1362397820163488,
+      "naive": 0.0,
+      "R_rel_err": 0.8749814033508301
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 100,
+      "n_align": 1171,
+      "n_test": 367,
+      "basis_align": 0.17438692098092642,
+      "naive": 0.0,
+      "R_rel_err": 0.8516267538070679
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 300,
+      "n_align": 1475,
+      "n_test": 367,
+      "basis_align": 0.22888283378746593,
+      "naive": 0.0,
+      "R_rel_err": 0.8239240050315857
+    },
+    {
+      "config": "alg2",
+      "seed": 1,
+      "k": 700,
+      "n_align": 1875,
+      "n_test": 367,
+      "basis_align": 0.26975476839237056,
+      "naive": 0.0,
+      "R_rel_err": 0.8040335774421692
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 496,
+      "basis_align": 0.006048387096774193,
+      "naive": 0.006048387096774193,
+      "R_rel_err": null
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 50,
+      "n_align": 806,
+      "n_test": 496,
+      "basis_align": 0.12701612903225806,
+      "naive": 0.006048387096774193,
+      "R_rel_err": 0.8840749859809875
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 100,
+      "n_align": 955,
+      "n_test": 496,
+      "basis_align": 0.14112903225806453,
+      "naive": 0.006048387096774193,
+      "R_rel_err": 0.8669577240943909
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 300,
+      "n_align": 1262,
+      "n_test": 496,
+      "basis_align": 0.16733870967741934,
+      "naive": 0.006048387096774193,
+      "R_rel_err": 0.8467244505882263
+    },
+    {
+      "config": "alg2",
+      "seed": 2,
+      "k": 700,
+      "n_align": 1662,
+      "n_test": 496,
+      "basis_align": 0.2056451612903226,
+      "naive": 0.006048387096774193,
+      "R_rel_err": 0.8314812779426575
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.6791666666666667,
+      "R_rel_err": null
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 50,
+      "n_align": 785,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.6791666666666667,
+      "R_rel_err": 5.288414740789449e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 100,
+      "n_align": 953,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.6791666666666667,
+      "R_rel_err": 3.876617938658455e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 300,
+      "n_align": 1259,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.6791666666666667,
+      "R_rel_err": 3.355366970936302e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 0,
+      "k": 700,
+      "n_align": 1659,
+      "n_test": 480,
+      "basis_align": 0.6791666666666667,
+      "naive": 0.6791666666666667,
+      "R_rel_err": 3.123373289781739e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.5885558583106267,
+      "R_rel_err": null
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 50,
+      "n_align": 1021,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.5885558583106267,
+      "R_rel_err": 4.1029497879208066e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 100,
+      "n_align": 1171,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.5885558583106267,
+      "R_rel_err": 3.74291448679287e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 300,
+      "n_align": 1475,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.5885558583106267,
+      "R_rel_err": 3.362670440765214e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 1,
+      "k": 700,
+      "n_align": 1875,
+      "n_test": 367,
+      "basis_align": 0.5885558583106267,
+      "naive": 0.5885558583106267,
+      "R_rel_err": 3.1474942261411343e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 0,
+      "n_align": 0,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.6713709677419355,
+      "R_rel_err": null
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 50,
+      "n_align": 806,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.6713709677419355,
+      "R_rel_err": 4.741387783724349e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 100,
+      "n_align": 955,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.6713709677419355,
+      "R_rel_err": 3.826500233117258e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 300,
+      "n_align": 1262,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.6713709677419355,
+      "R_rel_err": 3.2877167086553527e-06
+    },
+    {
+      "config": "keymat",
+      "seed": 2,
+      "k": 700,
+      "n_align": 1662,
+      "n_test": 496,
+      "basis_align": 0.6713709677419355,
+      "naive": 0.6713709677419355,
+      "R_rel_err": 3.0487940421153326e-06
+    }
+  ]
+}

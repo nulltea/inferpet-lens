@@ -66,6 +66,33 @@ def ridge_attack(Xtr, Etr, Xte, pool_emb, pool_ids, *, alpha=1.0, **_):
     return nearest_token(Xte @ ridge_W(Xtr, Etr, alpha), pool_emb, pool_ids)
 
 
+def orthogonal_procrustes_R(P, D):
+    """Orthogonal R ∈ O(d) minimising ‖P·R − D‖_F — closed form R = U Vᵀ from svd(Pᵀ D).
+    So P·R ≈ D; map D back into the P basis with D·Rᵀ. float64 internally, returns float32 (d,d)."""
+    M = np.asarray(P, np.float64).T @ np.asarray(D, np.float64)
+    U, _, Vt = np.linalg.svd(M, full_matrices=False)
+    return (U @ Vt).astype(np.float32)
+
+
+def basis_align_attack(Xp_align, Xd_align, Xp_tr, ytr, Xd_te, pool_emb, pool_ids, *, table, alpha=1.0, **_):
+    """Harvest-aligned basis-recovery attack (claim:aloepri-kqvout-basis-alignment).
+
+    AloePri Alg2 rotates kqv_out by a SECRET but context-independent block-orthogonal map R
+    (deployment = plaintext·R). A keyless self-generated inverter (§05) collapses under Alg2 because it
+    cannot reproduce R. This attack spends a TFMA harvest on R ONLY — not on the token map:
+
+      1. estimate R̂ by orthogonal Procrustes from aligned (plaintext, deployment) pairs for the
+         harvested tokens (`Xp_align`, `Xd_align`);
+      2. un-rotate the held-out deployment reps into the plaintext basis (`Xd_te · R̂ᵀ`);
+      3. decode with a self-generated ridge fit on the attacker's own plaintext reps (`Xp_tr → emb[ytr]`).
+
+    Keyless: R̂ from the (threat-model-legitimate) harvest, token map from unlimited self-generation.
+    Stronger with K because more harvested pairs pin R̂ better (R orthogonal ⇒ few samples suffice)."""
+    R = orthogonal_procrustes_R(Xp_align, Xd_align)          # Xp·R ≈ Xd
+    W = ridge_W(Xp_tr, table[ytr], alpha)                    # self-gen inverter, plaintext basis
+    return nearest_token((Xd_te @ R.T) @ W, pool_emb, pool_ids)
+
+
 def cascade_attack(attack, X, y, harvested_types, table, pool, *, X_aug=None, y_aug=None, **kw):
     """Two-stage τ-leak cascade. A harvest (e.g. TFMA) reveals the true labels for `harvested_types`
     (a set/array of token ids); train ANY array-interface `attack` on those (deployment-basis rep,
